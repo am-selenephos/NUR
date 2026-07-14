@@ -1,0 +1,1151 @@
+import {
+  V197ApiClient,
+  V197ApiError,
+  type V197BridgeSnapshot,
+  type V197JournalEntry,
+  type V197Plan,
+  type V197PlanStep,
+  type V197Session,
+} from "./v197ApiClient";
+import { ensureV197LanguageControls, type WritingPreference } from "./v197I18n";
+import { hydrateTrackAV197 } from "./v197Hydration";
+import { announcePersistedGlow } from "./v197Rewards";
+import {
+  V197StreamClient,
+  type V197StreamEvent,
+  type V197TalkStreamHooks,
+  type V197TalkStreamPayload,
+} from "./v197StreamClient";
+
+export type V197ActionApi = Pick<
+  V197ApiClient,
+  | "event"
+  | "talk"
+  | "createJournal"
+  | "createPlan"
+  | "patchPlanStep"
+  | "createOutcome"
+  | "rewardGlow"
+  | "patchPreferences"
+  | "createResearchBrief"
+  | "createOrbit"
+  | "acceptInsight"
+  | "rejectInsight"
+  | "correctInsight"
+  | "convertInsightToPlan"
+  | "addInsightToTimeline"
+  | "saveTodayCheckIn"
+  | "completeTodayAction"
+  | "missTodayAction"
+  | "makeTodayActionEasier"
+  | "createCommunityRoom"
+  | "postCommunityMessage"
+  | "addCommunityMember"
+  | "createCouncilPosition"
+  | "createCouncilDecision"
+  | "logout"
+  | "get"
+>;
+
+type RefreshSnapshot = () => Promise<V197BridgeSnapshot>;
+type LoggedOut = () => Promise<void> | void;
+export interface V197TalkTransport {
+  readonly active: boolean;
+  talk(payload: V197TalkStreamPayload, hooks?: V197TalkStreamHooks, signal?: AbortSignal): Promise<import("./v197ApiClient").V197TalkResult>;
+  cancel(): Promise<boolean>;
+}
+type V197UniverseWindow = Window & {
+  nurToast?: (message: string) => void;
+  nurOpenPage?: (page: string, options?: Record<string, unknown>) => void;
+};
+
+function closest(target: EventTarget | null, selector: string): HTMLElement | null {
+  const node = target as Element | null;
+  return node && typeof node.closest === "function" ? node.closest<HTMLElement>(selector) : null;
+}
+
+function inputValue(document: Document, selector: string): string {
+  return document.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector)?.value.trim() ?? "";
+}
+
+function setInputValue(document: Document, selector: string, value: string): void {
+  const input = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector);
+  if (input) input.value = value;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "The action could not be persisted.";
+}
+
+export class V197ActionBindings {
+  private snapshot: V197BridgeSnapshot;
+  private composerMode = "talk";
+  private lastSubmittedTalk = "";
+  private readonly clickHandler = (event: Event) => this.onClick(event);
+  private readonly keyHandler = (event: Event) => this.onKeyDown(event as KeyboardEvent);
+  private readonly scopeHandler = (event: Event) => this.onScopeChoice(event);
+
+  constructor(
+    private readonly document: Document,
+    private readonly api: V197ActionApi,
+    initialSnapshot: V197BridgeSnapshot,
+    private readonly refreshSnapshot: RefreshSnapshot,
+    private readonly onLoggedOut: LoggedOut,
+    private readonly talkTransport: V197TalkTransport,
+  ) {
+    this.snapshot = initialSnapshot;
+  }
+
+  bind(): () => void {
+    this.document.addEventListener("click", this.clickHandler, true);
+    this.document.addEventListener("keydown", this.keyHandler, true);
+    this.document.addEventListener("click", this.scopeHandler);
+    this.installLanguageControls();
+    this.installOwnerAuthMenu();
+    return () => {
+      this.document.removeEventListener("click", this.clickHandler, true);
+      this.document.removeEventListener("keydown", this.keyHandler, true);
+      this.document.removeEventListener("click", this.scopeHandler);
+      this.document.getElementById("nur-v197-owner-auth-menu")?.remove();
+      this.document.querySelector('style[data-nur-layer="v197-owner-auth-menu"]')?.remove();
+    };
+  }
+
+  private installOwnerAuthMenu(): void {
+    if (this.document.getElementById("nur-v197-owner-auth-menu")) return;
+    const style = this.document.createElement("style");
+    style.dataset.nurLayer = "v197-owner-auth-menu";
+    style.textContent = `
+      #nur-v197-owner-auth-menu {
+        position: fixed;
+        inset-block-start: 58px;
+        inset-inline-end: 18px;
+        z-index: 2147482000;
+        width: min(260px, calc(100vw - 36px));
+        padding: 14px;
+        border: 1px solid rgba(255, 218, 128, .3);
+        border-radius: 8px;
+        background: rgba(6, 2, 9, .96);
+        box-shadow: 0 22px 54px rgba(0, 0, 0, .58), inset 0 1px rgba(255, 245, 220, .06);
+        color: #fff0d1;
+        font: 16px/1.35 "Crimson Pro", serif;
+      }
+      #nur-v197-owner-auth-menu[hidden] { display: none !important; }
+      #nur-v197-owner-auth-menu p { margin: 0 0 10px; color: rgba(255, 232, 190, .64); }
+      #nur-v197-owner-auth-menu button {
+        width: 100%;
+        border: 1px solid rgba(255, 205, 105, .35);
+        border-radius: 999px;
+        background: linear-gradient(110deg, rgba(174, 83, 31, .6), rgba(91, 43, 84, .58));
+        color: #fff0d1;
+        padding: 10px 14px;
+        font: 600 14px/1 "Crimson Pro", serif;
+        cursor: pointer;
+      }
+    `;
+    this.document.head.append(style);
+    const menu = this.document.createElement("aside");
+    menu.id = "nur-v197-owner-auth-menu";
+    menu.hidden = true;
+    menu.setAttribute("aria-label", "Owner session");
+    const note = this.document.createElement("p");
+    note.textContent = "Your private session is active on this device.";
+    const logout = this.document.createElement("button");
+    logout.type = "button";
+    logout.dataset.action = "auth-logout";
+    logout.textContent = "Sign out of NUR";
+    menu.append(note, logout);
+    this.document.body.append(menu);
+  }
+
+  private universeWindow(): V197UniverseWindow | null {
+    return this.document.defaultView as V197UniverseWindow | null;
+  }
+
+  private toast(message: string): void {
+    this.universeWindow()?.nurToast?.(message);
+  }
+
+  private activeOrbitId(): string | null {
+    return this.snapshot.preferences?.active_orbit_id
+      ?? this.snapshot.map?.nodes.find(node => node.kind !== "PERSONAL_BRIDGE")?.id
+      ?? this.snapshot.session.orbit.id
+      ?? null;
+  }
+
+  private locale(): string {
+    return this.snapshot.preferences?.locale ?? this.snapshot.session.profile.locale ?? "en";
+  }
+
+  private writingPreference(): WritingPreference {
+    return this.snapshot.preferences?.writing_preference
+      ?? this.snapshot.session.profile.writing_preference
+      ?? "default";
+  }
+
+  private async refresh(): Promise<void> {
+    this.snapshot = await this.refreshSnapshot();
+    hydrateTrackAV197(this.document, this.snapshot);
+    this.installLanguageControls();
+  }
+
+  private async perform(control: HTMLElement, task: () => Promise<void>): Promise<void> {
+    if (control.dataset.nurBusy === "true") return;
+    control.dataset.nurBusy = "true";
+    control.setAttribute("aria-busy", "true");
+    try {
+      await task();
+    } catch (error) {
+      this.toast(errorMessage(error));
+    } finally {
+      delete control.dataset.nurBusy;
+      control.removeAttribute("aria-busy");
+    }
+  }
+
+  private blockNative(event: Event): void {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }
+
+  private async award(
+    eventType: string,
+    sourceKind: string,
+    sourceId: string,
+    idempotencyKey: string,
+  ): Promise<void> {
+    try {
+      const award = await this.api.rewardGlow({
+        event_type: eventType,
+        source_kind: sourceKind,
+        source_id: sourceId,
+        orbit_id: this.activeOrbitId(),
+        idempotency_key: idempotencyKey,
+      });
+      announcePersistedGlow(this.document, award);
+    } catch (error) {
+      // Persistence is the primary action. A verified anti-spam/daily/weekly
+      // Glow gate must never suppress the persisted result or its hydration.
+      if (error instanceof V197ApiError && error.status === 409) return;
+      throw error;
+    }
+  }
+
+  private async saveJournal(): Promise<void> {
+    const body = inputValue(this.document, "#journal-input");
+    if (!body) {
+      this.toast("Write one honest line first.");
+      return;
+    }
+    const row: V197JournalEntry = await this.api.createJournal(body, this.activeOrbitId());
+    await this.award("journal_saved", "JOURNAL_ENTRY", row.id, `journal:${row.id}:saved`);
+    setInputValue(this.document, "#journal-input", "");
+    await this.refresh();
+    this.toast("Journal persisted privately.");
+  }
+
+  private async sendTalk(source: "talk" | "today" | "mobile" | "composer"): Promise<void> {
+    const inputSelector = source === "today"
+      ? "#today-input"
+      : source === "mobile"
+        ? "#mobile-composer"
+        : source === "composer"
+          ? "#universe-composer-input"
+          : "#talk-input";
+    const message = inputValue(this.document, inputSelector);
+    if (!message) {
+      this.toast("Give NUR one real sentence.");
+      return;
+    }
+
+    const requestId = crypto.randomUUID();
+    this.lastSubmittedTalk = message;
+    this.universeWindow()?.nurOpenPage?.("talk");
+    const transient = this.beginTalkStream(message, requestId);
+    let accepted = false;
+    try {
+      const result = await this.talkTransport.talk(
+        {
+          request_id: requestId,
+          message,
+          orbit_id: this.activeOrbitId(),
+          locale: this.locale(),
+          writing_preference: this.writingPreference(),
+          mode: this.composerMode,
+        },
+        {
+          onEvent: (event: V197StreamEvent) => {
+            transient.event(event);
+            if (event.event === "talk.accepted") {
+              accepted = true;
+              setInputValue(this.document, inputSelector, "");
+            }
+          },
+          onDelta: transient.delta,
+        },
+      );
+      await this.award("talk_meaningful", "COGNITIVE_EVENT", result.turn_event_id, `talk:${result.turn_event_id}:meaningful`);
+      setInputValue(this.document, inputSelector, "");
+      await this.refresh();
+      this.toast(result.provider_available ? "NUR answered and persisted this turn." : result.provider_reason || "AI is not connected; the honest disabled response was persisted.");
+    } catch (error) {
+      if (accepted) await this.refresh();
+      throw error;
+    } finally {
+      transient.remove();
+    }
+  }
+
+  private beginTalkStream(message: string, requestId: string): {
+    delta: (value: string) => void;
+    event: (value: V197StreamEvent) => void;
+    remove: () => void;
+  } {
+    const stream = this.document.querySelector<HTMLElement>("#talk-stream");
+    if (!stream) return { delta: () => undefined, event: () => undefined, remove: () => undefined };
+    const user = this.document.createElement("div");
+    user.className = "talk-message user";
+    user.dataset.nurTransient = requestId;
+    user.textContent = message;
+    const response = this.document.createElement("div");
+    response.className = "talk-message nur";
+    response.dataset.nurTransient = requestId;
+    response.setAttribute("aria-busy", "true");
+    const meta = this.document.createElement("div");
+    meta.className = "talk-meta";
+    meta.textContent = "NUR · opening live model stream ";
+    const cancel = this.document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "tiny-link";
+    cancel.dataset.action = "talk-cancel";
+    cancel.textContent = "cancel";
+    const body = this.document.createElement("span");
+    body.dataset.nurStreamText = requestId;
+    body.textContent = "Holding your context…";
+    meta.append(cancel);
+    response.append(meta, body);
+    stream.append(user, response);
+    stream.scrollTop = stream.scrollHeight;
+    let hasDelta = false;
+    return {
+      delta: value => {
+        if (!hasDelta) {
+          body.textContent = "";
+          hasDelta = true;
+        }
+        body.append(this.document.createTextNode(value));
+        meta.firstChild!.textContent = "NUR · live model stream ";
+        stream.scrollTop = stream.scrollHeight;
+      },
+      event: value => {
+        if (value.event === "talk.accepted") meta.firstChild!.textContent = "NUR · private turn accepted ";
+        if (value.event === "provider.created") meta.firstChild!.textContent = "NUR · model is responding ";
+        if (value.event === "talk.validated") {
+          meta.firstChild!.textContent = "NUR · validating and persisting ";
+          response.setAttribute("aria-busy", "false");
+        }
+      },
+      remove: () => {
+        user.remove();
+        response.remove();
+      },
+    };
+  }
+
+  private async createPlan(titleOverride?: string): Promise<void> {
+    const title = titleOverride?.trim() || inputValue(this.document, "#universe-composer-input") || this.lastUserTalk();
+    if (!title) {
+      this.toast("Name one honest direction before creating a Plan.");
+      this.document.querySelector<HTMLInputElement>("#universe-composer-input")?.focus();
+      return;
+    }
+    const plan: V197Plan = await this.api.createPlan(title, this.activeOrbitId());
+    await this.award("plan_created", "PLAN", plan.id, `plan:${plan.id}:created`);
+    setInputValue(this.document, "#universe-composer-input", "");
+    await this.refresh();
+    this.universeWindow()?.nurOpenPage?.("plan");
+    this.toast("Plan persisted with its first move.");
+  }
+
+  private async togglePlanStep(control: HTMLElement): Promise<void> {
+    const stepId = control.dataset.planStepId;
+    if (!stepId) return;
+    const done = control.getAttribute("aria-pressed") !== "true";
+    const step: V197PlanStep = await this.api.patchPlanStep(stepId, { done });
+    if (done) await this.award("plan_step_completed", "PLAN_STEP", step.id, `plan-step:${step.id}:completed`);
+    await this.refresh();
+    this.toast(done ? "Step completed and persisted." : "Step reopened.");
+  }
+
+  private async makeEasier(): Promise<void> {
+    const step = this.snapshot.plans[0]?.steps.find(row => !row.done);
+    if (!step) {
+      this.toast("There is no open persisted step to make smaller.");
+      return;
+    }
+    const title = step.title.startsWith("Make it smaller:") ? step.title : `Make it smaller: ${step.title}`;
+    const updated = await this.api.patchPlanStep(step.id, { title });
+    await this.award("task_made_smaller", "PLAN_STEP", updated.id, `plan-step:${updated.id}:made-smaller`);
+    await this.refresh();
+    this.toast("The move is smaller and persisted.");
+  }
+
+  private async returnOutcome(): Promise<void> {
+    const composer = this.document.querySelector<HTMLElement>("#nur-outcome-composer");
+    const stepId = composer?.dataset.planStepId;
+    const result = inputValue(this.document, "#nur-outcome-input");
+    if (!stepId || !result) {
+      this.toast("Complete one Plan step, then name what changed.");
+      return;
+    }
+    const outcome = await this.api.createOutcome(result, stepId);
+    await this.award("outcome_returned", "OUTCOME", outcome.id, `outcome:${outcome.id}:returned`);
+    setInputValue(this.document, "#nur-outcome-input", "");
+    await this.refresh();
+    this.toast("Outcome returned. The ledger and Glow balance moved together.");
+  }
+
+  private async createSystem(): Promise<void> {
+    const title = inputValue(this.document, "#universe-composer-input");
+    if (!title) {
+      this.toast("Name the System in the lower composer, then choose Add system again.");
+      this.document.querySelector<HTMLInputElement>("#universe-composer-input")?.focus();
+      return;
+    }
+    await this.api.createOrbit(title);
+    setInputValue(this.document, "#universe-composer-input", "");
+    await this.refresh();
+    this.toast("System persisted in your private universe.");
+  }
+
+  private async stageResearch(): Promise<void> {
+    const question = inputValue(this.document, "#research-query") || inputValue(this.document, "#universe-search");
+    if (!question) {
+      this.toast("Name a research question first.");
+      return;
+    }
+    await this.api.createResearchBrief(question, this.activeOrbitId());
+    setInputValue(this.document, "#research-query", "");
+    await this.refresh();
+    this.toast("Research question saved locally. No source was invented.");
+  }
+
+  private async searchOwnerLedger(): Promise<void> {
+    const query = inputValue(this.document, "#universe-search");
+    if (query.length < 2) {
+      this.toast("Use at least two characters to search your owner ledger.");
+      return;
+    }
+    const hits = await this.api.get<Array<{ label: string; excerpt: string | null; kind: string }>>(`/universe/search?q=${encodeURIComponent(query)}`);
+    const results = this.document.querySelector<HTMLElement>("#universe-research .research-results");
+    if (results) {
+      while (results.firstChild) results.removeChild(results.firstChild);
+      if (hits.length === 0) {
+        const row = this.document.createElement("article");
+        row.textContent = "No matching owner-ledger results.";
+        results.append(row);
+      }
+      hits.slice(0, 6).forEach(hit => {
+        const row = this.document.createElement("article");
+        const mark = this.document.createElement("i");
+        mark.textContent = "⌕";
+        const copy = this.document.createElement("div");
+        const title = this.document.createElement("b");
+        title.textContent = hit.label;
+        const body = this.document.createElement("span");
+        body.textContent = hit.excerpt || hit.kind;
+        copy.append(title, body);
+        row.append(mark, copy);
+        results.append(row);
+      });
+    }
+    this.toast(`${hits.length} private ledger ${hits.length === 1 ? "result" : "results"}.`);
+  }
+
+  private lastUserTalk(): string {
+    return this.lastSubmittedTalk
+      || [...this.snapshot.talkThread].reverse().find(row => row.who === "user" && row.text)?.text?.trim()
+      || "";
+  }
+
+  private setComposerMode(control: HTMLElement, mode: string): void {
+    this.composerMode = mode === "ask" ? "talk" : mode;
+    this.document.querySelectorAll<HTMLElement>(".universe-prompt-row [data-action]").forEach(button => {
+      button.classList.toggle("active", button === control);
+      button.setAttribute("aria-pressed", String(button === control));
+    });
+    this.toast(mode === "plan" ? "Plan mode selected. Send one direction." : `${mode} mode selected.`);
+  }
+
+  private selectSystem(control: HTMLElement): void {
+    const orbitId = control.dataset.orbitId;
+    const system = control.dataset.system;
+    if (!orbitId || !system) return;
+    this.document.querySelectorAll<HTMLElement>("[data-system]").forEach(node => {
+      const active = node.dataset.orbitId === orbitId;
+      node.classList.toggle("active", active);
+      node.setAttribute("aria-pressed", String(active));
+    });
+    this.document.body.dataset.nurSystem = system;
+    void this.perform(control, async () => {
+      await this.api.patchPreferences({ active_orbit_id: orbitId });
+      this.snapshot.preferences = { ...(this.snapshot.preferences ?? {}), active_orbit_id: orbitId };
+      hydrateTrackAV197(this.document, this.snapshot);
+      this.toast(`${system} is now the active persisted System.`);
+    });
+  }
+
+  private toggleTodayCheckIn(): void {
+    const chamber = this.document.querySelector<HTMLElement>("#nur-v197-today-checkin");
+    if (!chamber) return;
+    chamber.hidden = !chamber.hidden;
+    if (!chamber.hidden) chamber.querySelector<HTMLInputElement>("input")?.focus();
+  }
+
+  private async saveTodayCheckIn(): Promise<void> {
+    const value = (name: string): number => Number(
+      this.document.querySelector<HTMLInputElement>(`#nur-checkin-${name}`)?.value ?? "5",
+    );
+    await this.api.saveTodayCheckIn({
+      energy: value("energy"),
+      pain: value("pain"),
+      sleep_quality: value("sleep"),
+      nourishment: value("nourishment"),
+      movement: value("movement"),
+      emotional_load: value("load"),
+      clarity: value("clarity"),
+      note: inputValue(this.document, "#nur-checkin-note") || null,
+    });
+    const chamber = this.document.querySelector<HTMLElement>("#nur-v197-today-checkin");
+    if (chamber) chamber.hidden = true;
+    await this.refresh();
+    this.toast("Today's reading persisted. Body, Mind, Life, Glow, and Timeline recalculated.");
+  }
+
+  private todayActionId(control: HTMLElement): string | null {
+    return control.dataset.todayActionId ?? this.snapshot.today?.next_move?.id ?? null;
+  }
+
+  private async completeTodayAction(control: HTMLElement): Promise<void> {
+    const actionId = this.todayActionId(control);
+    if (!actionId || this.snapshot.today?.next_move?.kind !== "SYSTEM_ACTION") {
+      this.toast("Create or select a persisted System action first.");
+      return;
+    }
+    await this.api.completeTodayAction(actionId);
+    await this.refresh();
+    this.toast("Action completed. Today, Timeline, System progress, and Glow moved together.");
+  }
+
+  private async missTodayAction(control: HTMLElement): Promise<void> {
+    const actionId = this.todayActionId(control);
+    if (!actionId || this.snapshot.today?.next_move?.kind !== "SYSTEM_ACTION") {
+      this.toast("Create or select a persisted System action first.");
+      return;
+    }
+    await this.api.missTodayAction(actionId);
+    await this.refresh();
+    this.toast("Miss recorded without erasure. The action can still be returned.");
+  }
+
+  private async makeTodayActionEasier(control: HTMLElement): Promise<void> {
+    const actionId = this.todayActionId(control);
+    const current = this.snapshot.today?.next_move;
+    if (!actionId || current?.kind !== "SYSTEM_ACTION") {
+      this.toast("Create or select a persisted System action first.");
+      return;
+    }
+    await this.api.makeTodayActionEasier(actionId, `Five-minute version: ${current.title}`, 5);
+    await this.refresh();
+    this.toast("A five-minute replacement now carries the same lineage.");
+  }
+
+  private insightId(control: HTMLElement): string | null {
+    return control.closest<HTMLElement>("#nur-v197-insight-controls")?.dataset.insightId ?? null;
+  }
+
+  private async actOnInsight(control: HTMLElement, action: string): Promise<void> {
+    const insightId = this.insightId(control);
+    if (!insightId) {
+      this.toast("This candidate is not a persisted dedicated Insight yet.");
+      return;
+    }
+    if (action === "insight-accept") await this.api.acceptInsight(insightId);
+    if (action === "insight-reject") await this.api.rejectInsight(insightId);
+    if (action === "insight-correct") {
+      const correction = inputValue(this.document, "#nur-v197-insight-correction");
+      if (!correction) {
+        this.toast("Write the correction first.");
+        return;
+      }
+      await this.api.correctInsight(insightId, correction);
+    }
+    if (action === "insight-plan") await this.api.convertInsightToPlan(insightId);
+    if (action === "insight-timeline") await this.api.addInsightToTimeline(insightId);
+    await this.refresh();
+    this.toast(
+      action === "insight-plan"
+        ? "Insight converted to a persisted Plan."
+        : action === "insight-timeline"
+          ? "Insight review added to Timeline."
+          : "Insight review persisted to the owner ledger.",
+    );
+  }
+
+  private async createCommunityRoom(kind: "GROUP" | "COUNCIL"): Promise<void> {
+    const title = inputValue(this.document, "#nur-v197-room-title");
+    if (!title) {
+      this.toast("Name the room honestly before creating it.");
+      this.document.querySelector<HTMLInputElement>("#nur-v197-room-title")?.focus();
+      return;
+    }
+    const room = await this.api.createCommunityRoom(title, kind);
+    setInputValue(this.document, "#nur-v197-room-title", "");
+    await this.refresh();
+    this.toast(kind === "COUNCIL"
+      ? `Council “${room.title}” persisted. Positions and one owned decision live here.`
+      : `Room “${room.title}” persisted. Members you add see room content only.`);
+  }
+
+  private async postCommunityMessage(): Promise<void> {
+    const body = inputValue(this.document, "#nur-v197-room-message");
+    if (!body) {
+      this.toast("Write one honest line before posting.");
+      return;
+    }
+    const room = (this.snapshot.communityRooms ?? []).find(row => row.status === "ACTIVE");
+    if (!room) {
+      this.toast("Create a room before posting a message.");
+      return;
+    }
+    const message = await this.api.postCommunityMessage(room.id, body, this.locale());
+    setInputValue(this.document, "#nur-v197-room-message", "");
+    await this.refresh();
+    const glow = message.glow;
+    this.toast(glow?.status === "AWARDED"
+      ? `Message persisted in “${room.title}” · +${glow.awarded_points} verified Glow.`
+      : `Message persisted in “${room.title}”. ${glow?.note ?? ""}`.trim());
+  }
+
+  private activeRoom(kind?: "COUNCIL"): { id: string; title: string } | null {
+    const rooms = (this.snapshot.communityRooms ?? []).filter(row => row.status === "ACTIVE");
+    const room = kind ? rooms.find(row => row.room_kind === kind) : rooms[0];
+    return room ? { id: room.id, title: room.title } : null;
+  }
+
+  private async addCommunityMember(): Promise<void> {
+    const email = inputValue(this.document, "#nur-v197-member-email");
+    if (!email) {
+      this.toast("Enter the member's exact NUR account email.");
+      return;
+    }
+    const room = this.activeRoom();
+    if (!room) {
+      this.toast("Create a room before inviting a member.");
+      return;
+    }
+    await this.api.addCommunityMember(room.id, email);
+    setInputValue(this.document, "#nur-v197-member-email", "");
+    await this.refresh();
+    this.toast(`Membership granted in “${room.title}”. They see room content only — never your private ledgers.`);
+  }
+
+  private async addCouncilPosition(): Promise<void> {
+    const position = inputValue(this.document, "#nur-v197-council-position");
+    if (!position) {
+      this.toast("State the position honestly before adding it.");
+      return;
+    }
+    const council = this.activeRoom("COUNCIL");
+    if (!council) {
+      this.toast("Start a Council to add positions.");
+      return;
+    }
+    await this.api.createCouncilPosition(council.id, position);
+    setInputValue(this.document, "#nur-v197-council-position", "");
+    await this.refresh();
+    this.toast(`Position persisted in “${council.title}”. Disagreement stays on the ledger.`);
+  }
+
+  private async recordCouncilDecision(): Promise<void> {
+    const decision = inputValue(this.document, "#nur-v197-council-decision");
+    if (!decision) {
+      this.toast("Write the decision before recording it.");
+      return;
+    }
+    const council = this.activeRoom("COUNCIL");
+    if (!council) {
+      this.toast("Start a Council to record a decision.");
+      return;
+    }
+    await this.api.createCouncilDecision(council.id, decision);
+    setInputValue(this.document, "#nur-v197-council-decision", "");
+    await this.refresh();
+    this.toast(`Decision recorded for “${council.title}” with a return check owed.`);
+  }
+
+  private installLanguageControls(): void {
+    ensureV197LanguageControls(
+      this.document,
+      this.locale(),
+      this.writingPreference(),
+      async (locale, writingPreference) => {
+        await this.api.patchPreferences({ locale, writing_preference: writingPreference });
+        this.snapshot.preferences = { ...(this.snapshot.preferences ?? {}), locale, writing_preference: writingPreference };
+        this.toast("Language preference persisted privately.");
+      },
+      this.snapshot.health?.ai_provider ?? "disabled",
+    );
+  }
+
+  private onScopeChoice(event: Event): void {
+    const option = closest(event.target, ".scope-option[data-scope], .v172-scope-option[data-scope]");
+    if (!option) return;
+    const map: Record<string, string> = {
+      Ephemeral: "EPHEMERAL",
+      Private: "PRIVATE_ORBIT",
+      "System Shared": "SYSTEM_SHARED",
+      "Learning Candidate": "LEARNING_CANDIDATE",
+    };
+    const boundary = map[option.dataset.scope ?? ""];
+    if (!boundary) return;
+    void this.perform(option, async () => {
+      await this.api.patchPreferences({ default_boundary: boundary });
+      this.snapshot.preferences = { ...(this.snapshot.preferences ?? {}), default_boundary: boundary };
+      this.toast("Boundary persisted privately.");
+    });
+  }
+
+  private onClick(event: Event): void {
+    const disabled = closest(event.target, "[aria-disabled=\"true\"], button:disabled");
+    if (disabled) {
+      this.blockNative(event);
+      this.toast(disabled.getAttribute("title") || "This control is honestly unavailable in Track A.");
+      return;
+    }
+
+    const ownerButton = closest(event.target, ".nur-user");
+    if (ownerButton) {
+      this.blockNative(event);
+      const menu = this.document.getElementById("nur-v197-owner-auth-menu");
+      if (menu) menu.hidden = !menu.hidden;
+      return;
+    }
+
+    const logout = closest(event.target, '[data-action="auth-logout"]');
+    if (logout) {
+      this.blockNative(event);
+      void this.perform(logout, async () => {
+        await this.api.logout();
+        await this.onLoggedOut();
+      });
+      return;
+    }
+
+    const cancelTalk = closest(event.target, '[data-action="talk-cancel"]');
+    if (cancelTalk) {
+      this.blockNative(event);
+      void this.perform(cancelTalk, async () => {
+        const requested = await this.talkTransport.cancel();
+        this.toast(requested ? "Cancelling this Talk turn." : "No live Talk turn is running.");
+      });
+      return;
+    }
+
+    const system = closest(event.target, ".universe-system-node[data-orbit-id], .clean-system-row[data-orbit-id]");
+    if (system) {
+      this.blockNative(event);
+      this.selectSystem(system);
+      return;
+    }
+
+    const journal = closest(event.target, "#journal-save");
+    if (journal) {
+      this.blockNative(event);
+      void this.perform(journal, () => this.saveJournal());
+      return;
+    }
+
+    const send = closest(event.target, "[data-send], .universe-send");
+    if (send) {
+      this.blockNative(event);
+      const source = send.classList.contains("universe-send") ? "composer" : (send.dataset.send as "talk" | "today" | "mobile");
+      void this.perform(send, () => this.composerMode === "plan" && source === "composer" ? this.createPlan() : this.sendTalk(source));
+      return;
+    }
+
+    const step = closest(event.target, ".plan-check[data-plan-step-id]");
+    if (step) {
+      this.blockNative(event);
+      void this.perform(step, () => this.togglePlanStep(step));
+      return;
+    }
+
+    const research = closest(event.target, "[data-research-submit]");
+    if (research) {
+      this.blockNative(event);
+      void this.perform(research, () => this.stageResearch());
+      return;
+    }
+
+    const thread = closest(event.target, "[data-thread-action]");
+    if (thread) {
+      this.blockNative(event);
+      const action = thread.dataset.threadAction;
+      if (action === "journal") {
+        setInputValue(this.document, "#journal-input", this.lastUserTalk());
+        this.universeWindow()?.nurOpenPage?.("journal");
+        this.toast("Latest persisted Talk moved into a Journal draft.");
+      } else if (action === "plan") {
+        void this.perform(thread, () => this.createPlan(this.lastUserTalk()));
+      } else if (action === "glow") {
+        const row = [...this.snapshot.talkThread].reverse().find(item => item.who === "user");
+        if (!row) this.toast("There is no persisted Talk turn to Glow yet.");
+        else void this.perform(thread, async () => {
+          await this.award("talk_meaningful", "COGNITIVE_EVENT", row.id, `talk:${row.id}:meaningful`);
+          await this.refresh();
+        });
+      } else {
+        this.toast("This persisted thread remains private.");
+      }
+      return;
+    }
+
+    const action = closest(event.target, "[data-action]");
+    if (!action) return;
+    const name = action.dataset.action ?? "";
+    if (["reflect", "ask", "challenge", "explore", "summarize", "plan"].includes(name)) {
+      this.blockNative(event);
+      this.setComposerMode(action, name);
+      return;
+    }
+    if (name === "checkin") {
+      this.blockNative(event);
+      this.toggleTodayCheckIn();
+      return;
+    }
+    if (name === "save-today-checkin") {
+      this.blockNative(event);
+      void this.perform(action, () => this.saveTodayCheckIn());
+      return;
+    }
+    if (name === "today-did-it") {
+      this.blockNative(event);
+      void this.perform(action, () => this.completeTodayAction(action));
+      return;
+    }
+    if (name === "today-missed-it") {
+      this.blockNative(event);
+      void this.perform(action, () => this.missTodayAction(action));
+      return;
+    }
+    if (name === "today-make-easier") {
+      this.blockNative(event);
+      void this.perform(action, () => this.makeTodayActionEasier(action));
+      return;
+    }
+    if (name === "show-glows") {
+      this.blockNative(event);
+      this.document.querySelector<HTMLElement>('[data-context-tab="glows"]')?.click();
+      return;
+    }
+    if (name === "make-easier") {
+      this.blockNative(event);
+      void this.perform(action, () => this.makeEasier());
+      return;
+    }
+    if (name === "return-outcome") {
+      this.blockNative(event);
+      void this.perform(action, () => this.returnOutcome());
+      return;
+    }
+    if (name === "add-system") {
+      this.blockNative(event);
+      void this.perform(action, () => this.createSystem());
+      return;
+    }
+    if (["insight-accept", "insight-reject", "insight-correct", "insight-plan", "insight-timeline"].includes(name)) {
+      this.blockNative(event);
+      void this.perform(action, () => this.actOnInsight(action, name));
+      return;
+    }
+    if (name === "community-create-room" || name === "community-create-council") {
+      this.blockNative(event);
+      void this.perform(action, () => this.createCommunityRoom(name === "community-create-council" ? "COUNCIL" : "GROUP"));
+      return;
+    }
+    if (name === "community-post-message") {
+      this.blockNative(event);
+      void this.perform(action, () => this.postCommunityMessage());
+      return;
+    }
+    if (name === "community-add-member") {
+      this.blockNative(event);
+      void this.perform(action, () => this.addCommunityMember());
+      return;
+    }
+    if (name === "council-add-position") {
+      this.blockNative(event);
+      void this.perform(action, () => this.addCouncilPosition());
+      return;
+    }
+    if (name === "council-record-decision") {
+      this.blockNative(event);
+      void this.perform(action, () => this.recordCouncilDecision());
+      return;
+    }
+    this.blockNative(event);
+    this.toast("This control is honestly unavailable in the Track A vertical slice.");
+  }
+
+  private onKeyDown(event: KeyboardEvent): void {
+    if (event.key !== "Enter" || event.shiftKey) return;
+    const target = event.target as Element | null;
+    if (!target || typeof target.matches !== "function") return;
+    if (target.matches("#talk-input, #today-input, #mobile-composer, #universe-composer-input")) {
+      this.blockNative(event);
+      const source = target.matches("#today-input") ? "today" : target.matches("#mobile-composer") ? "mobile" : target.matches("#universe-composer-input") ? "composer" : "talk";
+      void this.perform(target as HTMLElement, () => this.composerMode === "plan" && source === "composer" ? this.createPlan() : this.sendTalk(source));
+      return;
+    }
+    if (target.matches("#research-query")) {
+      this.blockNative(event);
+      void this.perform(target as HTMLElement, () => this.stageResearch());
+      return;
+    }
+    if (target.matches("#universe-search")) {
+      this.blockNative(event);
+      void this.perform(target as HTMLElement, () => this.searchOwnerLedger());
+      return;
+    }
+    if (target.matches("#nur-outcome-input")) {
+      this.blockNative(event);
+      void this.perform(target as HTMLElement, () => this.returnOutcome());
+    }
+  }
+}
+
+export function bindV197Actions(
+  document: Document,
+  api: V197ActionApi,
+  snapshot: V197BridgeSnapshot,
+  refresh: RefreshSnapshot,
+  onLoggedOut: LoggedOut = () => undefined,
+  talkTransport: V197TalkTransport = new V197StreamClient(),
+): () => void {
+  return new V197ActionBindings(document, api, snapshot, refresh, onLoggedOut, talkTransport).bind();
+}
+
+export function bindV197EntryAuth(
+  document: Document,
+  api: Pick<V197ApiClient, "register" | "login">,
+  onAuthenticated: (session: V197Session) => Promise<void>,
+): () => void {
+  const waitLayer = ensureV197AuthWaitLayer(document);
+  const handler = (event: Event) => {
+    const form = event.target as HTMLFormElement | null;
+    if (!form || !["f4-signup-form", "f4-signin-form"].includes(form.id)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+    const status = document.querySelector<HTMLElement>("#f4-status");
+    const submit = form.querySelector<HTMLElement>('button[type="submit"]');
+    const waitMessage = form.id === "f4-signup-form"
+      ? "NUR is creating your private Orbit"
+      : "NUR is opening your Orbit";
+    form.setAttribute("aria-busy", "true");
+    submit?.setAttribute("aria-busy", "true");
+    waitLayer.querySelector<HTMLElement>("[data-nur-auth-wait-message]")!.textContent = waitMessage;
+    waitLayer.hidden = false;
+    if (status) status.textContent = form.id === "f4-signup-form" ? "Creating your private Orbit…" : "Returning to your Orbit…";
+
+    const task = form.id === "f4-signup-form"
+      ? api.register({
+          chosen_name: inputValue(document, "#f4-name"),
+          email: inputValue(document, "#f4-email"),
+          password: inputValue(document, "#f4-password"),
+          consent: document.querySelector<HTMLInputElement>("#f4-consent-check")?.checked === true,
+        })
+      : api.login({
+          email: inputValue(document, "#f4-signin-email"),
+          password: inputValue(document, "#f4-signin-password"),
+        });
+
+    void task.then(onAuthenticated).catch(error => {
+      const detail = errorMessage(error);
+      const duplicateOrbit = form.id === "f4-signup-form" && /could not create/i.test(detail);
+      const hint = duplicateOrbit
+        ? " This email already has an Orbit. Your details are ready in Sign in."
+        : /too many attempts/i.test(detail)
+          ? " Wait a few minutes, then try once."
+          : "";
+      const showFailure = (message = `⚠ ${detail}${hint}`) => {
+        if (!status) return;
+        status.textContent = message;
+        status.classList.add("nur-v197-auth-error");
+        status.setAttribute("role", "alert");
+        if (typeof status.scrollIntoView === "function") {
+          status.scrollIntoView({ block: "nearest" });
+        }
+      };
+      showFailure();
+      if (duplicateOrbit) {
+        const email = inputValue(document, "#f4-email");
+        const password = inputValue(document, "#f4-password");
+        document.querySelector<HTMLButtonElement>('[data-switch="signin"]')?.click();
+        window.setTimeout(() => {
+          const signInEmail = document.querySelector<HTMLInputElement>("#f4-signin-email");
+          const signInPassword = document.querySelector<HTMLInputElement>("#f4-signin-password");
+          if (signInEmail) signInEmail.value = email;
+          if (signInPassword) signInPassword.value = password;
+          showFailure("This email already has an Orbit. Enter it with the password below.");
+          signInPassword?.focus();
+        }, 0);
+      } else if (status) {
+        showFailure();
+      }
+    }).finally(() => {
+      waitLayer.hidden = true;
+      form.removeAttribute("aria-busy");
+      submit?.removeAttribute("aria-busy");
+    });
+  };
+  document.addEventListener("submit", handler, true);
+  return () => document.removeEventListener("submit", handler, true);
+}
+
+const V197_AUTH_WAIT_STYLE_ID = "nur-v197-auth-wait-style";
+const V197_AUTH_WAIT_ID = "nur-v197-auth-wait";
+
+function ensureV197AuthWaitLayer(document: Document): HTMLElement {
+  const existing = document.getElementById(V197_AUTH_WAIT_ID);
+  if (existing) return existing;
+
+  if (!document.getElementById(V197_AUTH_WAIT_STYLE_ID)) {
+    const style = document.createElement("style");
+    style.id = V197_AUTH_WAIT_STYLE_ID;
+    style.dataset.nurLayer = "v197-native-auth-wait";
+    style.textContent = `
+      #${V197_AUTH_WAIT_ID} {
+        position: fixed;
+        inset: 0;
+        z-index: 1200;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 50% 46%, rgba(216, 155, 55, .12), transparent 28%),
+          radial-gradient(circle at 48% 50%, rgba(90, 196, 255, .06), transparent 43%),
+          #020103;
+        opacity: 1;
+        transition: opacity .28s ease;
+      }
+      #${V197_AUTH_WAIT_ID}[hidden] { display: none !important; }
+      #f4-status.nur-v197-auth-error {
+        position: static !important;
+        display: block !important;
+        width: auto !important;
+        height: auto !important;
+        overflow: visible !important;
+        clip: auto !important;
+        clip-path: none !important;
+        white-space: normal !important;
+        margin-top: 10px;
+        padding: 10px 12px;
+        border: 1px solid rgba(255, 168, 87, .45);
+        border-radius: 8px;
+        background: rgba(255, 140, 40, .12);
+        color: #ffd9a8;
+        font: 500 14px/1.45 "Crimson Pro", serif;
+        text-align: left;
+      }
+      #${V197_AUTH_WAIT_ID} .nur-v197-auth-wait-inner {
+        display: grid;
+        place-items: center;
+        gap: 15px;
+        width: min(420px, calc(100vw - 44px));
+        text-align: center;
+      }
+      #${V197_AUTH_WAIT_ID} .nur-v197-auth-wait-star {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 124px;
+        height: 124px;
+        filter: brightness(1.12) saturate(1.12);
+      }
+      #${V197_AUTH_WAIT_ID} .nur-v197-auth-wait-star > .spark {
+        position: relative !important;
+        inset: auto !important;
+        top: auto !important;
+        left: auto !important;
+        width: 100px !important;
+        height: 100px !important;
+        margin: 0 !important;
+        opacity: 1 !important;
+        transform: none !important;
+        animation: nurV197AuthWaitBreathe 2.8s ease-in-out infinite !important;
+      }
+      #${V197_AUTH_WAIT_ID} .nur-v197-auth-wait-word {
+        color: rgba(255, 240, 203, .94);
+        font: 500 34px/.9 "Bodoni Moda", serif;
+        letter-spacing: .18em;
+        padding-inline-start: .18em;
+        text-shadow: 0 0 18px rgba(255, 198, 78, .42), 0 0 38px rgba(84, 218, 255, .14);
+      }
+      #${V197_AUTH_WAIT_ID} [data-nur-auth-wait-message] {
+        color: rgba(255, 234, 194, .78);
+        font: italic 20px/1.25 "Crimson Pro", serif;
+        letter-spacing: .02em;
+      }
+      #${V197_AUTH_WAIT_ID} .nur-v197-auth-wait-note {
+        color: rgba(255, 238, 208, .43);
+        font: 15px/1.3 "Crimson Pro", serif;
+      }
+      @keyframes nurV197AuthWaitBreathe {
+        0%, 100% { transform: scale(.96); filter: brightness(.96); }
+        50% { transform: scale(1.04); filter: brightness(1.16); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #${V197_AUTH_WAIT_ID} .nur-v197-auth-wait-star > .spark { animation: none !important; }
+      }
+    `;
+    document.head.append(style);
+  }
+
+  const layer = document.createElement("div");
+  layer.id = V197_AUTH_WAIT_ID;
+  layer.hidden = true;
+  layer.setAttribute("role", "status");
+  layer.setAttribute("aria-live", "polite");
+
+  const inner = document.createElement("div");
+  inner.className = "nur-v197-auth-wait-inner";
+  const starHost = document.createElement("div");
+  starHost.className = "nur-v197-auth-wait-star";
+  const sourceStar = document.querySelector<HTMLElement>("#iSpark, .f4-master-star--hero .spark, .f4-core .spark");
+  if (sourceStar) {
+    const star = sourceStar.cloneNode(true) as HTMLElement;
+    star.removeAttribute("id");
+    starHost.append(star);
+  } else {
+    const core = document.createElement("span");
+    core.className = "spark spark-core";
+    starHost.append(core);
+  }
+  const word = document.createElement("div");
+  word.className = "nur-v197-auth-wait-word";
+  word.textContent = "NUR";
+  const message = document.createElement("p");
+  message.dataset.nurAuthWaitMessage = "true";
+  const note = document.createElement("p");
+  note.className = "nur-v197-auth-wait-note";
+  note.textContent = "Your private context stays inside its boundary while the universe opens.";
+  inner.append(starHost, word, message, note);
+  layer.append(inner);
+  document.body.append(layer);
+  return layer;
+}

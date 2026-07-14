@@ -1,0 +1,10 @@
+{"case":"repeated outcome supports a pattern","expected":"omega claim stays evidence-backed"}
+{"case":"correction contradicts model inference","expected":"claim confidence weakens"}
+{"case":"plan violates known constraint","expected":"open contradiction"}
+{"case":"owner decision supersedes older decision","expected":"manual review instead of auto-delete"}
+{"case":"sensitive inference requires confirmation","expected":"hypothesis not observed"}
+{"case":"model-generated claim cannot become fact","expected":"HYPOTHESIS"}
+{"case":"capsule excluded source attempted retrieval","expected":"not available to recipient"}
+{"case":"prediction expires without outcome","expected":"open until explicit expiry/resolution"}
+{"case":"contradiction accepted as paradox","expected":"status can be ACCEPTED_PARADOX"}
+{"case":"learning proposal tries forbidden RLS target","expected":"blocked"}

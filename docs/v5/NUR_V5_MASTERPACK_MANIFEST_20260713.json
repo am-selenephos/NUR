@@ -1,0 +1,55 @@
+{
+  "manifest_version": 1,
+  "product": "NUR — Neural Upgrade Rewiring",
+  "created_date": "2026-07-13",
+  "timezone": "Asia/Karachi",
+  "purpose": "Canonical planning and Codex execution control pack; this is not the completed NUR application release.",
+  "current_gate": "AUTH_PRESENTATION_PASS",
+  "overall_status": "HOLD — FULL NUR SYSTEM NOT YET COMPLETE",
+  "artifacts": [
+    {
+      "path": "NUR_EXACT_STATUS_LEDGER_V5_20260713.md",
+      "bytes": 31708,
+      "sha256": "ff1e045f0c61787dc6d1b142cece308c880f3e1f090afecad91c70750e00eff1",
+      "role": "Current evidence-separated implementation status"
+    },
+    {
+      "path": "NUR_LIVING_INTELLIGENCE_MASTERPLAN_V5_20260713.md",
+      "bytes": 151215,
+      "sha256": "3bed1074e9f6c56ecaa69ad5ba6a1722022aba224aa0cc10479ad27e9babd755",
+      "role": "Canonical complete product, intelligence, architecture, implementation, and acceptance plan"
+    },
+    {
+      "path": "CODEX_NUR_COMPLETION_ORCHESTRATOR_V5_20260713.md",
+      "bytes": 26966,
+      "sha256": "e938614892749f9595503b8c79898e478e955112212871a2364384e679a55523",
+      "role": "Single next Codex execution task including live-AI and final-ZIP gates"
+    }
+  ],
+  "canonical_v197_checkpoint": {
+    "sha256": "252eee806ece31ef829a2dc5cd45aa8d8f8e855db1bde98b6f87193d786633c3",
+    "source_untouched_in_auth_presentation_gate": true
+  },
+  "auth_presentation_evidence": {
+    "serial": "exit 0 — 15/15",
+    "parallel": "exit 0 — 15/15",
+    "real_login_logout_cycles": 4,
+    "runtime_lifecycle": "login 200 → cookies → /me 200 → /today → refresh 200 → logout 204 → /me 401 → landing",
+    "interaction_registry": {
+      "total": 45,
+      "wired": 33,
+      "source_native": 7,
+      "honest_disabled": 5,
+      "integrity": "exit 0"
+    },
+    "typecheck": "exit 0",
+    "production_build": "exit 0",
+    "secret_scan": "exit 0"
+  },
+  "next_gate": "Measured performance repair, live-AI proof, and account recovery",
+  "required_final_system_delivery": [
+    "NUR_<version>_<verdict>_<YYYYMMDD>.zip",
+    "NUR_<version>_<verdict>_<YYYYMMDD>.zip.sha256",
+    "NUR_<version>_<verdict>_<YYYYMMDD>_MANIFEST.json"
+  ]
+}

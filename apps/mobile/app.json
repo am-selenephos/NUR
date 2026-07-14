@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "NUR",
+    "slug": "nur",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "nur",
+    "userInterfaceStyle": "dark",
+    "extra": {
+      "appStoreReady": false,
+      "note": "Mobile shell only; no app-store readiness claim."
+    }
+  }
+}

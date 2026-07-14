@@ -1,0 +1,6 @@
+services:
+  postgres:
+    environment:
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+  redis:
+    command: ["redis-server", "--appendonly", "no", "--save", ""]

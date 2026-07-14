@@ -1,0 +1,117 @@
+"""Test bootstrap: real PostgreSQL 16 + real Redis, no mocked persistence.
+
+A fresh `nur_test` database (owner: nur_admin) is created per test run, the two
+real Alembic migrations are applied AS nur_admin, and the app connects AS
+nur_app (NOBYPASSRLS) — exactly the production role split. Superuser access is
+used only to provision the database and to assert on raw rows (superusers
+bypass RLS; the app role never does)."""
+import os
+import pathlib
+import subprocess
+import sys
+import uuid
+
+import pytest
+import pytest_asyncio
+
+API_DIR = pathlib.Path(__file__).resolve().parents[2]
+TEST_DB = "nur_test"
+ADMIN_PW, APP_PW = "test_admin_pw", "test_app_pw"
+
+SUPER_DSN = os.environ.get("NUR_TEST_SUPERUSER_DSN",
+                           "postgresql://postgres:postgres@localhost:5432/postgres")
+_host = SUPER_DSN.split("@", 1)[1].split("/", 1)[0]
+ADMIN_URL = f"postgresql+asyncpg://nur_admin:{ADMIN_PW}@{_host}/{TEST_DB}"
+APP_URL = f"postgresql+asyncpg://nur_app:{APP_PW}@{_host}/{TEST_DB}"
+SUPER_TEST_URL = SUPER_DSN.replace("postgresql://", "postgresql+asyncpg://").rsplit("/", 1)[0] + f"/{TEST_DB}"
+
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ["APP_ENV"] = "development"
+os.environ["NUR_AI_PROVIDER"] = "disabled"
+os.environ["AI_PROVIDER"] = "disabled"
+os.environ["DATABASE_URL"] = APP_URL
+os.environ["ALEMBIC_DATABASE_URL"] = ADMIN_URL
+
+
+def _psql(sql: str, db: str | None = None) -> None:
+    dsn = SUPER_DSN if db is None else SUPER_DSN.rsplit("/", 1)[0] + f"/{db}"
+    subprocess.run(["psql", dsn, "-v", "ON_ERROR_STOP=1", "-q", "-c", sql], check=True)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def database():
+    _psql(f'DROP DATABASE IF EXISTS {TEST_DB} WITH (FORCE)')
+    _psql("""DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='nur_admin') THEN
+        CREATE ROLE nur_admin LOGIN CREATEDB NOSUPERUSER NOCREATEROLE; END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='nur_app') THEN
+        CREATE ROLE nur_app LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB NOBYPASSRLS; END IF;
+    END $$;""")
+    _psql(f"ALTER ROLE nur_admin PASSWORD '{ADMIN_PW}'")
+    _psql(f"ALTER ROLE nur_app PASSWORD '{APP_PW}'")
+    _psql(f"CREATE DATABASE {TEST_DB} OWNER nur_admin")
+    # Embeddings are nullable REAL[] infrastructure in this beta; lexical
+    # retrieval is the live path, so tests do not require a pgvector extension.
+    _psql("ALTER SCHEMA public OWNER TO nur_admin", db=TEST_DB)
+    _psql("GRANT USAGE ON SCHEMA public TO nur_app", db=TEST_DB)
+
+    proc = subprocess.run([sys.executable, "-m", "alembic.config", "upgrade", "head"], cwd=API_DIR,
+                          capture_output=True, text=True,
+                          env={**os.environ, "ALEMBIC_DATABASE_URL": ADMIN_URL})
+    assert proc.returncode == 0, f"alembic failed:\n{proc.stdout}\n{proc.stderr}"
+    yield
+
+
+@pytest_asyncio.fixture()
+async def client():
+    from httpx import ASGITransport, AsyncClient
+    from redis.asyncio import Redis
+
+    from app.core.config import get_settings
+    from app.main import create_app
+
+    get_settings.cache_clear()
+    import app.db.session as dbs
+    dbs._engine = None
+    dbs._sessionmaker = None
+
+    application = create_app()
+    application.state.redis = Redis.from_url(os.environ["REDIS_URL"], decode_responses=True)
+    await application.state.redis.flushdb()  # isolate per-IP limiter counters per test
+    transport = ASGITransport(app=application)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        c.app = application
+        yield c
+    await application.state.redis.aclose()
+    if dbs._engine is not None:
+        await dbs._engine.dispose()
+
+
+@pytest_asyncio.fixture()
+async def super_engine():
+    """Superuser engine — bypasses RLS; used ONLY to assert raw persistence."""
+    from sqlalchemy.ext.asyncio import create_async_engine
+    eng = create_async_engine(SUPER_TEST_URL)
+    yield eng
+    await eng.dispose()
+
+
+@pytest_asyncio.fixture()
+async def app_engine():
+    """Engine as the constrained runtime role, for direct RLS boundary tests."""
+    from sqlalchemy.ext.asyncio import create_async_engine
+    eng = create_async_engine(APP_URL)
+    yield eng
+    await eng.dispose()
+
+
+def unique_email() -> str:
+    return f"t-{uuid.uuid4().hex[:10]}@nurapp.dev"
+
+
+async def register_user(client, *, chosen_name="Star", password="orbit-passphrase-9"):
+    email = unique_email()
+    r = await client.post("/api/v1/auth/register",
+                          json={"chosen_name": chosen_name, "email": email,
+                                "password": password, "consent": True})
+    return r, email, password

@@ -1,0 +1,274 @@
+import asyncio
+import json
+
+from app.ai.errors import AIOutputValidationError, AIProviderError, AIProviderMisconfigured
+from app.ai.prompts import TALK_SYSTEM_PROMPT, talk_user_prompt
+from app.ai.schemas import AIProviderResult, AIStreamSink, NURTalkOutput, TalkProviderRequest
+from app.ai.structured_outputs import talk_json_schema
+from app.core.config import get_settings
+
+RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+AUTH_STATUS_CODES = {401, 403}
+
+
+class OpenAITalkProvider:
+    name = "openai"
+
+    def __init__(self) -> None:
+        s = get_settings()
+        if s.openai_api_key is None or not s.openai_model:
+            raise AIProviderMisconfigured("OpenAI provider is missing OPENAI_API_KEY or NUR_OPENAI_MODEL.")
+        try:
+            from openai import AsyncOpenAI
+        except Exception as exc:  # pragma: no cover - depends on installed optional package
+            raise AIProviderMisconfigured("The openai Python package is not installed.") from exc
+        self._settings = s
+        self._client = AsyncOpenAI(
+            api_key=s.openai_api_key.get_secret_value(),
+            timeout=s.openai_request_timeout_seconds,
+        )
+
+    async def complete_private_talk(
+        self,
+        request: TalkProviderRequest,
+        event_sink: AIStreamSink | None = None,
+    ) -> AIProviderResult:
+        payload = self._payload(request)
+        response = (
+            await self._stream_response(payload, event_sink)
+            if event_sink is not None
+            else await self._create_response(payload)
+        )
+        parsed = _extract_response_json(response)
+        try:
+            output = NURTalkOutput.model_validate(parsed)
+        except Exception as exc:
+            raise AIOutputValidationError("OpenAI response did not match NURTalkOutput.") from exc
+        if event_sink is not None:
+            await event_sink(
+                "provider.completed",
+                {"response_id": getattr(response, "id", None), "schema_valid": True},
+            )
+        return AIProviderResult(
+            provider=self.name,
+            model=self._settings.openai_model,
+            available=True,
+            output=output,
+            usage=getattr(response, "usage", None).model_dump() if getattr(response, "usage", None) else {},
+            raw_response_id=getattr(response, "id", None),
+        )
+
+    def _payload(self, request: TalkProviderRequest) -> dict:
+        evidence = [r.model_dump() for r in request.retrieval]
+        return {
+            "model": self._settings.openai_model,
+            "input": [
+                {"role": "system", "content": TALK_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": talk_user_prompt(
+                        user_line=request.user_line,
+                        evidence=evidence,
+                        locale=request.locale,
+                        writing_preference=request.writing_preference,
+                        mode=request.mode,
+                        omega_context=request.omega_context,
+                    ),
+                },
+            ],
+            "text": {"format": talk_json_schema()},
+            "reasoning": {"effort": self._settings.openai_reasoning_effort},
+        }
+
+    async def _stream_response(self, payload: dict, event_sink: AIStreamSink):
+        """Forward provider lifecycle and decoded direct-response deltas.
+
+        Structured Outputs preserve schema key order, so `direct_response` is
+        the first field. The extractor decodes that JSON string while the
+        official Responses stream is still arriving; no completed response is
+        split into pretend chunks.
+        """
+        for attempt in range(2):
+            extractor = _DirectResponseDeltaExtractor()
+            emitted_text = False
+            try:
+                if attempt:
+                    await event_sink("provider.retry", {"attempt": attempt + 1})
+                async with asyncio.timeout(self._settings.openai_request_timeout_seconds):
+                    async with self._client.responses.stream(**payload) as stream:
+                        async for event in stream:
+                            event_type = getattr(event, "type", "")
+                            if event_type == "response.created":
+                                response = getattr(event, "response", None)
+                                await event_sink(
+                                    "provider.created",
+                                    {"response_id": getattr(response, "id", None)},
+                                )
+                            elif event_type == "response.output_text.delta":
+                                delta = getattr(event, "delta", "") or ""
+                                visible = extractor.feed(delta)
+                                if visible:
+                                    emitted_text = True
+                                    await event_sink("response.text.delta", {"delta": visible})
+                            elif event_type in {"error", "response.error", "response.failed", "response.incomplete"}:
+                                raise AIProviderError("OpenAI stream ended without a completed response.")
+                        return await stream.get_final_response()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                if _is_auth_error(exc):
+                    raise AIProviderMisconfigured("OpenAI authentication failed; rotate or replace the server key.") from exc
+                if attempt == 0 and not emitted_text and _is_retryable_error(exc):
+                    continue
+                if isinstance(exc, AIProviderError):
+                    raise
+                raise AIProviderError("OpenAI streaming request failed closed.") from exc
+        raise AIProviderError("OpenAI streaming request failed closed.")
+
+    async def _create_response(self, payload: dict):
+        """Retry transient provider failures once; never retry auth/config errors."""
+        for attempt in range(2):
+            try:
+                return await self._client.responses.create(**payload)
+            except Exception as exc:
+                if _is_auth_error(exc):
+                    raise AIProviderMisconfigured("OpenAI authentication failed; rotate or replace the server key.") from exc
+                if attempt == 0 and _is_retryable_error(exc):
+                    continue
+                raise AIProviderError("OpenAI request failed closed.") from exc
+        raise AIProviderError("OpenAI request failed closed.")
+
+
+def _extract_response_json(response) -> dict:
+    text = getattr(response, "output_text", None)
+    if not text:
+        chunks: list[str] = []
+        for item in getattr(response, "output", []) or []:
+            for content in getattr(item, "content", []) or []:
+                value = getattr(content, "text", None)
+                if value:
+                    chunks.append(value)
+        text = "\n".join(chunks)
+    if not text:
+        raise AIOutputValidationError("OpenAI response contained no text output.")
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise AIOutputValidationError("OpenAI response was not valid JSON.") from exc
+
+
+def _status_code(exc: Exception) -> int | None:
+    value = getattr(exc, "status_code", None) or getattr(exc, "status", None)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_auth_error(exc: Exception) -> bool:
+    status = _status_code(exc)
+    if status in AUTH_STATUS_CODES:
+        return True
+    name = exc.__class__.__name__.lower()
+    return "auth" in name or "permission" in name
+
+
+def _is_retryable_error(exc: Exception) -> bool:
+    status = _status_code(exc)
+    if status in RETRYABLE_STATUS_CODES:
+        return True
+    return isinstance(exc, (TimeoutError, asyncio.TimeoutError)) or "timeout" in exc.__class__.__name__.lower()
+
+
+class _DirectResponseDeltaExtractor:
+    """Incrementally decode only the first structured `direct_response` value."""
+
+    _MARKER = '"direct_response"'
+    _ESCAPES = {
+        '"': '"',
+        "\\": "\\",
+        "/": "/",
+        "b": "\b",
+        "f": "\f",
+        "n": "\n",
+        "r": "\r",
+        "t": "\t",
+    }
+
+    def __init__(self) -> None:
+        self._buffer = ""
+        self._cursor: int | None = None
+        self._done = False
+
+    def feed(self, chunk: str) -> str:
+        if self._done or not chunk:
+            return ""
+        self._buffer += chunk
+        if self._cursor is None:
+            marker = self._buffer.find(self._MARKER)
+            if marker < 0:
+                return ""
+            colon = self._buffer.find(":", marker + len(self._MARKER))
+            if colon < 0:
+                return ""
+            cursor = colon + 1
+            while cursor < len(self._buffer) and self._buffer[cursor].isspace():
+                cursor += 1
+            if cursor >= len(self._buffer):
+                return ""
+            if self._buffer[cursor] != '"':
+                self._done = True
+                return ""
+            self._cursor = cursor + 1
+
+        decoded: list[str] = []
+        cursor = self._cursor
+        assert cursor is not None
+        while cursor < len(self._buffer):
+            char = self._buffer[cursor]
+            if char == '"':
+                self._done = True
+                cursor += 1
+                break
+            if char != "\\":
+                decoded.append(char)
+                cursor += 1
+                continue
+            if cursor + 1 >= len(self._buffer):
+                break
+            escaped = self._buffer[cursor + 1]
+            if escaped in self._ESCAPES:
+                decoded.append(self._ESCAPES[escaped])
+                cursor += 2
+                continue
+            if escaped != "u" or cursor + 6 > len(self._buffer):
+                break
+            try:
+                codepoint = int(self._buffer[cursor + 2 : cursor + 6], 16)
+            except ValueError:
+                self._done = True
+                break
+            if 0xD800 <= codepoint <= 0xDBFF:
+                if cursor + 12 > len(self._buffer):
+                    break
+                if self._buffer[cursor + 6 : cursor + 8] != "\\u":
+                    self._done = True
+                    break
+                try:
+                    low = int(self._buffer[cursor + 8 : cursor + 12], 16)
+                except ValueError:
+                    self._done = True
+                    break
+                if not 0xDC00 <= low <= 0xDFFF:
+                    self._done = True
+                    break
+                decoded.append(chr(0x10000 + ((codepoint - 0xD800) << 10) + (low - 0xDC00)))
+                cursor += 12
+                continue
+            if 0xDC00 <= codepoint <= 0xDFFF:
+                self._done = True
+                break
+            decoded.append(chr(codepoint))
+            cursor += 6
+        self._cursor = cursor
+        return "".join(decoded)

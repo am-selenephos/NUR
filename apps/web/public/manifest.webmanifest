@@ -1,0 +1,22 @@
+{
+  "name": "NUR",
+  "id": "/",
+  "short_name": "NUR",
+  "description": "Private Orbit, Talk, Plan, Systems, and Context Capsules.",
+  "start_url": "/today",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#020103",
+  "theme_color": "#020103",
+  "orientation": "portrait-primary",
+  "lang": "en",
+  "categories": ["productivity", "lifestyle"],
+  "shortcuts": [
+    { "name": "Talk with NUR", "short_name": "Talk", "url": "/talk" },
+    { "name": "Today", "short_name": "Today", "url": "/today" },
+    { "name": "AM Projects", "short_name": "Projects", "url": "/projects" }
+  ],
+  "icons": [
+    { "src": "/nur-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

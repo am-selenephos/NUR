@@ -1,0 +1,757 @@
+"""Owner-derived NUR Map graph and persisted future-path predictions."""
+
+import datetime as dt
+import hashlib
+import math
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy import func, select
+
+from app.api.deps import Identity, Scoped, require_csrf
+from app.living.catalog import require_system
+from app.living.service import (
+    add_living_event,
+    all_system_snapshots,
+    owned_system_orbit,
+)
+from app.models import (
+    AMProject,
+    AMProjectTask,
+    GlowAchievement,
+    GlowTransaction,
+    Goal,
+    Insight,
+    Objective,
+    OmegaClaim,
+    Plan,
+    PlanStep,
+    Person,
+    Prediction,
+    ResearchSourceNote,
+    Orbit,
+    OrbitMember,
+    SystemAction,
+    TimelineEvent,
+    WebSignalNote,
+)
+
+router = APIRouter(prefix="/map", tags=["map"])
+
+
+class PredictPathIn(BaseModel):
+    system_slug: str
+    path_type: str = "continue"
+    goal_id: uuid.UUID | None = None
+    horizon_days: int = Field(default=30, ge=1, le=3650)
+
+
+class MapSystemIn(BaseModel):
+    system_slug: str
+
+
+class MapSourceIn(BaseModel):
+    source_id: uuid.UUID
+
+
+def _stable_layout(node_id: str, kind: str, index: int) -> dict:
+    if kind == "MASTER_STAR":
+        return {"x": 0.0, "y": 0.0, "radius": 112, "exclusion_radius": 210}
+    if kind == "SYSTEM":
+        angle = -math.pi / 2 + index * (2 * math.pi / 7)
+        return {
+            "x": round(math.cos(angle) * 360, 2),
+            "y": round(math.sin(angle) * 300, 2),
+            "radius": 54,
+            "exclusion_radius": 0,
+        }
+    seed = int(hashlib.sha256(node_id.encode()).hexdigest()[:12], 16)
+    angle = (seed % 3600) / 3600 * 2 * math.pi
+    ring = 470 + ((seed // 3600) % 4) * 115
+    return {
+        "x": round(math.cos(angle) * ring, 2),
+        "y": round(math.sin(angle) * ring * 0.72, 2),
+        "radius": 34 if kind in {"PERSON", "GROUP", "COUNCIL", "PROJECT"} else 24,
+        "exclusion_radius": 0,
+    }
+
+
+async def _map_snapshot(db: Scoped, owner_user_id: uuid.UUID) -> dict:
+    systems = await all_system_snapshots(db, owner_user_id=owner_user_id)
+    goals = (await db.execute(select(Goal).where(
+        Goal.owner_user_id == owner_user_id,
+    ).order_by(Goal.created_at.desc()).limit(100))).scalars().all()
+    objectives = (await db.execute(select(Objective).where(
+        Objective.owner_user_id == owner_user_id,
+    ).order_by(Objective.created_at.desc()).limit(200))).scalars().all()
+    plans = (await db.execute(select(Plan).where(
+        Plan.owner_user_id == owner_user_id,
+    ).order_by(Plan.created_at.desc()).limit(80))).scalars().all()
+    plan_steps = (await db.execute(select(PlanStep).where(
+        PlanStep.owner_user_id == owner_user_id,
+    ).order_by(PlanStep.created_at.desc()).limit(200))).scalars().all()
+    actions = (await db.execute(select(SystemAction).where(
+        SystemAction.owner_user_id == owner_user_id,
+    ).order_by(SystemAction.created_at.desc()).limit(200))).scalars().all()
+    projects = (await db.execute(select(AMProject).where(
+        AMProject.owner_user_id == owner_user_id,
+    ).order_by(AMProject.updated_at.desc()).limit(80))).scalars().all()
+    project_tasks = (await db.execute(select(AMProjectTask).where(
+        AMProjectTask.owner_user_id == owner_user_id,
+    ).order_by(AMProjectTask.priority.desc(), AMProjectTask.created_at).limit(300))).scalars().all()
+    predictions = (await db.execute(select(Prediction).where(
+        Prediction.owner_user_id == owner_user_id,
+    ).order_by(Prediction.created_at.desc()).limit(50))).scalars().all()
+    insights = (await db.execute(select(OmegaClaim).where(
+        OmegaClaim.owner_user_id == owner_user_id,
+    ).order_by(OmegaClaim.updated_at.desc()).limit(40))).scalars().all()
+    dedicated_insights = (await db.execute(select(Insight).where(
+        Insight.owner_user_id == owner_user_id,
+        Insight.status.notin_(["REJECTED", "ARCHIVED"]),
+    ).order_by(Insight.updated_at.desc()).limit(40))).scalars().all()
+    social_orbits = (await db.execute(select(Orbit).where(
+        Orbit.owner_user_id == owner_user_id,
+        Orbit.kind.in_(["PERSON", "GROUP", "COUNCIL", "COMMUNITY"]),
+        Orbit.status == "ACTIVE",
+    ).order_by(Orbit.updated_at.desc()).limit(60))).scalars().all()
+    social_orbit_ids = [row.id for row in social_orbits]
+    orbit_members = (await db.execute(select(OrbitMember).where(
+        OrbitMember.owner_user_id == owner_user_id,
+        OrbitMember.orbit_id.in_(social_orbit_ids),
+    ).order_by(OrbitMember.recent_activity_score.desc()).limit(200))).scalars().all()
+    people_ids = list({row.person_id for row in orbit_members})
+    people = (await db.execute(select(Person).where(
+        Person.owner_user_id == owner_user_id,
+        Person.id.in_(people_ids),
+    ).order_by(Person.updated_at.desc()).limit(100))).scalars().all()
+    timeline_events = (await db.execute(select(TimelineEvent).where(
+        TimelineEvent.owner_user_id == owner_user_id,
+        TimelineEvent.status.in_(["PLANNED", "DUE", "MISSED"]),
+    ).order_by(TimelineEvent.scheduled_for.asc().nullslast()).limit(80))).scalars().all()
+    research_sources = (await db.execute(select(ResearchSourceNote).where(
+        ResearchSourceNote.owner_user_id == owner_user_id,
+    ).order_by(ResearchSourceNote.updated_at.desc()).limit(30))).scalars().all()
+    web_signals = (await db.execute(select(WebSignalNote).where(
+        WebSignalNote.owner_user_id == owner_user_id,
+    ).order_by(WebSignalNote.updated_at.desc()).limit(30))).scalars().all()
+    achievements = (await db.execute(select(GlowAchievement).where(
+        GlowAchievement.owner_user_id == owner_user_id,
+    ).order_by(GlowAchievement.unlocked_at.desc()).limit(40))).scalars().all()
+    total_glow = int((await db.execute(select(func.coalesce(
+        func.sum(GlowTransaction.final_points), 0
+    )).where(
+        GlowTransaction.owner_user_id == owner_user_id,
+        GlowTransaction.reversed.is_(False),
+    ))).scalar_one())
+
+    nodes: list[dict] = [{
+        "id": "nur",
+        "kind": "MASTER_STAR",
+        "label": "NUR",
+        "parent_id": None,
+        "status": "ACTIVE",
+        "data": {"total_glow": total_glow, "provenance_label": "OWNER_LEDGER"},
+    }]
+    edges: list[dict] = []
+    for system in systems:
+        node_id = f"system:{system['slug']}"
+        nodes.append({
+            "id": node_id,
+            "kind": "SYSTEM",
+            "label": system["title"],
+            "parent_id": "nur",
+            "status": "ACTIVE" if system["progress_percent"] > 0 else "READY",
+            "data": {
+                "progress_percent": system["progress_percent"],
+                "glow_points": system["progress_sources"]["glow_points"],
+                "active_goal_count": system["active_goal_count"],
+                "blockers": system["blockers"],
+                "next_move": system["next_move"],
+                "prediction": system["prediction"],
+            },
+        })
+        edges.append({
+            "id": f"nur->{node_id}",
+            "source": "nur",
+            "target": node_id,
+            "kind": "MASTER_TO_SYSTEM",
+        })
+    for goal in goals:
+        node_id = f"goal:{goal.id}"
+        system_id = f"system:{goal.system_slug}"
+        nodes.append({
+            "id": node_id,
+            "kind": "GOAL",
+            "label": goal.title,
+            "parent_id": system_id,
+            "status": goal.status,
+            "data": {
+                "progress_percent": goal.progress_percent,
+                "target_date": goal.target_date,
+                "why": goal.why,
+            },
+        })
+        edges.append({
+            "id": f"{system_id}->{node_id}",
+            "source": system_id,
+            "target": node_id,
+            "kind": "SYSTEM_TO_GOAL",
+        })
+    goal_by_id = {row.id: row for row in goals}
+    for objective in objectives:
+        goal = goal_by_id.get(objective.goal_id)
+        if goal is None:
+            continue
+        node_id = f"objective:{objective.id}"
+        parent_id = f"goal:{goal.id}"
+        nodes.append({
+            "id": node_id,
+            "kind": "OBJECTIVE",
+            "label": objective.title,
+            "parent_id": parent_id,
+            "status": objective.status,
+            "data": {"progress_percent": objective.progress_percent, "target_date": objective.target_date},
+        })
+        edges.append({
+            "id": f"{parent_id}->{node_id}",
+            "source": parent_id,
+            "target": node_id,
+            "kind": "GOAL_TO_OBJECTIVE",
+        })
+    for plan in plans:
+        node_id = f"plan:{plan.id}"
+        nodes.append({
+            "id": node_id,
+            "kind": "PLAN",
+            "label": plan.title,
+            "parent_id": "nur",
+            "status": plan.status,
+            "data": {"orbit_id": str(plan.orbit_id) if plan.orbit_id else None},
+        })
+        edges.append({
+            "id": f"nur->{node_id}",
+            "source": "nur",
+            "target": node_id,
+            "kind": "MASTER_TO_PLAN",
+        })
+    for step in plan_steps:
+        node_id = f"plan-step:{step.id}"
+        parent_id = f"plan:{step.plan_id}"
+        nodes.append({
+            "id": node_id,
+            "kind": "PLAN_STEP",
+            "label": step.title,
+            "parent_id": parent_id,
+            "status": "COMPLETED" if step.done else "OPEN",
+            "data": {"position": step.position, "done_at": step.done_at},
+        })
+        edges.append({
+            "id": f"{parent_id}->{node_id}",
+            "source": parent_id,
+            "target": node_id,
+            "kind": "PLAN_TO_STEP",
+        })
+    for action in actions:
+        if action.status not in {"OPEN", "MISSED"}:
+            continue
+        node_id = f"action:{action.id}"
+        parent_id = f"system:{action.system_slug}"
+        nodes.append({
+            "id": node_id,
+            "kind": "BLOCKER" if action.status == "MISSED" else "ACTION",
+            "label": action.title,
+            "parent_id": parent_id,
+            "status": action.status,
+            "data": {"due_at": action.due_at, "effort_minutes": action.effort_minutes},
+        })
+        edges.append({
+            "id": f"{parent_id}->{node_id}",
+            "source": parent_id,
+            "target": node_id,
+            "kind": "SYSTEM_TO_BLOCKER" if action.status == "MISSED" else "SYSTEM_TO_ACTION",
+        })
+    for project in projects:
+        node_id = f"project:{project.id}"
+        parent_id = f"system:{project.system_slug}" if project.system_slug else "nur"
+        nodes.append({
+            "id": node_id,
+            "kind": "PROJECT",
+            "label": project.title,
+            "parent_id": parent_id,
+            "status": project.status,
+            "data": {
+                "orbit_id": str(project.orbit_id),
+                "objective": project.objective,
+                "deadline": project.deadline,
+                "budget_cents": project.budget_cents,
+                "provenance_label": "OWNER_PROJECT_LEDGER",
+            },
+        })
+        edges.append({
+            "id": f"{parent_id}->{node_id}",
+            "source": parent_id,
+            "target": node_id,
+            "kind": "SYSTEM_TO_PROJECT" if project.system_slug else "MASTER_TO_PROJECT",
+        })
+    for task in project_tasks:
+        parent_id = f"project:{task.project_id}"
+        node_id = f"project-task:{task.id}"
+        nodes.append({
+            "id": node_id,
+            "kind": "PROJECT_TASK",
+            "label": task.title,
+            "parent_id": parent_id,
+            "status": task.status,
+            "data": {
+                "priority": task.priority,
+                "assigned_role": task.assigned_role,
+                "due_at": task.due_at,
+                "acceptance_criteria": task.acceptance_criteria,
+            },
+        })
+        edges.append({
+            "id": f"{parent_id}->{node_id}",
+            "source": parent_id,
+            "target": node_id,
+            "kind": "PROJECT_TO_TASK",
+        })
+    for prediction in predictions:
+        node_id = f"prediction:{prediction.id}"
+        parent_id = (
+            f"system:{prediction.expected_observation.get('system_slug')}"
+            if prediction.expected_observation.get("system_slug") else "nur"
+        )
+        nodes.append({
+            "id": node_id,
+            "kind": "PREDICTION",
+            "label": prediction.statement,
+            "parent_id": parent_id,
+            "status": prediction.status,
+            "data": prediction.expected_observation,
+        })
+        edges.append({
+            "id": f"{parent_id}->{node_id}",
+            "source": parent_id,
+            "target": node_id,
+            "kind": "PATH_PREDICTION",
+        })
+    for person in people:
+        node_id = f"person:{person.id}"
+        nodes.append({
+            "id": node_id,
+            "kind": "PERSON",
+            "label": person.display_name,
+            "parent_id": "nur",
+            "status": "ACTIVE",
+            "data": {
+                "handle": person.handle,
+                "relationship_type": person.relationship_type,
+                "privacy_scope": person.privacy_scope,
+                "provenance_label": "OWNER_SOCIAL_LEDGER",
+            },
+        })
+        edges.append({
+            "id": f"nur->{node_id}",
+            "source": "nur",
+            "target": node_id,
+            "kind": "INVOLVES_PERSON",
+        })
+    social_ids = {row.id for row in social_orbits}
+    for orbit in social_orbits:
+        node_id = f"orbit:{orbit.id}"
+        parent_id = f"system:{orbit.system_slug}" if orbit.system_slug else "nur"
+        nodes.append({
+            "id": node_id,
+            "kind": orbit.kind,
+            "label": orbit.title,
+            "parent_id": parent_id,
+            "status": orbit.status,
+            "data": {
+                "description": orbit.description,
+                "privacy_scope": orbit.privacy_scope,
+                "provenance_label": "OWNER_SOCIAL_LEDGER",
+            },
+        })
+        edges.append({
+            "id": f"{parent_id}->{node_id}",
+            "source": parent_id,
+            "target": node_id,
+            "kind": "SYSTEM_TO_ORBIT" if orbit.system_slug else "MASTER_TO_ORBIT",
+        })
+    for member in orbit_members:
+        edges.append({
+            "id": f"orbit:{member.orbit_id}->person:{member.person_id}",
+            "source": f"orbit:{member.orbit_id}",
+            "target": f"person:{member.person_id}",
+            "kind": "ORBIT_MEMBER",
+            "data": {
+                "role": member.role,
+                "unresolved_count": member.unresolved_count,
+                "shared_goal_count": member.shared_goal_count,
+            },
+        })
+    for insight in dedicated_insights:
+        node_id = f"dedicated-insight:{insight.id}"
+        parent_id = (
+            f"system:{insight.affected_system_slug}"
+            if insight.affected_system_slug else "nur"
+        )
+        nodes.append({
+            "id": node_id,
+            "kind": "INSIGHT",
+            "label": insight.title,
+            "parent_id": parent_id,
+            "status": insight.status,
+            "data": {
+                "insight_type": insight.insight_type,
+                "confidence": insight.confidence,
+                "evidence_count": len(insight.evidence),
+                "suggested_action": insight.suggested_action,
+                "provenance_label": insight.provenance_label,
+            },
+        })
+        edges.append({
+            "id": f"{parent_id}->{node_id}",
+            "source": parent_id,
+            "target": node_id,
+            "kind": "GENERATED_INSIGHT",
+        })
+    for source in research_sources:
+        node_id = f"research-source:{source.id}"
+        nodes.append({
+            "id": node_id,
+            "kind": "RESEARCH_SOURCE",
+            "label": source.title,
+            "parent_id": "nur",
+            "status": source.trust_state,
+            "data": {
+                "url": source.url,
+                "provenance_label": source.provenance_label,
+            },
+        })
+        edges.append({
+            "id": f"nur->{node_id}",
+            "source": "nur",
+            "target": node_id,
+            "kind": "CAME_FROM_RESEARCH",
+        })
+    for signal in web_signals:
+        node_id = f"web-signal:{signal.id}"
+        nodes.append({
+            "id": node_id,
+            "kind": "WEB_SIGNAL",
+            "label": signal.title,
+            "parent_id": "nur",
+            "status": "SAVED",
+            "data": {"url": signal.url, "provenance_label": signal.provenance_label},
+        })
+        edges.append({
+            "id": f"nur->{node_id}",
+            "source": "nur",
+            "target": node_id,
+            "kind": "WEB_SIGNAL_SAVED",
+        })
+    for event in timeline_events:
+        node_id = f"timeline:{event.id}"
+        if event.system_slug:
+            parent_id = f"system:{event.system_slug}"
+        elif event.project_id:
+            parent_id = f"project:{event.project_id}"
+        elif event.goal_id:
+            parent_id = f"goal:{event.goal_id}"
+        elif event.orbit_id in social_ids:
+            parent_id = f"orbit:{event.orbit_id}"
+        else:
+            parent_id = "nur"
+        nodes.append({
+            "id": node_id,
+            "kind": "TIMELINE_EVENT",
+            "label": event.title,
+            "parent_id": parent_id,
+            "status": event.status,
+            "data": {
+                "time_kind": event.time_kind,
+                "scheduled_for": event.scheduled_for,
+                "importance": event.importance,
+                "provenance_label": "OWNER_TIMELINE_LEDGER",
+            },
+        })
+        edges.append({
+            "id": f"{parent_id}->{node_id}",
+            "source": parent_id,
+            "target": node_id,
+            "kind": "SCHEDULED_ON_TIMELINE",
+        })
+    for insight in insights:
+        nodes.append({
+            "id": f"insight:{insight.id}",
+            "kind": "INSIGHT",
+            "label": insight.claim_text,
+            "parent_id": "nur",
+            "status": insight.truth_status,
+            "data": {
+                "confidence": insight.confidence,
+                "provenance_label": f"OMEGA_{insight.truth_status}",
+            },
+        })
+    for achievement in achievements:
+        nodes.append({
+            "id": f"achievement:{achievement.id}",
+            "kind": "GLOW_MILESTONE",
+            "label": achievement.achievement_metadata.get("label", achievement.achievement_key),
+            "parent_id": "nur",
+            "status": "UNLOCKED",
+            "data": {"unlocked_at": achievement.unlocked_at},
+        })
+
+    system_index = 0
+    for index, node in enumerate(nodes):
+        layout_index = system_index if node["kind"] == "SYSTEM" else index
+        node["data"].setdefault(
+            "layout", _stable_layout(node["id"], node["kind"], layout_index)
+        )
+        if node["kind"] == "SYSTEM":
+            system_index += 1
+
+    return {
+        "generated_at": dt.datetime.now(dt.UTC),
+        "provenance_label": "OWNER_LEDGER_DERIVED_GRAPH",
+        "counts": {
+            "nodes": len(nodes),
+            "edges": len(edges),
+            "systems": len(systems),
+            "goals": len(goals),
+            "objectives": len(objectives),
+            "plans": len(plans),
+            "projects": len(projects),
+            "project_tasks": len(project_tasks),
+            "people": len(people),
+            "social_orbits": len(social_orbits),
+            "insights": len(dedicated_insights) + len(insights),
+            "timeline_events": len(timeline_events),
+            "research_sources": len(research_sources),
+            "web_signals": len(web_signals),
+            "open_predictions": sum(row.status == "OPEN" for row in predictions),
+        },
+        "nodes": nodes,
+        "edges": edges,
+        "future_paths": [
+            {
+                "system_slug": row["slug"],
+                "current_progress": row["progress_percent"],
+                "if_continued": row["prediction"]["if_followed"],
+                "if_ignored": row["prediction"]["if_ignored"],
+                "basis": row["prediction"]["basis"],
+            }
+            for row in systems
+        ],
+    }
+
+
+@router.get("")
+async def map_graph(db: Scoped, identity: Identity) -> dict:
+    owner_user_id, _ = identity
+    return await _map_snapshot(db, owner_user_id)
+
+
+@router.post("/rebuild", dependencies=[Depends(require_csrf)])
+async def rebuild_map(db: Scoped, identity: Identity) -> dict:
+    owner_user_id, _ = identity
+    snapshot = await _map_snapshot(db, owner_user_id)
+    snapshot["rebuild"] = {
+        "status": "REBUILT_FROM_OWNER_LEDGER",
+        "persisted_source_count": snapshot["counts"]["nodes"] - 1,
+        "note": "The Map is a calculated view; no duplicate graph store was created.",
+    }
+    return snapshot
+
+
+async def _persist_map_focus(
+    db: Scoped,
+    *,
+    owner_user_id: uuid.UUID,
+    node_id: str,
+    source_kind: str,
+    source_id: uuid.UUID,
+    orbit_id: uuid.UUID | None,
+) -> dict:
+    snapshot = await _map_snapshot(db, owner_user_id)
+    node = next((row for row in snapshot["nodes"] if row["id"] == node_id), None)
+    if node is None:
+        raise HTTPException(404, "That owner source is not available on the Map.")
+    event = add_living_event(
+        db,
+        owner_user_id=owner_user_id,
+        orbit_id=orbit_id,
+        timeline_kind="MAP_FOCUS_CREATED",
+        content=f"Map focus opened for {node['label']}.",
+        object_type=source_kind.lower(),
+        object_id=source_id,
+        metadata={
+            "map_node_id": node_id,
+            "source_kind": source_kind,
+            "provenance_label": "OWNER_LEDGER_MAP_FOCUS",
+        },
+    )
+    await db.commit()
+    return {
+        "node": node,
+        "map_event_id": event.id,
+        "source_kind": source_kind,
+        "appears_on_map": True,
+        "graph_counts": snapshot["counts"],
+        "provenance_label": "OWNER_LEDGER_MAP_FOCUS",
+    }
+
+
+@router.post("/from-system", status_code=201, dependencies=[Depends(require_csrf)])
+async def map_from_system(payload: MapSystemIn, db: Scoped, identity: Identity) -> dict:
+    owner_user_id, _ = identity
+    try:
+        definition = require_system(payload.system_slug)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    orbit = await owned_system_orbit(db, owner_user_id=owner_user_id, system=definition)
+    return await _persist_map_focus(
+        db,
+        owner_user_id=owner_user_id,
+        node_id=f"system:{definition.slug}",
+        source_kind="SYSTEM",
+        source_id=orbit.id,
+        orbit_id=orbit.id,
+    )
+
+
+@router.post("/from-goal", status_code=201, dependencies=[Depends(require_csrf)])
+async def map_from_goal(payload: MapSourceIn, db: Scoped, identity: Identity) -> dict:
+    owner_user_id, _ = identity
+    row = (await db.execute(select(Goal).where(
+        Goal.id == payload.source_id,
+        Goal.owner_user_id == owner_user_id,
+    ))).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(404, "Goal not found.")
+    return await _persist_map_focus(
+        db,
+        owner_user_id=owner_user_id,
+        node_id=f"goal:{row.id}",
+        source_kind="GOAL",
+        source_id=row.id,
+        orbit_id=row.orbit_id,
+    )
+
+
+@router.post("/from-plan", status_code=201, dependencies=[Depends(require_csrf)])
+async def map_from_plan(payload: MapSourceIn, db: Scoped, identity: Identity) -> dict:
+    owner_user_id, _ = identity
+    row = (await db.execute(select(Plan).where(
+        Plan.id == payload.source_id,
+        Plan.owner_user_id == owner_user_id,
+    ))).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(404, "Plan not found.")
+    return await _persist_map_focus(
+        db,
+        owner_user_id=owner_user_id,
+        node_id=f"plan:{row.id}",
+        source_kind="PLAN",
+        source_id=row.id,
+        orbit_id=row.orbit_id,
+    )
+
+
+@router.post("/from-insight", status_code=201, dependencies=[Depends(require_csrf)])
+async def map_from_insight(payload: MapSourceIn, db: Scoped, identity: Identity) -> dict:
+    owner_user_id, _ = identity
+    row = (await db.execute(select(Insight).where(
+        Insight.id == payload.source_id,
+        Insight.owner_user_id == owner_user_id,
+        Insight.status.notin_(["REJECTED", "ARCHIVED"]),
+    ))).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(404, "Insight not found.")
+    return await _persist_map_focus(
+        db,
+        owner_user_id=owner_user_id,
+        node_id=f"dedicated-insight:{row.id}",
+        source_kind="INSIGHT",
+        source_id=row.id,
+        orbit_id=row.orbit_id,
+    )
+
+
+@router.post("/predict-path", status_code=201, dependencies=[Depends(require_csrf)])
+async def predict_path(
+    payload: PredictPathIn, db: Scoped, identity: Identity
+) -> dict:
+    owner_user_id, _ = identity
+    try:
+        definition = require_system(payload.system_slug)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    path_type = payload.path_type.lower()
+    if path_type not in {"continue", "ignore", "easier", "ambitious"}:
+        raise HTTPException(422, "path_type must be continue, ignore, easier, or ambitious.")
+    orbit = await owned_system_orbit(
+        db, owner_user_id=owner_user_id, system=definition
+    )
+    system = next(
+        row for row in await all_system_snapshots(db, owner_user_id=owner_user_id)
+        if row["slug"] == payload.system_slug
+    )
+    goal = None
+    if payload.goal_id:
+        goal = (await db.execute(select(Goal).where(
+            Goal.id == payload.goal_id,
+            Goal.owner_user_id == owner_user_id,
+            Goal.system_slug == payload.system_slug,
+        ))).scalar_one_or_none()
+        if goal is None:
+            raise HTTPException(404, "Goal not found in this System.")
+    statements = {
+        "continue": definition.followed_prediction,
+        "ignore": definition.ignored_prediction,
+        "easier": "A smaller capacity-matched move is likely to preserve continuity and produce evidence.",
+        "ambitious": (
+            "An ambitious move may accelerate progress, but its failure risk rises when current "
+            f"System progress is only {system['progress_percent']}%."
+        ),
+    }
+    prediction = Prediction(
+        owner_user_id=owner_user_id,
+        orbit_id=orbit.id,
+        statement=statements[path_type],
+        expected_observation={
+            "system_slug": payload.system_slug,
+            "path_type": path_type,
+            "horizon_days": payload.horizon_days,
+            "current_progress": system["progress_percent"],
+            "goal_id": str(goal.id) if goal else None,
+            "observable": "System progress, completed actions, returned outcomes, and missed actions.",
+            "provenance_label": "DETERMINISTIC_HYPOTHESIS",
+        },
+    )
+    db.add(prediction)
+    await db.flush()
+    event = add_living_event(
+        db,
+        owner_user_id=owner_user_id,
+        orbit_id=orbit.id,
+        timeline_kind="PREDICTION_MADE",
+        content=prediction.statement,
+        object_type="prediction",
+        object_id=prediction.id,
+        metadata={"system_slug": payload.system_slug, "path_type": path_type},
+    )
+    await db.flush()
+    prediction.source_event_id = event.id
+    await db.commit()
+    return {
+        "id": prediction.id,
+        "statement": prediction.statement,
+        "expected_observation": prediction.expected_observation,
+        "status": prediction.status,
+        "created_at": prediction.created_at,
+        "provenance_label": "DETERMINISTIC_HYPOTHESIS",
+    }

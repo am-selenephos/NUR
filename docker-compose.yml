@@ -1,0 +1,106 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ${NUR_POSTGRES_CONTAINER_NAME:-nur_postgres}
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "${NUR_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - nur_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${NUR_REDIS_CONTAINER_NAME:-nur_redis}
+    ports:
+      - "${NUR_REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://nur_app:nur_app_pw@postgres:5432/nur
+      ALEMBIC_DATABASE_URL: postgresql+asyncpg://nur_admin:nur_admin_pw@postgres:5432/nur
+      REDIS_URL: redis://redis:6379/0
+      WEB_ORIGIN: http://localhost:5173
+      API_ORIGIN: http://localhost:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: ["bash", "-lc", "python -m alembic.config upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+
+  worker:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://nur_app:nur_app_pw@postgres:5432/nur
+      ALEMBIC_DATABASE_URL: postgresql+asyncpg://nur_admin:nur_admin_pw@postgres:5432/nur
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["celery", "-A", "app.workers.celery_app.celery", "worker", "--loglevel=INFO"]
+
+  beat:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://nur_app:nur_app_pw@postgres:5432/nur
+      ALEMBIC_DATABASE_URL: postgresql+asyncpg://nur_admin:nur_admin_pw@postgres:5432/nur
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["celery", "-A", "app.workers.celery_app.celery", "beat", "--loglevel=INFO"]
+
+  web:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    env_file:
+      - .env
+    environment:
+      VITE_API_BASE_URL: ""
+      VITE_NUR_ENABLE_OMEGA_RESEARCH: "true"
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "5173:5173"
+    command: ["npm", "run", "dev", "--workspace", "apps/web", "--", "--host", "0.0.0.0", "--port", "5173"]
+
+volumes:
+  nur_postgres_data:

@@ -1,0 +1,52 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+import {
+  V197_CONTEXT_PANES,
+  V197_NAV_ITEMS,
+  V197_PROMPT_ACTIONS,
+  V197_SOURCE_SHA256,
+  V197_SYSTEM_NODES,
+  V197_TOOL_ITEMS,
+  V197_WORLD_COMMANDS,
+  V197_WORLD_TABS,
+} from "./contract";
+
+const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
+
+describe("V197 immutable host contract", () => {
+  it("records the canonical V197 source SHA", () => {
+    expect(V197_SOURCE_SHA256).toBe("252eee806ece31ef829a2dc5cd45aa8d8f8e855db1bde98b6f87193d786633c3");
+  });
+
+  it("keeps native V197 control identities in the decoded source", () => {
+    const decoded = read("../../docs/reference/universe_decoded_v197.html");
+    for (const item of V197_NAV_ITEMS) {
+      expect(decoded).toContain(`data-page="${item.page}"`);
+      expect(decoded).toContain(`<span class="clean-nav-title">${item.title}</span>`);
+    }
+    for (const item of V197_TOOL_ITEMS) expect(decoded).toContain(`data-world-focus="${item.key}"`);
+    for (const tab of V197_WORLD_TABS) expect(decoded).toContain(`data-world-tab="${tab.focus}"`);
+    for (const pane of V197_CONTEXT_PANES) expect(decoded).toContain(`data-context-pane="${pane.key}"`);
+    for (const node of V197_SYSTEM_NODES) expect(decoded).toContain(`data-system="${node.name}"`);
+    for (const command of V197_WORLD_COMMANDS) expect(decoded).toContain(`data-world-focus="${command.key}"`);
+    for (const action of V197_PROMPT_ACTIONS) expect(decoded).toContain(`data-action="${action.key}"`);
+  });
+
+  it("does not make React the visible V197 renderer", () => {
+    const entry = read("src/main.ts");
+    const canonical = read("public/v197/NUR_V197_CHECKBOX_TICK_RESTORED.html");
+    const viteConfig = read("vite.config.ts");
+    const bridge = read("src/bridge/v197Bridge.ts");
+
+    expect(entry).not.toContain("ReactDOM");
+    expect(entry).not.toContain("react-dom");
+    expect(canonical).toContain('id="nur-entry-stage"');
+    expect(canonical).toContain('id="nur-universe-stage"');
+    expect(canonical).not.toContain('id="root"');
+    expect(canonical).not.toContain("global.css");
+    expect(viteConfig).toContain("composedV197Document");
+    expect(bridge).toContain("hydrateTrackAV197");
+    expect(bridge).not.toContain("ReactDOM");
+  });
+});

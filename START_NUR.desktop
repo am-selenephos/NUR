@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=NUR
+GenericName=Private Context Intelligence Universe
+Comment=Start NUR with real server-side AI
+Exec=/bin/bash -c "cd \"\\$(dirname \"\\$1\")\" && exec ./START_NUR.sh" _ %k
+Icon=system-run
+Terminal=true
+Categories=Utility;
+StartupNotify=true

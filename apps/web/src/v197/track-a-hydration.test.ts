@@ -1,0 +1,223 @@
+import { describe, expect, it } from "vitest";
+
+import type { V197BridgeSnapshot } from "../bridge/v197ApiClient";
+import { hydrateTrackAV197, renderWorldLens } from "../bridge/v197Hydration";
+
+function fixture(): Document {
+  const document = window.document.implementation.createHTMLDocument("NUR universe");
+  document.body.innerHTML = `
+    <section id="page-systems"><header class="universe-hero-copy"><p class="page-sub">static overview</p></header></section>
+    <div class="universe-hero-stats"><span><b>07</b> active</span><span><b>19</b> outcomes</span><span><b>04</b> insights</span></div>
+    <div class="universe-field-readout"><b>System field · <em>live</em></b><span>fake metrics</span></div>
+    <h2 data-context-title>Context, held gently.</h2>
+    <div class="v172-boundary-current"><b>Private Orbit</b></div>
+    <p class="page-kicker">Systems universe live feed</p>
+    <div class="universe-system-lane"><article><small>active people</small><b>1,284</b><span>moving now</span></article><article><small>fake</small><b>2</b></article><article><small>fake</small><b>3</b></article></div>
+    <aside class="universe-insight-panel">
+      <div><span class="system-badge"><span class="nur-exact-mini-host"><span class="spark-core">BADGE_STAR</span></span>Candidate insight</span><span class="live-label">LIVE</span></div>
+      <div class="universe-insight-title"><small>Theme</small><h2>Fake insight</h2></div>
+      <p class="universe-insight-copy">fake advice</p>
+      <div class="signal-list"><span>fake 1</span><span>fake 2</span><span>fake 3</span></div>
+      <div class="insight-opportunity"><small>Possible move</small><b>fake move</b></div>
+      <div class="insight-uncertainty"><span>What NUR may be wrong about</span><p>fake uncertainty</p></div>
+      <div class="insight-strength"><span>Strength</span><b>78%</b></div>
+      <div class="insight-evidence"><div><small>Evidence</small><b>fake</b><span>fake</span></div></div>
+      <div class="insight-revision"><span>fake revision</span></div>
+    </aside>
+    <div class="universe-state-strip"><article><small>Alignment</small><b>78%</b><em>fake</em></article><article><small>Clarity</small><b>82%</b><em>fake</em></article><article><small>Momentum</small><b>63%</b><em>fake</em></article><article><small>fake</small><b>4</b><em>fake</em></article><article><small>fake</small><b>5</b><em>fake</em></article><article><small>fake</small><b>6</b><em>fake</em></article></div>
+    <div class="clean-system-list"><button class="clean-system-row" data-system="old"><i><span class="nur-exact-mini-host"><span class="spark-core">RAIL_STAR</span></span></i><span class="system-label">old</span></button></div>
+    <button class="universe-system-node quiet" data-system="old"><i><span class="nur-exact-mini-host"><span class="spark-core">NODE_STAR</span></span></i><span class="node-copy"><b>old</b><small>old</small></span></button>
+    <button class="universe-system-node public" data-system="old"><span><b>old</b><small>old</small></span></button>
+    <button class="universe-system-node wealth" data-system="old"><span><b>old</b><small>old</small></span></button>
+    <button class="universe-system-node embodied" data-system="old"><span><b>old</b><small>old</small></span></button>
+    <button class="universe-system-node relational" data-system="old"><span><b>old</b><small>old</small></span></button>
+    <button class="universe-system-node social" data-system="old"><span><b>old</b><small>old</small></span></button>
+    <button class="universe-system-node neural" data-system="old"><span><b>old</b><small>old</small></span></button>
+    <div id="talk-stream"><div class="talk-message">fake Talk</div></div>
+    <section id="page-journal"><p class="page-sub">static journal</p><p class="journal-prompt">prompt</p></section>
+    <section id="page-plan"><div class="panel-top"><h2 class="panel-title">fake plan</h2><p class="panel-sub">fake</p></div><div class="plan-list"><div>fake step</div></div></section>
+    <section id="universe-community"><div class="universe-card-head"><h2>fake community</h2></div><div class="community-items"><article>142 fake replies</article></div><button data-community-tab="People">People</button></section>
+    <section id="universe-research"><div class="universe-card-head"><h2>fake web</h2></div><div class="research-results"><article>Harvard fake</article></div></section>
+    <div id="page-today"><div class="panel-top"><h2 class="panel-title">Recent Glows</h2><p class="panel-sub">fake</p></div><div class="glow-row"><div>fake glow</div></div></div>
+    <article class="v172-glow-list"><div class="clean-card-heading"><span>Recent glows</span></div><button class="v172-glow-row">fake glow rail</button></article>
+  `;
+  return document;
+}
+
+function snapshot(): V197BridgeSnapshot {
+  const titles = ["Personal Orbit", "Quiet Ambition", "Rebuild", "Study", "Money", "Body", "Connection", "Creation"];
+  const nodes = titles.map((title, index) => ({
+    id: `orbit-${index}`,
+    title,
+    kind: index === 0 ? "PERSONAL_BRIDGE" : "PROJECT",
+    orbit_id: `orbit-${index}`,
+    active: true,
+    counts: { decisions: index, references: 0, sources: 0, capsules: 0 },
+  }));
+  return {
+    session: {
+      id: "owner",
+      email: "owner@nur.app",
+      profile: { chosen_name: "Mahnoor", locale: "en", writing_preference: "default" },
+      orbit: { id: "orbit-0", title: "Personal Orbit", kind: "PERSONAL_BRIDGE", status: "ACTIVE" },
+    },
+    ownerState: { active_systems: 7, outcomes_returned: 1, insights_evolving: 1, open_questions: 0, research_staged: 0, plans_active: 1, live_status: "owner_ledger" },
+    live: {
+      generated_at: "2026-07-11T10:00:00Z",
+      provenance_label: "OWNER_LEDGER_AGGREGATE",
+      owner: { id: "owner", email: "owner@nur.app", chosen_name: "Mahnoor", timezone: "Asia/Karachi", locale: "en", writing_preference: "default", default_boundary: "PRIVATE_ORBIT" },
+      state: { summary: "The clearest persisted next move is: Finish the evidence pass.", source_count: 12, confidence: 1, confidence_kind: "source_coverage_not_truth_probability", last_updated: "2026-07-11T10:00:00Z", today: {} as never, provenance_label: "DETERMINISTIC_OWNER_LEDGER_SYNTHESIS" },
+      active_systems: [],
+      active_goals: [{ title: "Ship the first real NUR slice" }],
+      active_objectives: [{ title: "Finish V197 proof" }],
+      active_plans: [{ title: "Evidence pass" }],
+      people_orbits: [],
+      group_orbits: [],
+      projects: [{ title: "NUR Track A" }],
+      latest_insights: [{ claim: "Evidence is the release blocker" }],
+      timeline_highlights: [],
+      open_loops: [{ title: "Package proof" }],
+      next_moves: [{ title: "Finish the evidence pass", why: "It is the earliest persisted move." }],
+      glow: { today_points: 4 },
+      signals: [{ title: "Performance audit" }],
+      community: { live_connected: false, status: "LOCAL_NOTES_ONLY", note_count: 0, latest_note: null, honest_state: "Local only" },
+      what_changed: [{ title: "Journal entry persisted" }],
+    },
+    map: { provenance_label: "owner_ledger", counts: [{ key: "orbits", label: "owner-owned orbits", count: 8 }], nodes },
+    orbits: { provenance_label: "owner_ledger", orbits: nodes.map(node => ({ ...node, description: null, status: "ACTIVE", created_at: "2026-07-11T10:00:00Z" })) },
+    timeline: { provenance_label: "owner_ledger", items: [{ id: "event-1", kind: "JOURNAL_ENTRY", title: "Journal entry", body: "Persisted journal", created_at: "2026-07-11T10:00:00Z", provenance_label: "owner_written", route: "/journal" }] },
+    insights: { provenance_label: "omega_owner_ledger", counts: { claims: 1, open_contradictions: 1 }, claims: [{ claim_text: "Rest protects the work", confidence: 0.72 }], contradictions: [{ description: "Urgency conflicts with capacity" }], predictions: [], review_queue: [] },
+    preferences: { locale: "en", writing_preference: "default", default_boundary: "PRIVATE_ORBIT", active_orbit_id: "orbit-1" },
+    talkThread: [{ id: "talk-1", who: "user", text: "Persisted Talk", structured_payload: {}, created_at: "2026-07-11T10:00:00Z" }],
+    journal: [{ id: "journal-1", body: "Persisted journal", orbit_id: "orbit-1", event_id: "event-1", created_at: "2026-07-11T10:00:00Z" }],
+    plans: [{ id: "plan-1", title: "Persisted plan", status: "ACTIVE", orbit_id: "orbit-1", steps: [{ id: "step-1", title: "Persisted step", body: null, position: 0, done: false, done_at: null, experiment_id: null }] }],
+    glow: { balance: 4, lifetime_points: 4, recent_transactions: [{ id: "txn-1", event_type: "journal_saved", source_kind: "JOURNAL_ENTRY", source_id: "journal-1", final_points: 4, reason: "Journal saved", created_at: "2026-07-11T10:00:00Z" }], streaks: [] },
+    researchBriefs: [],
+  };
+}
+
+describe("Track A V197 persisted hydration", () => {
+  it("replaces fake V197 demo content with owner-scoped persisted state", () => {
+    const document = fixture();
+    hydrateTrackAV197(document, snapshot());
+
+    expect(document.body.textContent).not.toContain("1,284");
+    expect(document.body.textContent).not.toContain("142 fake replies");
+    expect(document.body.textContent).not.toContain("Harvard fake");
+    expect(document.body.textContent).toContain("Persisted Talk");
+    expect(document.body.textContent).toContain("Persisted journal");
+    expect(document.body.textContent).toContain("Persisted plan");
+    expect(document.body.textContent).toContain("No rooms yet. Create one bounded room to open Group NUR.");
+    expect(document.body.textContent).toContain("No fake people, replies, or rooms.");
+    expect([...document.querySelectorAll(".universe-system-node b")].map(node => node.textContent)).toEqual([
+      "Quiet Ambition", "Rebuild", "Study", "Money", "Body", "Connection", "Creation",
+    ]);
+    expect(document.querySelector(".plan-check")?.getAttribute("data-plan-step-id")).toBe("step-1");
+    expect(document.querySelector(".clean-system-row .nur-exact-mini-host")?.textContent).toBe("RAIL_STAR");
+    expect(document.querySelector(".clean-system-row .system-label")?.textContent).toBe("Quiet Ambition");
+    expect(document.querySelector(".universe-system-node .nur-exact-mini-host")?.textContent).toBe("NODE_STAR");
+    expect(document.querySelector(".universe-system-node .node-copy b")?.textContent).toBe("Quiet Ambition");
+    expect(document.body.textContent).not.toContain("fake 1");
+    expect(document.body.textContent).not.toContain("fake move");
+    expect(document.body.textContent).not.toContain("fake revision");
+    expect(document.body.textContent).not.toContain("Evidencefake");
+    expect(document.body.textContent).not.toContain("78%");
+    expect(document.querySelector(".system-badge .nur-exact-mini-host")?.textContent).toBe("BADGE_STAR");
+    expect(document.querySelector(".insight-opportunity b")?.textContent).toBe("Persisted step");
+    expect(document.querySelector(".insight-strength b")?.textContent).toBe("1");
+    expect(document.querySelector("#page-systems .page-sub")?.textContent).toContain("12 owner-ledger sources");
+    expect(document.querySelector(".universe-state-strip")?.textContent).toContain("What NUR sees now");
+    expect(document.querySelector(".universe-state-strip")?.textContent).toContain("Finish the evidence pass");
+    expect(document.querySelector(".universe-state-strip")?.textContent).toContain("No people or group Orbit yet");
+    expect(document.body.dataset.nurLiveProvenance).toBe("OWNER_LEDGER_AGGREGATE");
+  });
+
+  it("uses the existing V197 signal lane for real lens summaries", () => {
+    const document = fixture();
+    const state = snapshot();
+    renderWorldLens(document, state, "timeline");
+    expect(document.querySelector(".universe-system-lane")?.textContent).toContain("Journal entry");
+    expect(document.querySelector(".universe-system-lane")?.textContent).toContain("Persisted journal");
+    expect(document.querySelector(".universe-insight-title h2")?.textContent).toBe("Journal entry");
+    expect(document.querySelector(".universe-insight-copy")?.textContent).toContain("Persisted journal");
+    expect(document.querySelector(".system-badge .nur-exact-mini-host")?.textContent).toBe("BADGE_STAR");
+    expect(document.querySelector(".system-badge")?.textContent).toContain("Timeline lens");
+  });
+
+  it("renders persisted bounded rooms with roles, DEMO marks, and privacy copy", () => {
+    const document = fixture();
+    const state = snapshot();
+    state.communityRooms = [
+      {
+        id: "room-1", owner_user_id: "owner", title: "Rebuild circle", description: null,
+        room_kind: "GROUP", system_slug: null, language_tag: "en", status: "ACTIVE",
+        is_demo: false, current_user_role: "OWNER", privacy: "Room content only.",
+        created_at: "2026-07-12T10:00:00Z", updated_at: "2026-07-12T10:00:00Z",
+      },
+      {
+        id: "room-2", owner_user_id: "owner", title: "Walkthrough room", description: null,
+        room_kind: "GROUP", system_slug: null, language_tag: "en", status: "ACTIVE",
+        is_demo: true, current_user_role: "MEMBER", privacy: "Room content only.",
+        created_at: "2026-07-12T10:00:00Z", updated_at: "2026-07-12T10:00:00Z",
+      },
+      {
+        id: "room-3", owner_user_id: "owner", title: "Repair council", description: null,
+        room_kind: "COUNCIL", system_slug: null, language_tag: "en", status: "ACTIVE",
+        is_demo: false, current_user_role: "OWNER", privacy: "Room content only.",
+        created_at: "2026-07-12T10:00:00Z", updated_at: "2026-07-12T10:00:00Z",
+      },
+    ];
+    state.councilSummary = {
+      room: state.communityRooms[2],
+      counts: { messages: 0, posts: 0, comments: 0, positions: 2, decisions: 1, members: 3 },
+      truth_state: "persisted_local_room_data",
+      external_public_feed: "not_connected",
+    };
+    state.communityMessages = [
+      {
+        id: "msg-1", room_id: "room-1", owner_user_id: "owner",
+        body: "First honest group line.", language_tag: "en",
+        provenance_label: "OWNER_WRITTEN", is_demo: false,
+        created_at: "2026-07-12T10:05:00Z",
+      },
+    ];
+    hydrateTrackAV197(document, state);
+
+    const community = document.querySelector("#universe-community");
+    expect(community?.textContent).toContain("3 bounded rooms · persisted Group NUR.");
+    expect(community?.textContent).toContain("Rebuild circle");
+    expect(community?.textContent).toContain("Walkthrough room · DEMO");
+    expect(community?.textContent).toContain("your role member");
+    expect(community?.textContent).toContain("First honest group line.");
+    expect(community?.textContent).toContain("owner written");
+    expect(community?.textContent).not.toContain("142 fake replies");
+    const postButton = document.querySelector<HTMLButtonElement>('[data-action="community-post-message"]');
+    expect(postButton?.disabled).toBe(false);
+    expect(document.querySelector<HTMLInputElement>("#nur-v197-room-title")).not.toBeNull();
+    // Member and Council controls are live because a room and a Council exist.
+    expect(document.querySelector<HTMLButtonElement>('[data-action="community-add-member"]')?.disabled).toBe(false);
+    expect(document.querySelector<HTMLButtonElement>('[data-action="council-add-position"]')?.disabled).toBe(false);
+    expect(document.querySelector<HTMLButtonElement>('[data-action="council-record-decision"]')?.disabled).toBe(false);
+
+    renderWorldLens(document, state, "community");
+    expect(document.querySelector(".system-badge")?.textContent).toContain("Community lens");
+    expect(document.querySelector(".universe-insight-title h2")?.textContent).toContain("Rebuild circle");
+    expect(document.querySelector(".universe-insight-copy")?.textContent).toContain("1 Council");
+    expect(document.querySelector(".insight-uncertainty p")?.textContent).toContain("never enter a room automatically");
+    expect(document.querySelector(".universe-system-lane")?.textContent).toContain("Repair council");
+  });
+
+  it("keeps the community composer honestly disabled until a room exists", () => {
+    const document = fixture();
+    const state = snapshot();
+    state.communityRooms = [];
+    hydrateTrackAV197(document, state);
+    const postButton = document.querySelector<HTMLButtonElement>('[data-action="community-post-message"]');
+    expect(postButton?.disabled).toBe(true);
+    expect(postButton?.title).toContain("Create a room before posting");
+    expect(document.querySelector<HTMLButtonElement>('[data-action="community-add-member"]')?.disabled).toBe(true);
+    expect(document.querySelector<HTMLButtonElement>('[data-action="council-add-position"]')?.disabled).toBe(true);
+    expect(document.querySelector<HTMLButtonElement>('[data-action="council-record-decision"]')?.title).toContain("Start a Council");
+    expect(document.querySelector("#universe-community")?.textContent).toContain("No fake people, replies, or rooms.");
+  });
+});
