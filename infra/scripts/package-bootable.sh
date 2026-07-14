@@ -30,7 +30,7 @@ skip_dirs = {
     ".git", "node_modules", "dist", "build", ".venv", "__pycache__",
     ".pytest_cache", ".ruff_cache", "nur_api.egg-info", ".nur-runtime",
     "playwright-report", "test-results", "proof", "evidence", "logs",
-    "tmp", "secrets",
+    "tmp", "secrets", "checkpoint",
 }
 skip_files = {".env", ".env.local", "dump.rdb"}
 
@@ -39,13 +39,17 @@ def should_skip(path: Path) -> bool:
     parts = set(rel.parts)
     if parts & skip_dirs:
         return True
+    if any(part.startswith("playwright-report") for part in rel.parts):
+        return True
     if path.name in skip_files:
+        return True
+    if path.name.startswith("playwright-report"):
         return True
     if path.name.startswith("celerybeat-schedule"):
         return True
     if path.name.startswith(".env.") and path.name != ".env.example":
         return True
-    if path.suffix in {".pyc", ".pyo"}:
+    if path.suffix in {".pyc", ".pyo", ".tsbuildinfo"}:
         return True
     return False
 
@@ -82,7 +86,7 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
 forbidden_fragments = [
     "/.git/", "/node_modules/", "/dist/", "/build/", "/.venv/",
     "/.nur-runtime/", "/playwright-report/", "/test-results/", "/proof/",
-    "/evidence/", "/logs/", "/secrets/",
+    "/evidence/", "/logs/", "/secrets/", "/checkpoint/",
 ]
 forbidden_names = {"NUR/.env", "NUR/.env.local", "NUR/apps/api/dump.rdb"}
 with zipfile.ZipFile(out) as zf:
@@ -91,6 +95,8 @@ with zipfile.ZipFile(out) as zf:
         n for n in names
         if n in forbidden_names
         or Path(n).name.startswith("celerybeat-schedule")
+        or Path(n).name.startswith("playwright-report")
+        or Path(n).suffix == ".tsbuildinfo"
         or any(fragment in f"/{n}" for fragment in forbidden_fragments)
     ]
     secret_like = [n for n in names if n.endswith(".env.local") or (Path(n).name.startswith(".env.") and Path(n).name != ".env.example")]
