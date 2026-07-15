@@ -1,0 +1,67 @@
+.nur-star-seal-sprite {
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+.nur-exact-mini-host[data-nur-star-seal="authentic"] {
+  contain: layout style paint !important;
+  isolation: isolate !important;
+}
+
+.nur-exact-mini-host[data-nur-star-seal="authentic"] > .nur-star-seal {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  overflow: visible !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+.nur-star-seal {
+  display: inline-block;
+  flex: 0 0 auto;
+  overflow: visible;
+  color: #fff8df;
+  filter:
+    drop-shadow(0 0 .7px rgba(255, 248, 223, .96))
+    drop-shadow(0 0 2px rgba(255, 211, 90, .58))
+    drop-shadow(0 0 3px rgba(255, 58, 158, .16))
+    drop-shadow(0 0 4px rgba(33, 232, 255, .12));
+  transform-origin: 50% 50%;
+}
+
+.nur-star-seal--12 { width: 12px; height: 12px; }
+.nur-star-seal--16 { width: 16px; height: 16px; }
+.nur-star-seal--20 { width: 20px; height: 20px; }
+.nur-star-seal--24 { width: 24px; height: 24px; }
+.nur-star-seal--32 { width: 32px; height: 32px; }
+
+.nur-star-seal[data-nur-star-twinkle="true"] {
+  animation: nurStarSealTwinkle 5.8s ease-in-out infinite;
+}
+
+:is(button, a):hover .nur-star-seal {
+  filter:
+    brightness(1.12)
+    drop-shadow(0 0 1px rgba(255, 248, 223, 1))
+    drop-shadow(0 0 3px rgba(255, 211, 90, .72))
+    drop-shadow(0 0 4px rgba(255, 58, 158, .22))
+    drop-shadow(0 0 5px rgba(33, 232, 255, .18));
+}
+
+@keyframes nurStarSealTwinkle {
+  0%, 76%, 100% { opacity: .9; filter: brightness(.98) drop-shadow(0 0 3px rgba(255, 211, 90, .42)); }
+  82% { opacity: 1; filter: brightness(1.24) drop-shadow(0 0 7px rgba(255, 248, 223, .96)) drop-shadow(0 0 11px rgba(255, 58, 158, .24)); }
+  88% { opacity: .94; filter: brightness(1.06) drop-shadow(0 0 5px rgba(33, 232, 255, .32)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nur-star-seal[data-nur-star-twinkle="true"] { animation: none !important; }
+}

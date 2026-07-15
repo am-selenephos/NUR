@@ -1,9 +1,11 @@
 import V197_COSMIC_SKIN_CSS from "../styles/v197-cosmic-skin.css?raw";
+import V197_STAR_SEAL_CSS from "../styles/v197-star-seal.css?raw";
 import { ensureV197BlackGalaxy, ensureV197StarBrain } from "./v197StarBrain";
+import { installV197StarSeals, V197_STAR_SEAL_CLASS } from "./v197StarSeal";
 
 export const V197_PREMIUM_POLISH_STYLE_ID = "nur-v197-track-a-premium-polish";
 export const V197_STABLE_WORDMARK_CLASS = "nur-v197-stable-wordmark";
-export const V197_COMPACT_MINI_STAR_CLASS = "nur-v197-mini-star-lite";
+export const V197_COMPACT_MINI_STAR_CLASS = V197_STAR_SEAL_CLASS;
 export const V197_INTERACTION_BUDGET_MARKER = "nurInteractionBudget";
 export const V197_STATIC_STARFIELD_ID = "nur-v197-static-starfield";
 export const V197_ENTRY_POLISH_STYLE_ID = "nur-v197-entry-premium-polish";
@@ -205,138 +207,6 @@ const V197_PREMIUM_POLISH_CSS = `
 .nur-v197-community-controls button:hover:not(:disabled) { background: rgba(255, 191, 87, .22); }
 .nur-v197-community-controls button:disabled { opacity: .42; cursor: not-allowed; }
 .nur-v197-community-state { color: rgba(255, 232, 190, .55); }
-
-/*
- * V186 builds every 10-24px icon as a complete 100px MasterStar: twelve
- * animated rays, three orbiters, three blurred halos and pseudo animations.
- * More than one hundred of those modules can be visible on Map, producing
- * thousands of concurrent animations for detail that is sub-pixel after the
- * canonical scale transform. Preserve the exact host, core and four cardinal
- * rays while making the invisible nested machinery static and paint-cheap.
- */
-body.universe-edition .nur-exact-mini-host {
-  contain: layout style paint !important;
-  isolation: isolate !important;
-}
-
-/* Once the bridge has preserved the canonical host geometry, a small icon no
- * longer needs the hidden 100px MasterStar subtree. This one-node prism keeps
- * the four visible cardinal rays, pearl core and holographic edge light. */
-body.universe-edition .nur-exact-mini-host[data-nur-mini-compacted="true"] > .nur-v197-mini-star-lite {
-  position: absolute !important;
-  left: 50% !important;
-  top: 50% !important;
-  display: block !important;
-  width: 100% !important;
-  height: 100% !important;
-  margin: 0 !important;
-  border: 0 !important;
-  border-radius: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  transform-origin: 50% 50% !important;
-  background: radial-gradient(
-    circle at 50% 50%,
-    rgba(255, 255, 238, .98) 0 8%,
-    rgba(255, 224, 122, .82) 9% 15%,
-    rgba(255, 172, 88, .24) 24%,
-    rgba(84, 234, 255, .08) 45%,
-    transparent 70%
-  ) !important;
-  box-shadow:
-    0 0 4px rgba(255, 244, 194, .72),
-    0 0 9px rgba(255, 177, 62, .28),
-    0 0 13px rgba(106, 218, 255, .12) !important;
-  filter: saturate(1.12) brightness(1.06) !important;
-  opacity: .96 !important;
-  pointer-events: none !important;
-  contain: strict !important;
-}
-
-body.universe-edition .nur-exact-mini-host[data-nur-mini-compacted="true"] > .nur-v197-mini-star-lite::before {
-  content: "" !important;
-  position: absolute !important;
-  inset: -10% !important;
-  display: block !important;
-  background: conic-gradient(
-    from -12deg,
-    #fff5c5 0deg,
-    #ffbc58 42deg,
-    #ff84bb 84deg,
-    #70e8ff 132deg,
-    #8ca5ff 180deg,
-    #c58cff 228deg,
-    #ff91c9 276deg,
-    #fff2b5 360deg
-  ) !important;
-  clip-path: polygon(
-    50% 0%, 56% 40%, 100% 50%, 56% 60%,
-    50% 100%, 44% 60%, 0% 50%, 44% 40%
-  ) !important;
-  opacity: .92 !important;
-  filter: drop-shadow(0 0 2px rgba(255, 241, 185, .7)) !important;
-}
-
-body.universe-edition .nur-exact-mini-host[data-nur-mini-compacted="true"] > .nur-v197-mini-star-lite::after {
-  content: "" !important;
-  position: absolute !important;
-  left: 50% !important;
-  top: 50% !important;
-  display: block !important;
-  width: 24% !important;
-  height: 24% !important;
-  border-radius: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  background: radial-gradient(circle, #fffef0 0 28%, #ffe085 42%, rgba(255, 171, 67, .15) 76%, transparent 100%) !important;
-  box-shadow: 0 0 3px rgba(255, 249, 213, .95) !important;
-}
-
-body.universe-edition .nur-exact-mini-host .nur-star-module,
-body.universe-edition .nur-exact-mini-host .nur-star-module *,
-body.universe-edition .nur-exact-mini-host .nur-star-module::before,
-body.universe-edition .nur-exact-mini-host .nur-star-module::after,
-body.universe-edition .nur-exact-mini-host .nur-star-module *::before,
-body.universe-edition .nur-exact-mini-host .nur-star-module *::after {
-  animation: none !important;
-  transition: none !important;
-  will-change: auto !important;
-}
-
-body.universe-edition .nur-exact-mini-host .f4-master-star--hero {
-  filter: none !important;
-}
-
-body.universe-edition .nur-exact-mini-host :is(
-  .spark-glow,
-  .spark-halo,
-  .spark-h2,
-  .nur-halo-glow,
-  .nur-halo-primary,
-  .nur-halo-secondary,
-  .nur-star-orb
-) {
-  display: none !important;
-}
-
-body.universe-edition .nur-exact-mini-host .ray:not(.r1):not(.r4):not(.r7):not(.r10) {
-  display: none !important;
-}
-
-body.universe-edition .nur-exact-mini-host .ray-glow {
-  display: none !important;
-}
-
-body.universe-edition .nur-exact-mini-host .ray-core {
-  filter: none !important;
-  opacity: .88 !important;
-}
-
-body.universe-edition .nur-exact-mini-host .spark-core,
-body.universe-edition .nur-exact-mini-host .nur-star-core {
-  filter: none !important;
-  box-shadow:
-    0 0 10px rgba(255, 224, 122, .9),
-    0 0 22px rgba(191, 128, 18, .42) !important;
-}
 
 @keyframes nurV197MasterRayOrbit {
   from { transform: rotate(0deg); }
@@ -1001,20 +871,7 @@ function ensureStableMapWordmark(document: Document): HTMLElement | null {
  * the sub-pixel internals that cannot be perceived at the rendered size.
  */
 export function compactV197MiniStars(document: Document): number {
-  let compacted = 0;
-  document.querySelectorAll<HTMLElement>(".nur-exact-mini-host").forEach(host => {
-    const sourceModule = host.querySelector<HTMLElement>(":scope > .nur-star-module");
-    if (!sourceModule) return;
-
-    const lite = document.createElement("span");
-    lite.className = V197_COMPACT_MINI_STAR_CLASS;
-    lite.dataset.nurSource = "v197-master-star-cardinals";
-    lite.setAttribute("aria-hidden", "true");
-    host.replaceChildren(lite);
-    host.dataset.nurMiniCompacted = "true";
-    compacted += 1;
-  });
-  return compacted;
+  return installV197StarSeals(document);
 }
 
 /**
@@ -1205,7 +1062,7 @@ export function ensureV197PremiumPolish(document: Document): HTMLStyleElement {
   const style = document.createElement("style");
   style.id = V197_PREMIUM_POLISH_STYLE_ID;
   style.dataset.nurLayer = "v197-native-premium-polish";
-  style.textContent = `${V197_PREMIUM_POLISH_CSS}\n${V197_COSMIC_SKIN_CSS}`;
+  style.textContent = `${V197_PREMIUM_POLISH_CSS}\n${V197_STAR_SEAL_CSS}\n${V197_COSMIC_SKIN_CSS}`;
   // V197 intentionally carries late style blocks inside its body. Appending
   // this corrective layer to the end of the body gives equal-specificity
   // `!important` rules deterministic precedence without modifying source.
