@@ -15,6 +15,8 @@ describe("Phase 1 immutable V197 host", () => {
       .toBe("49e2e72fb3adea405428789d9235dfc5ecb122f8dc1e17205d4fa05de64ecd97");
     expect(hash("docs/reference/universe_decoded_v197.html"))
       .toBe("b80eb5198d6fd9088e999020bd1cf85e95af9a20fd4ab172cfb7d5726dbd5a3c");
+    expect(hash("apps/web/src/bridge/v197StarBrainRuntime.js"))
+      .toBe("c5218640143855897592af7442a7a0b26a62232d68be912aadb97d6a7dc7c242");
   });
 
   it("uses a zero-visual shell rather than a React presentation root", () => {

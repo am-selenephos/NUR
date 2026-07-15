@@ -1,3 +1,6 @@
+import V197_COSMIC_SKIN_CSS from "../styles/v197-cosmic-skin.css?raw";
+import { ensureV197BlackGalaxy, ensureV197StarBrain } from "./v197StarBrain";
+
 export const V197_PREMIUM_POLISH_STYLE_ID = "nur-v197-track-a-premium-polish";
 export const V197_STABLE_WORDMARK_CLASS = "nur-v197-stable-wordmark";
 export const V197_COMPACT_MINI_STAR_CLASS = "nur-v197-mini-star-lite";
@@ -583,9 +586,13 @@ body.universe-edition .universe-map-title > .nur-v197-stable-wordmark {
   left: 50% !important;
   z-index: 2 !important;
   display: block !important;
-  width: max-content !important;
+  box-sizing: border-box !important;
+  width: 280px !important;
+  max-width: calc(100vw - 88px) !important;
   margin: 0 !important;
+  padding-inline: 0 !important;
   transform: translateX(-50%) !important;
+  text-align: center !important;
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
   background-image: linear-gradient(
@@ -624,9 +631,11 @@ body.universe-edition .universe-map-title > .nur-master-subtitle {
   position: absolute !important;
   top: 58px !important;
   left: 50% !important;
-  width: max-content !important;
+  box-sizing: border-box !important;
+  width: 280px !important;
   max-width: 280px !important;
   margin: 0 !important;
+  padding-inline: 0 !important;
   transform: translateX(-50%) !important;
   text-align: center !important;
   white-space: nowrap !important;
@@ -784,6 +793,11 @@ body.universe-edition .universe-map-title > .nur-master-subtitle {
     white-space: normal !important;
     overflow-wrap: anywhere !important;
     text-align: center !important;
+  }
+
+  body.universe-edition #page-systems .universe-map-panel > .universe-map-title > .nur-v197-stable-wordmark {
+    width: 170px !important;
+    max-width: 170px !important;
   }
 
   body.universe-edition .universe-main-grid {
@@ -1122,7 +1136,11 @@ export function ensureV197StaticStarfield(
  * clipping the Bodoni wordmark even though the auth card itself remains valid. */
 export function ensureV197EntryPolish(document: Document): HTMLStyleElement {
   const existing = document.getElementById(V197_ENTRY_POLISH_STYLE_ID) as HTMLStyleElement | null;
-  if (existing) return existing;
+  if (existing) {
+    ensureV197BlackGalaxy(document);
+    ensureV197StarBrain(document);
+    return existing;
+  }
   const style = document.createElement("style");
   style.id = V197_ENTRY_POLISH_STYLE_ID;
   style.dataset.nurLayer = "v197-native-entry-polish";
@@ -1149,8 +1167,11 @@ body.nur-v197-auth-open #nur-front-v61 .f4-head {
   body.nur-v197-auth-open #nur-front-v61 .f4-head,
   #nur-front-v61:has(#f4-sheet.open) .f4-head { transform: translateY(10px) !important; }
 }
+${V197_COSMIC_SKIN_CSS}
 `;
   (document.body ?? document.head).append(style);
+  ensureV197BlackGalaxy(document);
+  ensureV197StarBrain(document);
 
   const sheet = document.querySelector<HTMLElement>("#f4-sheet");
   const sync = () => document.body?.classList.toggle("nur-v197-auth-open", Boolean(sheet?.classList.contains("open")));
@@ -1178,12 +1199,14 @@ export function ensureV197PremiumPolish(document: Document): HTMLStyleElement {
     ensureStableMapWordmark(document);
     ensureV197InteractionBudget(document);
     ensureV197StaticStarfield(document, "universe");
+    ensureV197BlackGalaxy(document);
+    ensureV197StarBrain(document);
     return existing;
   }
   const style = document.createElement("style");
   style.id = V197_PREMIUM_POLISH_STYLE_ID;
   style.dataset.nurLayer = "v197-native-premium-polish";
-  style.textContent = V197_PREMIUM_POLISH_CSS;
+  style.textContent = `${V197_PREMIUM_POLISH_CSS}\n${V197_COSMIC_SKIN_CSS}`;
   // V197 intentionally carries late style blocks inside its body. Appending
   // this corrective layer to the end of the body gives equal-specificity
   // `!important` rules deterministic precedence without modifying source.
@@ -1192,5 +1215,7 @@ export function ensureV197PremiumPolish(document: Document): HTMLStyleElement {
   ensureStableMapWordmark(document);
   ensureV197InteractionBudget(document);
   ensureV197StaticStarfield(document, "universe");
+  ensureV197BlackGalaxy(document);
+  ensureV197StarBrain(document);
   return style;
 }

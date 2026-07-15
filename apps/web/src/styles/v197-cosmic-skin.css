@@ -1,0 +1,432 @@
+/* Visual-only NUR cosmic skin. Canonical copy, geometry, and behavior stay intact. */
+:root {
+  --nur-cosmic-black: #000000;
+  --nur-cosmic-ink: #030305;
+  --nur-cosmic-glass: rgba(3, 3, 5, .54);
+  --nur-cosmic-glass-strong: rgba(2, 2, 4, .78);
+  --nur-cosmic-pearl: #fff8df;
+  --nur-cosmic-champagne: #f8d98a;
+  --nur-cosmic-gold: #ffd35a;
+  --nur-cosmic-antique-gold: #c9942f;
+  --nur-cosmic-amber: #ffad32;
+  --nur-cosmic-tangerine: #ff7a3d;
+  --nur-cosmic-red: #ff405f;
+  --nur-cosmic-pink: #ff38ad;
+  --nur-cosmic-fuchsia: #ff18c8;
+  --nur-cosmic-cyan: #21e8ff;
+  --nur-cosmic-teal: #36d7b1;
+  --nur-cosmic-green: #68e89c;
+  --nur-cosmic-violet: #9a5cff;
+  --nur-cosmic-spectrum: linear-gradient(
+    105deg,
+    #fff8df 0%,
+    #ffd35a 12%,
+    #ffad32 22%,
+    #ff7a3d 31%,
+    #ff405f 40%,
+    #ff38ad 51%,
+    #9a5cff 62%,
+    #21e8ff 73%,
+    #36d7b1 84%,
+    #ffd35a 94%,
+    #fff8df 100%
+  );
+}
+
+html,
+body,
+body.universe-edition {
+  background: var(--nur-cosmic-black) !important;
+}
+
+body .atm,
+body #atm {
+  opacity: 0 !important;
+}
+
+body .vignette {
+  background: radial-gradient(circle at 50% 48%, transparent 54%, rgba(0, 0, 0, .38) 82%, #000 100%) !important;
+}
+
+body #space3d {
+  opacity: 1 !important;
+  filter: brightness(.94) contrast(1.16) saturate(1.26) !important;
+  mix-blend-mode: screen !important;
+}
+
+body #nur-front-v61,
+body #nur-front-v61::before,
+body #nur-front-v61::after {
+  background: transparent !important;
+}
+
+body #nur-front-v61 .f4-copy,
+body #nur-front-v61 .f4-head,
+body #nur-front-v61 .f4-foot {
+  text-shadow: 0 1px 12px rgba(0, 0, 0, .96), 0 0 34px rgba(0, 0, 0, .78);
+}
+
+body #nur-front-v61 .f4-brand-word,
+body.universe-edition :is(.nur-holo-word, .universe-map-title b, .clean-audit-word) {
+  background: var(--nur-cosmic-spectrum) !important;
+  background-size: 320% 100% !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  filter:
+    drop-shadow(0 0 5px rgba(255, 248, 223, .72))
+    drop-shadow(0 0 16px rgba(255, 183, 54, .38))
+    drop-shadow(0 0 28px rgba(33, 232, 255, .13)) !important;
+}
+
+body #nur-front-v61 :is(.f4-eyebrow, .f4-privacy i),
+body.universe-edition :is(.clean-section-label, .v172-card-kicker, .context-kicker) {
+  color: var(--nur-cosmic-champagne) !important;
+}
+
+body #nur-front-v61 :is(.f4-title, .f4-lede, .f4-privacy, .f4-foot),
+body.universe-edition :is(.page-title, .universe-card-head h2, .candidate-insight h2) {
+  color: var(--nur-cosmic-pearl) !important;
+}
+
+/* The original hero-star host keeps its exact coordinates and dimensions. */
+body #nur-front-v61 #f4-core {
+  overflow: visible !important;
+  cursor: grab !important;
+  touch-action: none !important;
+  filter: none !important;
+}
+
+body #nur-front-v61 #f4-core.is-nur-brain-grabbing {
+  cursor: grabbing !important;
+}
+
+body #nur-front-v61 #f4-core > .f4-master-star--hero {
+  display: none !important;
+}
+
+body #nur-front-v61 #f4-core::before {
+  inset: -22% !important;
+  border-radius: 50% !important;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 211, 90, .055) 0%, rgba(255, 56, 173, .025) 29%, rgba(33, 232, 255, .014) 48%, transparent 72%) !important;
+  filter: blur(16px) !important;
+  opacity: .92 !important;
+}
+
+body #nur-front-v61 #f4-core::after {
+  display: none !important;
+}
+
+/* One shared lockup chamber keeps both tracked lines on the same axis. */
+body.front-v61-active #nur-front-v61 .f4-brand-copy {
+  align-items: stretch !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-brand-copy > .f4-brand-word,
+body.front-v61-active #nur-front-v61 .f4-brand-copy > .f4-brand-sub {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  padding-inline: 0 !important;
+  transform: none !important;
+  text-align: center !important;
+}
+
+body #nur-front-v61 #front-nur-star {
+  position: absolute !important;
+  inset: -34% !important;
+  z-index: 8 !important;
+  display: block !important;
+  width: 168% !important;
+  height: 168% !important;
+  max-width: none !important;
+  max-height: none !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  cursor: grab !important;
+  touch-action: none !important;
+  background: none !important;
+  filter: none !important;
+  -webkit-mask-image: radial-gradient(circle at center, #000 0 61%, rgba(0, 0, 0, .98) 72%, rgba(0, 0, 0, .56) 85%, transparent 100%);
+  mask-image: radial-gradient(circle at center, #000 0 61%, rgba(0, 0, 0, .98) 72%, rgba(0, 0, 0, .56) 85%, transparent 100%);
+}
+
+body #nur-front-v61 #front-nur-star.is-grabbing {
+  cursor: grabbing !important;
+}
+
+body #nur-front-v61 #nur-brain-canvas-v197 {
+  position: absolute !important;
+  inset: 0 !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  pointer-events: auto !important;
+}
+
+@media (max-width: 900px) {
+  body.front-v61-active #nur-front-v61 .f4-stage,
+  body.front-v61-active #nur-front-v61 .f4-copy {
+    pointer-events: none !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-actions,
+  body.front-v61-active #nur-front-v61 .f4-actions *,
+  body.front-v61-active #nur-front-v61 .f4-privacy,
+  body.front-v61-active #nur-front-v61 .f4-privacy * {
+    pointer-events: auto !important;
+  }
+}
+
+/* The authenticated Systems map keeps its exact central coordinates while
+ * exchanging only the legacy ray-star visual for the approved star brain. */
+body.universe-edition .universe-map-panel > .universe-master-star {
+  cursor: grab !important;
+  touch-action: none !important;
+}
+
+body.universe-edition .universe-map-panel > .universe-master-star > #front-nur-star[data-nur-surface="universe"] {
+  inset: -21% !important;
+  width: 142% !important;
+  height: 142% !important;
+  cursor: grab !important;
+}
+
+body.universe-edition .universe-map-panel > .universe-master-star > #front-nur-star.is-grabbing {
+  cursor: grabbing !important;
+}
+
+/* Exact reference sparkfield emitted by the transplanted V197 runtime. */
+body #v197-sparkfield {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  contain: strict;
+}
+
+body #v197-sparkfield span {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--s, 3px);
+  height: var(--s, 3px);
+  color: var(--c, #ffe9a8);
+  background: currentColor;
+  border-radius: 50%;
+  box-shadow: 0 0 6px currentColor, 0 0 14px currentColor;
+  opacity: 0;
+  transform: scale(.3);
+  animation: nurV197ExactTwinkle var(--d, 4.8s) ease-in-out var(--dl, 0s) infinite;
+}
+
+body #v197-sparkfield span::before,
+body #v197-sparkfield span::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--s, 3px) * 5.5);
+  height: 1px;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(90deg, transparent, currentColor, transparent);
+  opacity: .85;
+}
+
+body #v197-sparkfield span::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+@keyframes nurV197ExactTwinkle {
+  0%, 100% { opacity: 0; transform: scale(.3) rotate(0deg); }
+  12% { opacity: .9; transform: scale(1) rotate(14deg); }
+  22% { opacity: .35; transform: scale(.62) rotate(26deg); }
+  30% { opacity: .95; transform: scale(1.08) rotate(38deg); }
+  46% { opacity: 0; transform: scale(.28) rotate(52deg); }
+}
+
+/* Existing orbit labels remain in the same places, with quieter starlight. */
+body #nur-front-v61 .f4-ring {
+  border-color: rgba(248, 217, 138, .2) !important;
+  box-shadow: 0 0 24px rgba(255, 173, 50, .035) !important;
+}
+
+body #nur-front-v61 .f4-ring.two { border-color: rgba(54, 215, 177, .15) !important; }
+body #nur-front-v61 .f4-ring.three { border-color: rgba(255, 56, 173, .13) !important; }
+
+body #nur-front-v61 :is(.f4-neural-node, .f4-orbit-star, .f4-orbit-note) {
+  color: rgba(255, 248, 223, .7) !important;
+  text-shadow: 0 1px 10px #000, 0 0 12px rgba(255, 211, 90, .18) !important;
+}
+
+/* Black glass buttons with a warm core and a restrained spectral rim. */
+body #nur-front-v61 :is(.f4-primary, .f4-signin, .f4-link, .f4-chip),
+body.universe-edition :is(
+  .f4-primary,
+  .soft-button,
+  .world-command,
+  .clean-nav-button,
+  .clean-tool-button,
+  .clean-system-row,
+  .nur-scope,
+  .audit-scope,
+  .universe-prompt-row button
+) {
+  border-color: rgba(248, 217, 138, .3) !important;
+  background: linear-gradient(145deg, rgba(255, 211, 90, .07), rgba(2, 2, 4, .64) 46%, rgba(33, 232, 255, .025)) !important;
+  color: var(--nur-cosmic-pearl) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 223, .09),
+    inset 0 0 18px rgba(255, 173, 50, .025),
+    0 0 0 1px rgba(255, 173, 50, .025),
+    0 0 20px rgba(255, 173, 50, .07) !important;
+  backdrop-filter: blur(18px) saturate(1.16) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.16) !important;
+}
+
+body #nur-front-v61 .f4-primary::before,
+body.universe-edition .f4-primary::before {
+  background: conic-gradient(
+    from 20deg,
+    rgba(255, 211, 90, .92),
+    rgba(255, 122, 61, .72),
+    rgba(255, 64, 95, .68),
+    rgba(255, 56, 173, .72),
+    rgba(154, 92, 255, .58),
+    rgba(33, 232, 255, .62),
+    rgba(54, 215, 177, .62),
+    rgba(255, 211, 90, .92)
+  ) !important;
+  filter: blur(8px) !important;
+  opacity: .66 !important;
+}
+
+body #nur-front-v61 :is(.f4-primary, .f4-signin, .f4-link, .f4-chip):hover,
+body.universe-edition :is(
+  .f4-primary,
+  .soft-button,
+  .world-command,
+  .clean-nav-button,
+  .clean-tool-button,
+  .clean-system-row,
+  .nur-scope,
+  .audit-scope,
+  .universe-prompt-row button
+):hover {
+  border-color: rgba(255, 229, 153, .72) !important;
+  background: linear-gradient(145deg, rgba(255, 211, 90, .13), rgba(2, 2, 4, .7) 42%, rgba(255, 56, 173, .055)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 229, .15),
+    0 0 18px rgba(255, 173, 50, .18),
+    0 0 36px rgba(255, 56, 173, .08),
+    0 0 52px rgba(33, 232, 255, .05) !important;
+}
+
+body #nur-front-v61 :is(button, input, textarea, select):focus-visible,
+body.universe-edition :is(button, input, textarea, select):focus-visible {
+  outline: 1px solid var(--nur-cosmic-champagne) !important;
+  outline-offset: 3px !important;
+  box-shadow:
+    0 0 0 2px rgba(255, 211, 90, .13),
+    0 0 24px rgba(255, 173, 50, .2),
+    0 0 38px rgba(33, 232, 255, .09) !important;
+}
+
+body #nur-front-v61 :is(.f4-sheet, .f4-field, .f4-success) {
+  border-color: rgba(248, 217, 138, .17) !important;
+  background: linear-gradient(155deg, rgba(5, 5, 7, .94), rgba(0, 0, 0, .88)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 248, 223, .06), 0 20px 70px rgba(0, 0, 0, .68) !important;
+}
+
+body #nur-front-v61 :is(input, textarea, select) {
+  border-color: rgba(248, 217, 138, .18) !important;
+  background: rgba(0, 0, 0, .52) !important;
+  color: var(--nur-cosmic-pearl) !important;
+}
+
+/* Interior pages use black glass only; the living galaxy remains behind them. */
+body.universe-edition .nur-shell,
+body.universe-edition .nur-main,
+body.universe-edition .nur-viewport,
+body.universe-edition .universe-page-shell {
+  background: transparent !important;
+}
+
+body.universe-edition :is(.nur-rail, .nur-topbar, .clean-left-rail, .clean-right-rail) {
+  background: rgba(0, 0, 0, .72) !important;
+  border-color: rgba(248, 217, 138, .1) !important;
+  backdrop-filter: blur(22px) saturate(1.12) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.12) !important;
+}
+
+body.universe-edition :is(
+  .nur-panel,
+  .universe-card,
+  .context-rail-card,
+  .v172-context-card,
+  .universe-map-panel,
+  .scope-modal,
+  .modal
+) {
+  border-color: rgba(248, 217, 138, .13) !important;
+  background: linear-gradient(145deg, rgba(5, 5, 7, .64), rgba(0, 0, 0, .5)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 248, 223, .045), 0 15px 42px rgba(0, 0, 0, .28) !important;
+  backdrop-filter: blur(18px) saturate(1.08) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.08) !important;
+}
+
+body.universe-edition .nur-exact-mini-host[data-nur-mini-compacted="true"] > .nur-v197-mini-star-lite {
+  background: radial-gradient(
+    circle at 50% 50%,
+    #fffdf0 0 7%,
+    #ffd35a 9% 15%,
+    rgba(255, 122, 61, .3) 23%,
+    rgba(255, 56, 173, .17) 36%,
+    rgba(33, 232, 255, .12) 49%,
+    rgba(54, 215, 177, .08) 58%,
+    transparent 72%
+  ) !important;
+  box-shadow:
+    0 0 4px rgba(255, 248, 223, .8),
+    0 0 10px rgba(255, 173, 50, .42),
+    0 0 16px rgba(255, 56, 173, .16),
+    0 0 22px rgba(33, 232, 255, .09) !important;
+}
+
+body.universe-edition .nur-exact-mini-host[data-nur-mini-compacted="true"] > .nur-v197-mini-star-lite::before {
+  background: conic-gradient(
+    from -12deg,
+    #fff8df,
+    #ffd35a,
+    #ff7a3d,
+    #ff405f,
+    #ff38ad,
+    #9a5cff,
+    #21e8ff,
+    #36d7b1,
+    #ffd35a,
+    #fff8df
+  ) !important;
+}
+
+@media (max-width: 600px) {
+  body #nur-front-v61 #front-nur-star {
+    inset: -27% !important;
+    width: 154% !important;
+    height: 154% !important;
+  }
+
+  body #v197-sparkfield span:nth-child(n+13) { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body #v197-sparkfield { display: none !important; }
+
+  body #nur-front-v61 .f4-primary::before,
+  body.universe-edition .f4-primary::before {
+    animation: none !important;
+  }
+}
