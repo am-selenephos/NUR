@@ -1,85 +1,135 @@
-/* Visual-only NUR cosmic skin. Canonical copy, geometry, and behavior stay intact. */
+/*
+ * NUR forensic presentation layer.
+ *
+ * The canonical V197 documents keep their DOM, copy, and behavior. This file
+ * owns the final visual contract: one black world, one material system, one
+ * geometry system, and semantic control variants. No tiled pseudo-stars.
+ */
+
 :root {
+  /* Canonical color primitives. */
   --nur-black: #000000;
-  --nur-cosmic-ink: #030307;
-  --nur-midnight-navy: #06062b;
-  --nur-abyss-indigo: #101052;
-  --nur-galactic-violet: #32106e;
-  --nur-electric-violet: #843dff;
-  --nur-holographic-lilac: #c16bff;
-  --nur-neon-fuchsia: #ff18c8;
-  --nur-radiant-rose: #ff3a9e;
-  --nur-aurora-pink: #ff79c8;
-  --nur-coral-flame: #ff526f;
-  --nur-electric-azure: #168cff;
+  --nur-ink: #030307;
+  --nur-navy: #06062b;
+  --nur-indigo: #101052;
+  --nur-violet-deep: #32106e;
+  --nur-violet: #843dff;
+  --nur-lilac: #c16bff;
+  --nur-fuchsia: #ff18c8;
+  --nur-pink: #ff3a9e;
+  --nur-pink-soft: #ff79c8;
+  --nur-coral: #ff526f;
+  --nur-azure: #168cff;
   --nur-cobalt: #2448d8;
-  --nur-plasma-cyan: #21e8ff;
-  --nur-ice-aqua: #8af5ff;
-  --nur-pearl-ivory: #fff8df;
+  --nur-cyan: #21e8ff;
+  --nur-aqua: #8af5ff;
+  --nur-ivory: #fff8df;
   --nur-champagne: #f8d98a;
-  --nur-stellar-gold: #ffd35a;
-  --nur-antique-gold: #c9942f;
-  --nur-solar-amber: #ffad32;
-  --nur-aurora-orange: #ff7a45;
+  --nur-gold: #ffd35a;
+  --nur-gold-deep: #c9942f;
+  --nur-amber: #ffad32;
+  --nur-tangerine: #ff7a45;
 
-  --nur-bg-world: var(--nur-black);
-  --nur-bg-surface: rgba(3, 3, 7, .48);
-  --nur-bg-surface-strong: rgba(3, 3, 7, .76);
-  --nur-border-subtle: rgba(248, 217, 138, .16);
-  --nur-border-active: rgba(255, 211, 90, .7);
-  --nur-text-primary: var(--nur-pearl-ivory);
-  --nur-text-secondary: rgba(255, 248, 223, .76);
-  --nur-text-muted: rgba(248, 217, 138, .58);
-  --nur-accent-primary: var(--nur-stellar-gold);
-  --nur-accent-secondary: var(--nur-plasma-cyan);
-  --nur-accent-danger: var(--nur-coral-flame);
-  --nur-glow-gold: 0 0 22px rgba(255, 211, 90, .18);
-  --nur-glow-pink: 0 0 30px rgba(255, 58, 158, .1);
-  --nur-glow-cyan: 0 0 34px rgba(33, 232, 255, .08);
-  --nur-focus-ring: 0 0 0 2px rgba(255, 211, 90, .18), 0 0 0 4px rgba(33, 232, 255, .12);
-  --nur-glass-blur: 10px;
-  --nur-panel-shadow: inset 0 1px 0 rgba(255, 248, 223, .055), 0 18px 44px rgba(0, 0, 0, .34);
-  --nur-motion-micro: 160ms;
-  --nur-motion-surface: 260ms;
-  --nur-ease: cubic-bezier(.2, .75, .2, 1);
+  /* Semantic color roles. */
+  --nur-world: var(--nur-black);
+  --nur-surface-0: rgba(3, 3, 7, .42);
+  --nur-surface-1: rgba(3, 3, 7, .62);
+  --nur-surface-2: rgba(3, 3, 7, .82);
+  --nur-line-faint: rgba(248, 217, 138, .1);
+  --nur-line: rgba(248, 217, 138, .2);
+  --nur-line-strong: rgba(255, 211, 90, .48);
+  --nur-text: var(--nur-ivory);
+  --nur-text-soft: rgba(255, 248, 223, .76);
+  --nur-text-muted: rgba(248, 217, 138, .54);
+  --nur-success: #68e89c;
+  --nur-danger: var(--nur-coral);
 
-  /* Backward-compatible aliases for the existing V197 selectors. */
-  --nur-cosmic-black: var(--nur-black);
-  --nur-cosmic-glass: var(--nur-bg-surface);
-  --nur-cosmic-glass-strong: var(--nur-bg-surface-strong);
-  --nur-cosmic-pearl: var(--nur-pearl-ivory);
-  --nur-cosmic-champagne: var(--nur-champagne);
-  --nur-cosmic-gold: var(--nur-stellar-gold);
-  --nur-cosmic-antique-gold: var(--nur-antique-gold);
-  --nur-cosmic-amber: var(--nur-solar-amber);
-  --nur-cosmic-tangerine: var(--nur-aurora-orange);
-  --nur-cosmic-red: var(--nur-coral-flame);
-  --nur-cosmic-pink: var(--nur-radiant-rose);
-  --nur-cosmic-fuchsia: var(--nur-neon-fuchsia);
-  --nur-cosmic-cyan: var(--nur-plasma-cyan);
-  --nur-cosmic-teal: #36d7b1;
-  --nur-cosmic-green: #68e89c;
-  --nur-cosmic-violet: var(--nur-electric-violet);
-  --nur-cosmic-spectrum: linear-gradient(
+  /* Spectral accents are edges and light, never page fills. */
+  --nur-spectrum: linear-gradient(
     105deg,
-    #fff8df 0%,
-    #ffd35a 12%,
-    #ffad32 22%,
-    #ff7a3d 31%,
-    #ff405f 40%,
-    #ff38ad 51%,
-    #9a5cff 62%,
-    #21e8ff 73%,
-    #36d7b1 84%,
-    #ffd35a 94%,
-    #fff8df 100%
+    var(--nur-ivory) 0%,
+    var(--nur-gold) 13%,
+    var(--nur-amber) 23%,
+    var(--nur-tangerine) 32%,
+    var(--nur-coral) 41%,
+    var(--nur-pink) 51%,
+    var(--nur-lilac) 62%,
+    var(--nur-cyan) 75%,
+    var(--nur-aqua) 84%,
+    var(--nur-gold) 94%,
+    var(--nur-ivory) 100%
   );
+  --nur-spectrum-border: linear-gradient(
+    110deg,
+    rgba(255, 248, 223, .82),
+    rgba(255, 211, 90, .8) 18%,
+    rgba(255, 122, 69, .66) 35%,
+    rgba(255, 58, 158, .64) 54%,
+    rgba(132, 61, 255, .58) 70%,
+    rgba(33, 232, 255, .68) 86%,
+    rgba(255, 211, 90, .76)
+  );
+
+  /* Geometry. */
+  --nur-radius-control: 7px;
+  --nur-radius-panel: 8px;
+  --nur-radius-round: 999px;
+  --nur-control-h: 38px;
+  --nur-control-h-compact: 32px;
+  --nur-shell-gap: clamp(10px, 1vw, 16px);
+  --nur-page-pad: clamp(16px, 2vw, 30px);
+  --nur-left-rail: clamp(190px, 15vw, 226px);
+  --nur-right-rail: clamp(278px, 20vw, 332px);
+
+  /* Material and light. */
+  --nur-glass-blur: 10px;
+  --nur-panel-shadow:
+    inset 0 1px 0 rgba(255, 248, 223, .05),
+    0 18px 48px rgba(0, 0, 0, .32);
+  --nur-control-shadow:
+    inset 0 1px 0 rgba(255, 248, 223, .08),
+    0 8px 22px rgba(0, 0, 0, .24);
+  --nur-glow-gold: 0 0 22px rgba(255, 211, 90, .16);
+  --nur-glow-holo:
+    0 0 22px rgba(255, 58, 158, .07),
+    0 0 34px rgba(33, 232, 255, .055);
+  --nur-focus:
+    0 0 0 2px rgba(0, 0, 0, .9),
+    0 0 0 4px rgba(255, 211, 90, .72),
+    0 0 24px rgba(33, 232, 255, .13);
+
+  /* Motion and layers. */
+  --nur-motion-fast: 140ms;
+  --nur-motion: 220ms;
+  --nur-motion-slow: 420ms;
+  --nur-ease: cubic-bezier(.2, .75, .2, 1);
+  --nur-layer-world: 0;
+  --nur-layer-content: 10;
+  --nur-layer-shell: 20;
+  --nur-layer-popover: 60;
+  --nur-layer-modal: 100;
+  --nur-layer-toast: 120;
+
+  /* Canonical aliases consumed by the historical V197 stylesheet. */
+  --f-void: var(--nur-black);
+  --f-pearl: var(--nur-ivory);
+  --f-cream: var(--nur-champagne);
+  --f-yolk: var(--nur-gold);
+  --f-mango: var(--nur-amber);
+  --f-honey: var(--nur-tangerine);
+  --f-saffron: var(--nur-gold-deep);
+  --f-ember: var(--nur-coral);
 }
 
 html,
 body,
 body.universe-edition {
-  background: var(--nur-cosmic-black) !important;
+  color-scheme: dark;
+  background: var(--nur-world) !important;
+}
+
+body {
+  color: var(--nur-text);
 }
 
 body .atm,
@@ -88,83 +138,76 @@ body #atm {
 }
 
 body .vignette {
-  background: radial-gradient(circle at 50% 48%, transparent 54%, rgba(0, 0, 0, .38) 82%, #000 100%) !important;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 58%,
+    rgba(0, 0, 0, .34) 82%,
+    var(--nur-black) 100%
+  ) !important;
 }
 
 body #space3d {
-  opacity: 1 !important;
-  filter: brightness(.94) contrast(1.16) saturate(1.26) !important;
+  opacity: .9 !important;
+  filter: brightness(.9) contrast(1.14) saturate(1.12) !important;
   mix-blend-mode: screen !important;
+}
+
+/* The transplanted whole-UI spark spans were a second, competing starfield. */
+body #v197-sparkfield {
+  display: none !important;
 }
 
 body #nur-front-v61,
 body #nur-front-v61::before,
-body #nur-front-v61::after {
+body #nur-front-v61::after,
+body.universe-edition :is(
+  .nur-interior,
+  .nur-shell,
+  .nur-main,
+  .nur-viewport,
+  .nur-page,
+  .universe-page-shell
+) {
   background: transparent !important;
 }
 
 body #nur-front-v61 .f4-copy,
 body #nur-front-v61 .f4-head,
 body #nur-front-v61 .f4-foot {
-  text-shadow: 0 1px 12px rgba(0, 0, 0, .96), 0 0 34px rgba(0, 0, 0, .78);
+  text-shadow: 0 1px 14px rgba(0, 0, 0, .95), 0 0 34px rgba(0, 0, 0, .72);
 }
 
 body #nur-front-v61 .f4-brand-word,
 body.universe-edition :is(.nur-holo-word, .universe-map-title b, .clean-audit-word) {
-  background: var(--nur-cosmic-spectrum) !important;
-  background-size: 320% 100% !important;
+  background: var(--nur-spectrum) !important;
+  background-size: 240% 100% !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
   filter:
-    drop-shadow(0 0 5px rgba(255, 248, 223, .72))
-    drop-shadow(0 0 16px rgba(255, 183, 54, .38))
-    drop-shadow(0 0 28px rgba(33, 232, 255, .13)) !important;
+    drop-shadow(0 0 5px rgba(255, 248, 223, .68))
+    drop-shadow(0 0 16px rgba(255, 173, 50, .3))
+    drop-shadow(0 0 28px rgba(33, 232, 255, .09)) !important;
 }
 
 body #nur-front-v61 :is(.f4-eyebrow, .f4-privacy i),
-body.universe-edition :is(.clean-section-label, .v172-card-kicker, .context-kicker) {
-  color: var(--nur-cosmic-champagne) !important;
+body.universe-edition :is(.clean-section-label, .v172-card-kicker, .context-kicker, .page-kicker) {
+  color: var(--nur-champagne) !important;
 }
 
 body #nur-front-v61 :is(.f4-title, .f4-lede, .f4-privacy, .f4-foot),
 body.universe-edition :is(.page-title, .universe-card-head h2, .candidate-insight h2) {
-  color: var(--nur-cosmic-pearl) !important;
+  color: var(--nur-text) !important;
 }
 
-/* The original hero-star host keeps its exact coordinates and dimensions. */
-body #nur-front-v61 #f4-core {
-  overflow: visible !important;
-  cursor: grab !important;
-  touch-action: none !important;
-  filter: none !important;
-}
-
-body #nur-front-v61 #f4-core.is-nur-brain-grabbing {
-  cursor: grabbing !important;
-}
-
-body #nur-front-v61 #f4-core > .f4-master-star--hero {
-  display: none !important;
-}
-
-body #nur-front-v61 #f4-core::before {
-  inset: -22% !important;
-  border-radius: 50% !important;
-  background:
-    radial-gradient(circle at 50% 48%, rgba(255, 211, 90, .055) 0%, rgba(255, 56, 173, .025) 29%, rgba(33, 232, 255, .014) 48%, transparent 72%) !important;
-  filter: blur(16px) !important;
-  opacity: .92 !important;
-}
-
-body #nur-front-v61 #f4-core::after {
-  display: none !important;
-}
-
-/* One shared lockup chamber keeps both tracked lines on the same axis. */
+/* Entry wordmark and subtitle share one true center axis. */
 body.front-v61-active #nur-front-v61 .f4-brand-copy {
-  align-items: stretch !important;
+  display: grid !important;
+  justify-items: center !important;
+  width: max-content !important;
+  max-width: min(92vw, 680px) !important;
+  margin-inline: auto !important;
 }
 
 body.front-v61-active #nur-front-v61 .f4-brand-copy > .f4-brand-word,
@@ -176,27 +219,55 @@ body.front-v61-active #nur-front-v61 .f4-brand-copy > .f4-brand-sub {
   text-align: center !important;
 }
 
+body #nur-front-v61 .f4-brand,
+body #nur-front-v61 .f4-brand:hover,
+body #nur-front-v61 .f4-brand:active {
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Approved anatomical star brain. The canvas dissipates naturally; no mask. */
+body #nur-front-v61 #f4-core {
+  overflow: visible !important;
+  cursor: grab !important;
+  touch-action: pan-y pinch-zoom !important;
+  filter: none !important;
+}
+
+body #nur-front-v61 #f4-core.is-nur-brain-grabbing,
+body #nur-front-v61 #front-nur-star.is-grabbing {
+  cursor: grabbing !important;
+}
+
+body #nur-front-v61 #f4-core > .f4-master-star--hero {
+  display: none !important;
+}
+
+body #nur-front-v61 #f4-core::before,
+body #nur-front-v61 #f4-core::after {
+  content: none !important;
+  display: none !important;
+}
+
 body #nur-front-v61 #front-nur-star {
   position: absolute !important;
-  inset: -34% !important;
+  inset: -8% !important;
   z-index: 8 !important;
   display: block !important;
-  width: 168% !important;
-  height: 168% !important;
+  width: 116% !important;
+  height: 116% !important;
   max-width: none !important;
   max-height: none !important;
   pointer-events: auto !important;
   opacity: 1 !important;
   cursor: grab !important;
-  touch-action: none !important;
+  touch-action: pan-y pinch-zoom !important;
   background: none !important;
   filter: none !important;
-  -webkit-mask-image: radial-gradient(circle at center, #000 0 61%, rgba(0, 0, 0, .98) 72%, rgba(0, 0, 0, .56) 85%, transparent 100%);
-  mask-image: radial-gradient(circle at center, #000 0 61%, rgba(0, 0, 0, .98) 72%, rgba(0, 0, 0, .56) 85%, transparent 100%);
-}
-
-body #nur-front-v61 #front-nur-star.is-grabbing {
-  cursor: grabbing !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
 }
 
 body #nur-front-v61 #nur-brain-canvas-v197 {
@@ -210,324 +281,31 @@ body #nur-front-v61 #nur-brain-canvas-v197 {
   pointer-events: auto !important;
 }
 
-@media (max-width: 900px) {
-  body.front-v61-active #nur-front-v61 .f4-stage,
-  body.front-v61-active #nur-front-v61 .f4-copy {
-    pointer-events: none !important;
-  }
-
-  body.front-v61-active #nur-front-v61 .f4-actions,
-  body.front-v61-active #nur-front-v61 .f4-actions *,
-  body.front-v61-active #nur-front-v61 .f4-privacy,
-  body.front-v61-active #nur-front-v61 .f4-privacy * {
-    pointer-events: auto !important;
-  }
-}
-
-/* The authenticated Systems map keeps its exact central coordinates while
- * exchanging only the legacy ray-star visual for the approved star brain. */
 body.universe-edition .universe-map-panel > .universe-master-star {
   cursor: grab !important;
-  touch-action: none !important;
+  touch-action: pan-y pinch-zoom !important;
 }
 
 body.universe-edition .universe-map-panel > .universe-master-star > #front-nur-star[data-nur-surface="universe"] {
-  inset: -21% !important;
-  width: 142% !important;
-  height: 142% !important;
-  cursor: grab !important;
+  inset: -3% !important;
+  width: 106% !important;
+  height: 106% !important;
 }
 
-body.universe-edition .universe-map-panel > .universe-master-star > #front-nur-star.is-grabbing {
-  cursor: grabbing !important;
-}
-
-/* Exact reference sparkfield emitted by the transplanted V197 runtime. */
-body #v197-sparkfield {
-  position: fixed;
-  inset: 0;
-  z-index: 4;
-  pointer-events: none;
-  contain: strict;
-}
-
-body #v197-sparkfield span {
-  position: absolute;
-  left: var(--x);
-  top: var(--y);
-  width: var(--s, 3px);
-  height: var(--s, 3px);
-  color: var(--c, #ffe9a8);
-  background: currentColor;
-  border-radius: 50%;
-  box-shadow: 0 0 6px currentColor, 0 0 14px currentColor;
-  opacity: 0;
-  transform: scale(.3);
-  animation: nurV197ExactTwinkle var(--d, 4.8s) ease-in-out var(--dl, 0s) infinite;
-}
-
-body #v197-sparkfield span::before,
-body #v197-sparkfield span::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: calc(var(--s, 3px) * 5.5);
-  height: 1px;
-  transform: translate(-50%, -50%);
-  background: linear-gradient(90deg, transparent, currentColor, transparent);
-  opacity: .85;
-}
-
-body #v197-sparkfield span::after {
-  transform: translate(-50%, -50%) rotate(90deg);
-}
-
-@keyframes nurV197ExactTwinkle {
-  0%, 100% { opacity: 0; transform: scale(.3) rotate(0deg); }
-  12% { opacity: .9; transform: scale(1) rotate(14deg); }
-  22% { opacity: .35; transform: scale(.62) rotate(26deg); }
-  30% { opacity: .95; transform: scale(1.08) rotate(38deg); }
-  46% { opacity: 0; transform: scale(.28) rotate(52deg); }
-}
-
-/* Existing orbit labels remain in the same places, with quieter starlight. */
 body #nur-front-v61 .f4-ring {
-  border-color: rgba(248, 217, 138, .2) !important;
-  box-shadow: 0 0 24px rgba(255, 173, 50, .035) !important;
+  border-color: rgba(248, 217, 138, .16) !important;
+  box-shadow: 0 0 24px rgba(255, 173, 50, .025) !important;
 }
 
-body #nur-front-v61 .f4-ring.two { border-color: rgba(54, 215, 177, .15) !important; }
-body #nur-front-v61 .f4-ring.three { border-color: rgba(255, 56, 173, .13) !important; }
+body #nur-front-v61 .f4-ring.two { border-color: rgba(33, 232, 255, .12) !important; }
+body #nur-front-v61 .f4-ring.three { border-color: rgba(255, 58, 158, .11) !important; }
 
 body #nur-front-v61 :is(.f4-neural-node, .f4-orbit-star, .f4-orbit-note) {
-  color: rgba(255, 248, 223, .7) !important;
-  text-shadow: 0 1px 10px #000, 0 0 12px rgba(255, 211, 90, .18) !important;
+  color: rgba(255, 248, 223, .68) !important;
+  text-shadow: 0 1px 10px #000, 0 0 12px rgba(255, 211, 90, .14) !important;
 }
 
-/* Black glass buttons with a warm core and a restrained spectral rim. */
-body #nur-front-v61 :is(.f4-primary, .f4-signin, .f4-link, .f4-chip),
-body.universe-edition :is(
-  .f4-primary,
-  .soft-button,
-  .world-command,
-  .clean-nav-button,
-  .clean-tool-button,
-  .clean-system-row,
-  .nur-scope,
-  .audit-scope,
-  .universe-prompt-row button
-) {
-  border-color: rgba(248, 217, 138, .3) !important;
-  background: linear-gradient(145deg, rgba(255, 211, 90, .07), rgba(2, 2, 4, .64) 46%, rgba(33, 232, 255, .025)) !important;
-  color: var(--nur-cosmic-pearl) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 248, 223, .09),
-    inset 0 0 18px rgba(255, 173, 50, .025),
-    0 0 0 1px rgba(255, 173, 50, .025),
-    0 0 20px rgba(255, 173, 50, .07) !important;
-  backdrop-filter: blur(18px) saturate(1.16) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(1.16) !important;
-}
-
-body #nur-front-v61 .f4-primary::before,
-body.universe-edition .f4-primary::before {
-  background: conic-gradient(
-    from 20deg,
-    rgba(255, 211, 90, .92),
-    rgba(255, 122, 61, .72),
-    rgba(255, 64, 95, .68),
-    rgba(255, 56, 173, .72),
-    rgba(154, 92, 255, .58),
-    rgba(33, 232, 255, .62),
-    rgba(54, 215, 177, .62),
-    rgba(255, 211, 90, .92)
-  ) !important;
-  filter: blur(8px) !important;
-  opacity: .66 !important;
-}
-
-body #nur-front-v61 :is(.f4-primary, .f4-signin, .f4-link, .f4-chip):hover,
-body.universe-edition :is(
-  .f4-primary,
-  .soft-button,
-  .world-command,
-  .clean-nav-button,
-  .clean-tool-button,
-  .clean-system-row,
-  .nur-scope,
-  .audit-scope,
-  .universe-prompt-row button
-):hover {
-  border-color: rgba(255, 229, 153, .72) !important;
-  background: linear-gradient(145deg, rgba(255, 211, 90, .13), rgba(2, 2, 4, .7) 42%, rgba(255, 56, 173, .055)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 250, 229, .15),
-    0 0 18px rgba(255, 173, 50, .18),
-    0 0 36px rgba(255, 56, 173, .08),
-    0 0 52px rgba(33, 232, 255, .05) !important;
-}
-
-body #nur-front-v61 :is(button, input, textarea, select):focus-visible,
-body.universe-edition :is(button, input, textarea, select):focus-visible {
-  outline: 1px solid var(--nur-cosmic-champagne) !important;
-  outline-offset: 3px !important;
-  box-shadow:
-    0 0 0 2px rgba(255, 211, 90, .13),
-    0 0 24px rgba(255, 173, 50, .2),
-    0 0 38px rgba(33, 232, 255, .09) !important;
-}
-
-body #nur-front-v61 :is(.f4-sheet, .f4-field, .f4-success) {
-  border-color: rgba(248, 217, 138, .17) !important;
-  background: linear-gradient(155deg, rgba(5, 5, 7, .94), rgba(0, 0, 0, .88)) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 248, 223, .06), 0 20px 70px rgba(0, 0, 0, .68) !important;
-}
-
-body #nur-front-v61 :is(input, textarea, select) {
-  border-color: rgba(248, 217, 138, .18) !important;
-  background: rgba(0, 0, 0, .52) !important;
-  color: var(--nur-cosmic-pearl) !important;
-}
-
-/* Interior pages use black glass only; the living galaxy remains behind them. */
-body.universe-edition .nur-shell,
-body.universe-edition .nur-main,
-body.universe-edition .nur-viewport,
-body.universe-edition .universe-page-shell {
-  background: transparent !important;
-}
-
-body.universe-edition :is(.nur-rail, .nur-topbar, .clean-left-rail, .clean-right-rail) {
-  background: rgba(0, 0, 0, .72) !important;
-  border-color: rgba(248, 217, 138, .1) !important;
-  backdrop-filter: blur(22px) saturate(1.12) !important;
-  -webkit-backdrop-filter: blur(22px) saturate(1.12) !important;
-}
-
-body.universe-edition :is(
-  .nur-panel,
-  .universe-card,
-  .context-rail-card,
-  .v172-context-card,
-  .universe-map-panel,
-  .scope-modal,
-  .modal
-) {
-  border-color: rgba(248, 217, 138, .13) !important;
-  background: linear-gradient(145deg, rgba(5, 5, 7, .64), rgba(0, 0, 0, .5)) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 248, 223, .045), 0 15px 42px rgba(0, 0, 0, .28) !important;
-  backdrop-filter: blur(18px) saturate(1.08) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(1.08) !important;
-}
-
-body.universe-edition .nur-exact-mini-host[data-nur-mini-compacted="true"] > .nur-v197-mini-star-lite {
-  background: radial-gradient(
-    circle at 50% 50%,
-    #fffdf0 0 7%,
-    #ffd35a 9% 15%,
-    rgba(255, 122, 61, .3) 23%,
-    rgba(255, 56, 173, .17) 36%,
-    rgba(33, 232, 255, .12) 49%,
-    rgba(54, 215, 177, .08) 58%,
-    transparent 72%
-  ) !important;
-  box-shadow:
-    0 0 4px rgba(255, 248, 223, .8),
-    0 0 10px rgba(255, 173, 50, .42),
-    0 0 16px rgba(255, 56, 173, .16),
-    0 0 22px rgba(33, 232, 255, .09) !important;
-}
-
-body.universe-edition .nur-exact-mini-host[data-nur-mini-compacted="true"] > .nur-v197-mini-star-lite::before {
-  background: conic-gradient(
-    from -12deg,
-    #fff8df,
-    #ffd35a,
-    #ff7a3d,
-    #ff405f,
-    #ff38ad,
-    #9a5cff,
-    #21e8ff,
-    #36d7b1,
-    #ffd35a,
-    #fff8df
-  ) !important;
-}
-
-@media (max-width: 600px) {
-  body #nur-front-v61 #front-nur-star {
-    inset: -27% !important;
-    width: 154% !important;
-    height: 154% !important;
-  }
-
-  body #v197-sparkfield span:nth-child(n+13) { display: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  body #v197-sparkfield { display: none !important; }
-
-  body #nur-front-v61 .f4-primary::before,
-  body.universe-edition .f4-primary::before {
-    animation: none !important;
-  }
-}
-
-/* Canonical black-glass world: Entry and the authenticated product share one
- * material system. Violet remains an accent in the spectral edge, never a
- * page or panel fill. */
-body.universe-edition {
-  --f-void: var(--nur-black);
-  --f-pearl: var(--nur-pearl-ivory);
-  --f-cream: var(--nur-champagne);
-  --f-yolk: var(--nur-stellar-gold);
-  --f-mango: var(--nur-solar-amber);
-  --f-honey: var(--nur-aurora-orange);
-  --f-saffron: var(--nur-antique-gold);
-  --f-ember: var(--nur-coral-flame);
-  color: var(--nur-text-primary) !important;
-  color-scheme: dark;
-  background-color: var(--nur-bg-world) !important;
-}
-
-body.universe-edition :is(
-  #nur-front-v61,
-  .nur-interior,
-  .nur-shell,
-  .nur-main,
-  .nur-viewport,
-  .nur-page,
-  .universe-page-shell,
-  .universe-stage,
-  .universe-map-sky
-) {
-  background-color: transparent !important;
-}
-
-body.universe-edition :is(
-  #nur-front-v61,
-  .nur-interior,
-  .nur-shell,
-  .nur-main,
-  .nur-viewport,
-  .nur-page,
-  .universe-page-shell
-)::before,
-body.universe-edition :is(
-  #nur-front-v61,
-  .nur-interior,
-  .nur-shell,
-  .nur-main,
-  .nur-viewport,
-  .nur-page,
-  .universe-page-shell
-)::after {
-  background-color: transparent !important;
-}
-
-/* Blur only the large shell surfaces. Children use translucent pigment and
- * inner lines, avoiding the muddy, expensive nested-blur stack. */
+/* Shared shell: blur only the four large glass boundaries. */
 body.universe-edition :is(
   .nur-rail,
   .clean-left-rail,
@@ -537,16 +315,15 @@ body.universe-edition :is(
   .global-composer,
   .universe-composer-shell
 ) {
-  border-color: var(--nur-border-subtle) !important;
+  border-color: var(--nur-line-faint) !important;
   background:
-    linear-gradient(145deg, rgba(255, 248, 223, .026), transparent 34%),
-    rgba(3, 3, 7, .7) !important;
+    linear-gradient(145deg, rgba(255, 248, 223, .024), transparent 35%),
+    rgba(3, 3, 7, .68) !important;
   box-shadow:
-    inset 0 1px 0 rgba(248, 217, 138, .08),
-    inset 0 0 0 1px rgba(33, 232, 255, .018),
-    0 20px 54px rgba(0, 0, 0, .34) !important;
-  backdrop-filter: blur(var(--nur-glass-blur)) saturate(1.08) !important;
-  -webkit-backdrop-filter: blur(var(--nur-glass-blur)) saturate(1.08) !important;
+    inset 0 1px 0 rgba(248, 217, 138, .06),
+    0 20px 54px rgba(0, 0, 0, .32) !important;
+  backdrop-filter: blur(var(--nur-glass-blur)) saturate(1.06) !important;
+  -webkit-backdrop-filter: blur(var(--nur-glass-blur)) saturate(1.06) !important;
 }
 
 body.universe-edition :is(
@@ -564,230 +341,440 @@ body.universe-edition :is(
   .lens-empty,
   .scope-modal,
   .modal,
-  .share-sheet,
-  .nur-v197-adjunct,
-  #nur-v197-adjunct-root > *
+  .share-sheet
 ) {
-  border-color: var(--nur-border-subtle) !important;
+  border-color: var(--nur-line-faint) !important;
+  border-radius: var(--nur-radius-panel) !important;
   background:
-    radial-gradient(circle at 9% 0%, rgba(255, 211, 90, .035), transparent 26%),
-    radial-gradient(circle at 94% 100%, rgba(33, 232, 255, .018), transparent 24%),
+    linear-gradient(145deg, rgba(255, 248, 223, .026), transparent 32%),
     rgba(3, 3, 7, .48) !important;
   box-shadow: var(--nur-panel-shadow) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
-body.universe-edition :is(
-  .scope-backdrop,
-  .modal-backdrop,
-  .sheet-backdrop,
-  .share-sheet-backdrop
-) {
-  background: rgba(0, 0, 0, .72) !important;
+body.universe-edition :is(.scope-backdrop, .modal-backdrop, .sheet-backdrop, .share-sheet-backdrop) {
+  background: rgba(0, 0, 0, .76) !important;
   backdrop-filter: blur(7px) !important;
   -webkit-backdrop-filter: blur(7px) !important;
 }
 
-body.universe-edition :is(
-  .scope-modal,
-  .modal,
-  .share-sheet,
-  #nur-v197-adjunct-root
-) {
-  background-color: rgba(3, 3, 7, .86) !important;
+body #nur-front-v61 :is(.f4-sheet, .f4-success) {
+  border: 1px solid var(--nur-line) !important;
+  border-radius: var(--nur-radius-panel) !important;
+  background:
+    linear-gradient(145deg, rgba(255, 248, 223, .035), transparent 36%),
+    rgba(3, 3, 7, .9) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 223, .06),
+    0 24px 74px rgba(0, 0, 0, .68),
+    0 0 42px rgba(255, 211, 90, .045) !important;
+  backdrop-filter: blur(12px) saturate(1.06) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.06) !important;
 }
 
-body.universe-edition :is(
-  .page-title,
-  .panel-title,
-  .context-title,
-  .clean-card-heading,
-  .talk-message b,
-  .journal-entry b,
-  .plan-step b
-) {
-  color: var(--nur-text-primary) !important;
-}
-
-body.universe-edition :is(
-  .page-sub,
-  .panel-sub,
-  .context-copy,
-  .talk-message p,
-  .journal-entry p,
-  .plan-step p,
-  small,
-  time
-) {
-  color: var(--nur-text-secondary) !important;
-}
-
-/* One transparent holographic control law for every button in both frames.
- * Repeating sub-pixel radial gradients read as tiny stellar glints without
- * adding hundreds of animated DOM particles. */
+/* Remove the rejected global dotted button material before assigning roles. */
 body #nur-front-v61 button:not(.f4-brand),
 body.universe-edition #nur-front-v61 button {
+  background-image: none !important;
+  background-size: auto !important;
+  background-position: 0 0 !important;
+  animation: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  transition:
+    transform var(--nur-motion-fast) var(--nur-ease),
+    border-color var(--nur-motion-fast) ease,
+    background-color var(--nur-motion-fast) ease,
+    box-shadow var(--nur-motion-fast) ease,
+    color var(--nur-motion-fast) ease,
+    opacity var(--nur-motion-fast) ease !important;
+}
+
+/* Primary command: transparent black glass with a spectral edge. */
+body #nur-front-v61 :is(.f4-primary, .f4-submit),
+body.universe-edition #nur-front-v61 :is(.send-button, .universe-send) {
   isolation: isolate !important;
-  border-color: rgba(248, 217, 138, .36) !important;
+  min-height: var(--nur-control-h) !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--nur-radius-control) !important;
   background:
-    radial-gradient(circle at 17% 24%, rgba(255, 248, 223, .92) 0 .65px, transparent 1.45px) padding-box,
-    radial-gradient(circle at 72% 36%, rgba(33, 232, 255, .72) 0 .6px, transparent 1.4px) padding-box,
-    linear-gradient(145deg, rgba(255, 248, 223, .055), rgba(3, 3, 7, .2) 42%, rgba(0, 0, 0, .38)) padding-box !important;
-  background-size: 59px 41px, 83px 57px, 100% 100% !important;
-  background-position: 0 0, 17px 9px, 0 0 !important;
-  background-clip: padding-box, padding-box, padding-box !important;
-  color: var(--nur-text-primary) !important;
+    linear-gradient(145deg, rgba(255, 211, 90, .1), rgba(3, 3, 7, .76) 42%, rgba(255, 58, 158, .045)) padding-box,
+    var(--nur-spectrum-border) border-box !important;
+  color: var(--nur-text) !important;
   -webkit-text-fill-color: currentColor !important;
   box-shadow:
-    inset 1px 0 0 rgba(255, 211, 90, .3),
-    inset -1px 0 0 rgba(255, 58, 158, .25),
     inset 0 1px 0 rgba(255, 248, 223, .12),
-    inset 0 -1px 0 rgba(33, 232, 255, .19),
-    0 0 16px rgba(255, 211, 90, .06),
-    0 0 28px rgba(255, 58, 158, .025) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  text-shadow: 0 0 12px rgba(255, 248, 223, .1) !important;
-  transition:
-    transform var(--nur-motion-micro) var(--nur-ease),
-    box-shadow var(--nur-motion-micro) var(--nur-ease),
-    color var(--nur-motion-micro) ease,
-    opacity var(--nur-motion-micro) ease !important;
+    inset 0 -1px 0 rgba(33, 232, 255, .08),
+    var(--nur-control-shadow),
+    var(--nur-glow-gold),
+    var(--nur-glow-holo) !important;
+  text-shadow: 0 0 13px rgba(255, 248, 223, .14) !important;
+}
+
+body #nur-front-v61 :is(.f4-primary, .f4-submit)::before,
+body.universe-edition #nur-front-v61 :is(.send-button, .universe-send)::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 1px !important;
+  z-index: -1 !important;
+  display: block !important;
+  border-radius: calc(var(--nur-radius-control) - 2px) !important;
+  background: linear-gradient(108deg, transparent 18%, rgba(255, 248, 223, .14) 49%, transparent 78%) !important;
+  opacity: .48 !important;
+  transform: translateX(-72%) !important;
+  pointer-events: none !important;
+}
+
+body #nur-front-v61 :is(.f4-primary, .f4-submit):hover::before,
+body.universe-edition #nur-front-v61 :is(.send-button, .universe-send):hover::before {
+  transform: translateX(72%) !important;
+  transition: transform 520ms var(--nur-ease) !important;
+}
+
+/* Secondary command: quieter glass, no animated or dotted fill. */
+body #nur-front-v61 :is(.f4-signin, .f4-link, .f4-chip),
+body.universe-edition #nur-front-v61 :is(
+  .soft-button,
+  .tiny-link,
+  .nur-scope,
+  .audit-scope,
+  .stage,
+  .research-tabs button,
+  .community-tabs button,
+  .universe-prompt-row button
+) {
+  min-height: var(--nur-control-h-compact) !important;
+  border: 1px solid var(--nur-line) !important;
+  border-radius: var(--nur-radius-control) !important;
+  background: rgba(3, 3, 7, .46) !important;
+  color: var(--nur-text-soft) !important;
+  -webkit-text-fill-color: currentColor !important;
+  box-shadow: var(--nur-control-shadow) !important;
+}
+
+/* Navigation is structurally quiet; state comes from one luminous axis. */
+body.universe-edition #nur-front-v61 :is(
+  .clean-nav-button,
+  .clean-tool-button,
+  .clean-system-row,
+  .world-command,
+  .mobile-tabs button,
+  .audit-tabs button
+) {
+  position: relative !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--nur-radius-control) !important;
+  background: transparent !important;
+  color: var(--nur-text-soft) !important;
+  -webkit-text-fill-color: currentColor !important;
+  box-shadow: none !important;
 }
 
 body.universe-edition #nur-front-v61 :is(
   .clean-nav-button,
   .clean-tool-button,
-  .clean-system-row
-) {
-  position: relative !important;
+  .clean-system-row,
+  .world-command,
+  .mobile-tabs button,
+  .audit-tabs button
+):hover {
+  border-color: var(--nur-line) !important;
+  background: rgba(255, 248, 223, .035) !important;
+  color: var(--nur-text) !important;
+  transform: none !important;
 }
 
-body #nur-front-v61 :is(.f4-primary, .f4-submit)::before,
 body.universe-edition #nur-front-v61 :is(
-  .f4-primary,
-  .soft-button,
-  .universe-deep,
-  .nur-scope,
-  .universe-add-system,
-  .world-command,
-  .audit-scope
-)::before,
-body.universe-edition #nur-front-v61 .context-list button::before {
-  content: none !important;
-  display: none !important;
+  .clean-nav-button.active,
+  .clean-tool-button.active,
+  .clean-system-row.active,
+  .world-command.active,
+  .mobile-tabs button.active,
+  .audit-tabs button.active,
+  button[aria-current="page"],
+  button[aria-selected="true"]
+) {
+  border-color: rgba(255, 211, 90, .34) !important;
+  background:
+    linear-gradient(90deg, rgba(255, 211, 90, .1), rgba(3, 3, 7, .22) 42%, rgba(33, 232, 255, .025)) !important;
+  color: var(--nur-text) !important;
+  box-shadow:
+    inset 2px 0 0 var(--nur-gold),
+    0 0 18px rgba(255, 211, 90, .07) !important;
+}
+
+/* Icon actions keep a stable square target and no pill silhouette. */
+body.universe-edition #nur-front-v61 :is(
+  .voice-button,
+  .nur-user,
+  #scope-open,
+  .composer-action--voice
+) {
+  width: var(--nur-control-h) !important;
+  min-width: var(--nur-control-h) !important;
+  height: var(--nur-control-h) !important;
+  min-height: var(--nur-control-h) !important;
+  padding: 0 !important;
+  border: 1px solid var(--nur-line) !important;
+  border-radius: var(--nur-radius-control) !important;
+  background: rgba(3, 3, 7, .48) !important;
+  box-shadow: var(--nur-control-shadow) !important;
+}
+
+/* Destructive and dismissive actions do not borrow the gold primary signal. */
+body #nur-front-v61 :is(.f4-close, [data-action*="delete"], [data-action*="reject"], [data-action*="cancel"]),
+body.universe-edition #nur-front-v61 :is([data-action*="delete"], [data-action*="reject"], [data-action*="cancel"]) {
+  border-color: rgba(255, 82, 111, .32) !important;
+  background: rgba(255, 82, 111, .035) !important;
+  color: rgba(255, 184, 196, .9) !important;
+  box-shadow: none !important;
 }
 
 body #nur-front-v61 button:not(.f4-brand):hover,
 body.universe-edition #nur-front-v61 button:hover {
-  border-color: rgba(255, 229, 153, .7) !important;
-  background:
-    radial-gradient(circle at 17% 24%, rgba(255, 255, 255, 1) 0 .8px, transparent 1.7px) padding-box,
-    radial-gradient(circle at 72% 36%, rgba(33, 232, 255, .95) 0 .72px, transparent 1.6px) padding-box,
-    linear-gradient(145deg, rgba(255, 248, 223, .09), rgba(3, 3, 7, .24) 42%, rgba(0, 0, 0, .42)) padding-box !important;
-  background-size: 59px 41px, 83px 57px, 100% 100% !important;
+  border-color: rgba(255, 229, 153, .62) !important;
   color: #fffdf4 !important;
   box-shadow:
-    inset 1px 0 0 rgba(255, 211, 90, .55),
-    inset -1px 0 0 rgba(255, 58, 158, .42),
-    inset 0 1px 0 rgba(255, 255, 255, .18),
-    inset 0 -1px 0 rgba(33, 232, 255, .38),
-    var(--nur-glow-gold),
-    var(--nur-glow-pink),
-    var(--nur-glow-cyan) !important;
+    inset 0 1px 0 rgba(255, 255, 255, .12),
+    0 0 20px rgba(255, 211, 90, .12),
+    0 0 30px rgba(255, 58, 158, .045),
+    0 0 36px rgba(33, 232, 255, .035) !important;
   transform: translateY(-1px) !important;
-  animation: nurHolographicGlassDrift 3.6s linear infinite !important;
 }
 
 body #nur-front-v61 button:not(.f4-brand):active,
 body.universe-edition #nur-front-v61 button:active {
   transform: translateY(0) scale(.985) !important;
-  box-shadow: inset 0 1px 9px rgba(0, 0, 0, .5), 0 0 15px rgba(255, 211, 90, .11) !important;
 }
 
 body #nur-front-v61 button:not(.f4-brand):focus-visible,
-body.universe-edition #nur-front-v61 button:focus-visible {
-  outline: 1px solid var(--nur-champagne) !important;
-  outline-offset: 3px !important;
-  box-shadow: var(--nur-focus-ring), var(--nur-glow-gold) !important;
+body.universe-edition #nur-front-v61 button:focus-visible,
+body #nur-front-v61 :is(input, textarea, select):focus-visible,
+body.universe-edition :is(input, textarea, select):focus-visible {
+  outline: 0 !important;
+  box-shadow: var(--nur-focus) !important;
 }
 
 body #nur-front-v61 button:not(.f4-brand):disabled,
 body.universe-edition #nur-front-v61 button:disabled,
 body.universe-edition #nur-front-v61 button[aria-disabled="true"] {
-  opacity: .42 !important;
-  filter: saturate(.58) !important;
+  opacity: .4 !important;
+  filter: saturate(.55) !important;
   cursor: not-allowed !important;
-  animation: none !important;
   transform: none !important;
+  box-shadow: none !important;
 }
 
-body.universe-edition #nur-front-v61 :is(
-  button.active,
-  button.selected,
-  button[aria-selected="true"],
-  button[aria-pressed="true"],
-  .clean-nav-button.active,
-  .world-command.active,
-  .audit-scope.selected
-) {
-  background:
-    radial-gradient(circle at 18% 25%, rgba(255, 255, 255, 1) 0 .75px, transparent 1.6px) padding-box,
-    radial-gradient(circle at 76% 42%, rgba(33, 232, 255, .9) 0 .7px, transparent 1.5px) padding-box,
-    linear-gradient(145deg, rgba(255, 211, 90, .095), rgba(3, 3, 7, .22) 47%, rgba(255, 58, 158, .035)) padding-box !important;
-  background-size: 53px 39px, 79px 61px, 100% 100% !important;
-  color: #fffdf4 !important;
-  box-shadow:
-    inset 3px 0 0 rgba(255, 211, 90, .74),
-    inset -1px 0 0 rgba(255, 58, 158, .42),
-    inset 0 1px 0 rgba(255, 255, 255, .16),
-    inset 0 -1px 0 rgba(33, 232, 255, .34),
-    0 0 20px rgba(255, 211, 90, .14),
-    0 0 34px rgba(33, 232, 255, .055) !important;
-}
-
+/* Forms are clear black glass with a single focus edge. */
 body #nur-front-v61 :is(input, textarea, select),
 body.universe-edition :is(input, textarea, select) {
-  border: 1px solid var(--nur-border-subtle) !important;
-  background:
-    linear-gradient(145deg, rgba(255, 248, 223, .035), rgba(3, 3, 7, .34)),
-    rgba(0, 0, 0, .38) !important;
-  color: var(--nur-text-primary) !important;
+  border: 1px solid var(--nur-line-faint) !important;
+  border-radius: var(--nur-radius-control) !important;
+  background: rgba(0, 0, 0, .46) !important;
+  color: var(--nur-text) !important;
   -webkit-text-fill-color: currentColor !important;
-  box-shadow: inset 0 1px 0 rgba(255, 248, 223, .04) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 248, 223, .035) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
 body #nur-front-v61 :is(input, textarea, select):focus,
 body.universe-edition :is(input, textarea, select):focus {
-  border-color: rgba(255, 211, 90, .58) !important;
-  outline: 1px solid rgba(33, 232, 255, .34) !important;
-  outline-offset: 2px !important;
-  box-shadow: var(--nur-focus-ring), inset 0 1px 0 rgba(255, 248, 223, .06) !important;
+  border-color: rgba(255, 211, 90, .56) !important;
+  outline: 0 !important;
 }
 
-body #nur-front-v61 input::placeholder,
-body #nur-front-v61 textarea::placeholder,
-body.universe-edition input::placeholder,
-body.universe-edition textarea::placeholder {
-  color: rgba(248, 217, 138, .5) !important;
+body #nur-front-v61 :is(input, textarea)::placeholder,
+body.universe-edition :is(input, textarea)::placeholder {
+  color: rgba(248, 217, 138, .46) !important;
   opacity: 1 !important;
 }
 
 body #nur-front-v61 input:-webkit-autofill,
 body.universe-edition input:-webkit-autofill {
-  -webkit-box-shadow: 0 0 0 1000px #030307 inset !important;
-  -webkit-text-fill-color: var(--nur-pearl-ivory) !important;
-  caret-color: var(--nur-pearl-ivory) !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--nur-ink) inset !important;
+  -webkit-text-fill-color: var(--nur-ivory) !important;
+  caret-color: var(--nur-ivory) !important;
 }
 
-@keyframes nurHolographicGlassDrift {
-  from { background-position: 0 0, 17px 9px, 0 0; }
-  to { background-position: 59px -41px, -66px 66px, 0 0; }
+/* Systems uses one normalized 100 by 100 coordinate field on desktop. */
+body.universe-edition #nur-front-v61 .universe-main-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, .32fr) !important;
+  gap: var(--nur-shell-gap) !important;
+  align-items: stretch !important;
 }
 
+body.universe-edition #nur-front-v61 .universe-map-panel {
+  position: relative !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: clamp(470px, calc(100dvh - 290px), 640px) !important;
+  overflow: hidden !important;
+  container-type: inline-size;
+}
+
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node {
+  --node-x: 50;
+  --node-y: 50;
+  left: calc(var(--node-x) * 1%) !important;
+  right: auto !important;
+  top: calc(var(--node-y) * 1%) !important;
+  bottom: auto !important;
+  width: clamp(148px, 19cqw, 214px) !important;
+  min-height: 56px !important;
+  transform: translate(-50%, -50%) !important;
+  border: 1px solid rgba(248, 217, 138, .2) !important;
+  border-radius: var(--nur-radius-control) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 211, 90, .05), rgba(3, 3, 7, .62) 52%, rgba(33, 232, 255, .025)) !important;
+  box-shadow: var(--nur-control-shadow) !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.quiet { --node-x: 22; --node-y: 29; }
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.public { --node-x: 22; --node-y: 53; }
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.social { --node-x: 22; --node-y: 76; }
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.wealth { --node-x: 78; --node-y: 29; }
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.embodied { --node-x: 78; --node-y: 53; }
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.relational { --node-x: 78; --node-y: 76; }
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.neural { --node-x: 50; --node-y: 91; }
+
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.active {
+  border-color: rgba(255, 211, 90, .6) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 211, 90, .12), rgba(3, 3, 7, .7) 54%, rgba(255, 58, 158, .04)) !important;
+  box-shadow:
+    inset 2px 0 0 var(--nur-gold),
+    0 0 24px rgba(255, 211, 90, .16),
+    0 0 34px rgba(33, 232, 255, .04) !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-title {
+  left: 50% !important;
+  top: clamp(22px, 4%, 34px) !important;
+  width: min(190px, 38%) !important;
+  transform: translateX(-50%) !important;
+  text-align: center !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-master-star {
+  left: 50% !important;
+  top: 51% !important;
+  width: clamp(230px, 35cqw, 360px) !important;
+  height: clamp(190px, 30cqw, 310px) !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-add-system {
+  top: 20px !important;
+  right: 20px !important;
+  left: auto !important;
+  bottom: auto !important;
+  min-height: 50px !important;
+  border: 1px solid var(--nur-line) !important;
+  border-radius: var(--nur-radius-control) !important;
+  background: rgba(3, 3, 7, .58) !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-map-mantra {
+  bottom: 16px !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-state-strip {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(150px, 1.1fr) minmax(170px, 1.2fr) !important;
+  gap: 0 !important;
+  margin-top: var(--nur-shell-gap) !important;
+  border: 1px solid var(--nur-line-faint) !important;
+  border-radius: var(--nur-radius-panel) !important;
+  background: rgba(3, 3, 7, .5) !important;
+  overflow: hidden !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-state-strip > article {
+  min-width: 0 !important;
+  min-height: 104px !important;
+  padding: 14px !important;
+  border: 0 !important;
+  border-inline-end: 1px solid var(--nur-line-faint) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-state-strip > article:last-child {
+  border-inline-end: 0 !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-lower-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: var(--nur-shell-gap) !important;
+  align-items: stretch !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-lower-grid > .universe-card {
+  min-width: 0 !important;
+  min-height: 360px !important;
+  height: auto !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-composer-shell {
+  position: relative !important;
+  inset: auto !important;
+  margin-top: var(--nur-shell-gap) !important;
+  border: 1px solid var(--nur-line) !important;
+  border-radius: var(--nur-radius-panel) !important;
+}
+
+/* Small type remains readable in operational surfaces. */
+body.universe-edition #nur-front-v61 :is(
+  .clean-nav-sub,
+  .clean-tool-button small,
+  .clean-system-row small,
+  .universe-system-node small,
+  .universe-card small,
+  .universe-state-strip small,
+  .v172-context-pane small
+) {
+  font-size: max(11px, .72rem) !important;
+  line-height: 1.25 !important;
+}
+
+@media (max-width: 1280px) {
+  body.universe-edition #nur-front-v61 .universe-lower-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-state-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-state-strip > article:nth-child(3n) {
+    border-inline-end: 0 !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --nur-page-pad: 16px;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-main-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-insight-panel {
+    min-height: 0 !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-map-panel {
+    height: clamp(520px, 70dvh, 650px) !important;
+  }
+}
+
+/* Mobile Systems becomes an explicit field plus a two-column system index. */
 @media (max-width: 760px) {
   body.universe-edition :is(
     .nur-rail,
@@ -798,30 +785,129 @@ body.universe-edition input:-webkit-autofill {
     .global-composer,
     .universe-composer-shell
   ) {
-    backdrop-filter: blur(6px) saturate(1.04) !important;
-    -webkit-backdrop-filter: blur(6px) saturate(1.04) !important;
+    backdrop-filter: blur(6px) saturate(1.03) !important;
+    -webkit-backdrop-filter: blur(6px) saturate(1.03) !important;
   }
 
-  body #nur-front-v61 button:not(.f4-brand):hover,
-  body.universe-edition #nur-front-v61 button:hover {
-    animation: none !important;
+  body.universe-edition .nur-topbar {
+    min-height: 58px !important;
+    height: auto !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-map-panel {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 9px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 16px !important;
+    overflow: visible !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-map-panel :is(
+    .universe-map-fog,
+    .universe-map-grain,
+    .universe-rings,
+    .universe-orbit-line,
+    .universe-field-readout,
+    .universe-scan-orb,
+    .universe-sigil,
+    .universe-system-lane
+  ) {
+    display: none !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-title,
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-master-star,
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node,
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-add-system,
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-mantra,
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-legend {
+    position: relative !important;
+    inset: auto !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-title {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-master-star {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    justify-self: center !important;
+    width: min(84vw, 330px) !important;
+    height: min(64vw, 250px) !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node {
+    width: 100% !important;
+    min-height: 58px !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.neural,
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-add-system,
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-mantra,
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-legend {
+    grid-column: 1 / -1 !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-legend {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px 14px !important;
+    justify-content: center !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-state-strip,
+  body.universe-edition #nur-front-v61 .universe-lower-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-state-strip > article {
+    min-height: 88px !important;
+    border-inline-end: 0 !important;
+    border-bottom: 1px solid var(--nur-line-faint) !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-state-strip > article:last-child {
+    border-bottom: 0 !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-lower-grid > .universe-card {
+    min-height: 0 !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-stage,
+  body.front-v61-active #nur-front-v61 .f4-copy {
+    pointer-events: none !important;
+  }
+
+  body.front-v61-active #nur-front-v61 :is(.f4-actions, .f4-actions *, .f4-privacy, .f4-privacy *) {
+    pointer-events: auto !important;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body #nur-front-v61 button:not(.f4-brand),
+  body #nur-front-v61 *,
+  body.universe-edition #nur-front-v61 * {
+    scroll-behavior: auto !important;
+  }
+
+  body #nur-front-v61 button,
   body.universe-edition #nur-front-v61 button {
     animation: none !important;
     transition-duration: .01ms !important;
   }
-}
 
-body #nur-front-v61 .f4-brand,
-body #nur-front-v61 .f4-brand:hover,
-body #nur-front-v61 .f4-brand:active {
-  border: 0 !important;
-  background: none !important;
-  box-shadow: none !important;
-  animation: none !important;
-  transform: none !important;
+  body #nur-front-v61 :is(.f4-primary, .f4-submit)::before,
+  body.universe-edition #nur-front-v61 :is(.send-button, .universe-send)::before {
+    content: none !important;
+  }
 }

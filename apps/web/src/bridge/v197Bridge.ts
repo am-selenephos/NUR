@@ -7,7 +7,6 @@ import {
   compactV197MiniStars,
   ensureV197EntryPolish,
   ensureV197PremiumPolish,
-  ensureV197StaticStarfield,
 } from "./v197Polish";
 import { selectRequired, V197_SELECTORS } from "./v197Selectors";
 
@@ -110,7 +109,6 @@ export class V197Bridge {
     if (!integrity.pass) throw new Error("Canonical V197 source verification failed.");
     const entryFrame = selectRequired<HTMLIFrameElement>(this.hostDocument, V197_SELECTORS.entryStage);
     const entryDocument = await waitForFrameDocument(entryFrame, "#nur-front-v61", "Canonical V197 entry");
-    ensureV197StaticStarfield(entryDocument, "entry");
     ensureV197EntryPolish(entryDocument);
     this.ensureEntryAuthBinding(entryDocument, hostApi);
 

@@ -1198,7 +1198,6 @@ export function ensureV197PremiumPolish(document: Document): HTMLStyleElement {
     compactV197MiniStars(document);
     ensureStableMapWordmark(document);
     ensureV197InteractionBudget(document);
-    ensureV197StaticStarfield(document, "universe");
     ensureV197BlackGalaxy(document);
     ensureV197StarBrain(document);
     return existing;
@@ -1214,7 +1213,6 @@ export function ensureV197PremiumPolish(document: Document): HTMLStyleElement {
   compactV197MiniStars(document);
   ensureStableMapWordmark(document);
   ensureV197InteractionBudget(document);
-  ensureV197StaticStarfield(document, "universe");
   ensureV197BlackGalaxy(document);
   ensureV197StarBrain(document);
   return style;
