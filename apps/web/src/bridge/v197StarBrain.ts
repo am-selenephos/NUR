@@ -4,7 +4,7 @@ export const V197_STAR_BRAIN_CANVAS_ID = "nur-brain-canvas-v197";
 export const V197_STAR_BRAIN_HOST_ID = "front-nur-star";
 const V197_STAR_BRAIN_SCRIPT_ID = "nur-v197-exact-star-brain-runtime";
 
-type V197StarBrainSurface = "entry" | "universe";
+type V197StarBrainSurface = "entry" | "today" | "universe";
 
 type ExactBrainWindow = Window & {
   nurStarBrain?: {
@@ -17,10 +17,21 @@ type ExactBrainWindow = Window & {
 
 type VeiledContext = CanvasRenderingContext2D & { __v197Veil?: boolean };
 
+type V197StarBrainController = {
+  observer: MutationObserver;
+  frame: number | null;
+};
+
+const starBrainControllers = new WeakMap<Document, V197StarBrainController>();
+
 function resolveV197StarBrainHost(document: Document): {
   host: HTMLElement;
   surface: V197StarBrainSurface;
 } | null {
+  const todayPage = document.querySelector<HTMLElement>("#page-today.active");
+  const todayHost = todayPage?.querySelector<HTMLElement>(".orbit-star-zone > .f4-core");
+  if (todayHost) return { host: todayHost, surface: "today" };
+
   const universeHost = document.querySelector<HTMLElement>(
     "body.universe-edition .universe-map-panel > .universe-master-star",
   );
@@ -37,6 +48,59 @@ function removeLegacyMasterStar(host: HTMLElement, surface: V197StarBrainSurface
 
   host.querySelectorAll<HTMLElement>(selector).forEach(element => element.remove());
   host.dataset.nurLegacyMasterStar = "removed";
+}
+
+function placeV197StarBrainHost(document: Document): HTMLElement | null {
+  const resolved = resolveV197StarBrainHost(document);
+  if (!resolved) return null;
+  const { host: canonicalHost, surface } = resolved;
+  canonicalHost.dataset.nurStarBrainSurface = surface;
+  removeLegacyMasterStar(canonicalHost, surface);
+
+  let brainHost = document.getElementById(V197_STAR_BRAIN_HOST_ID) as HTMLElement | null;
+  if (!brainHost) {
+    brainHost = document.createElement("div");
+    brainHost.id = V197_STAR_BRAIN_HOST_ID;
+    brainHost.dataset.nurSource = "exact-v197-star-brain-galaxy-port";
+  }
+  if (brainHost.parentElement !== canonicalHost) canonicalHost.append(brainHost);
+  brainHost.dataset.nurSurface = surface;
+  brainHost.setAttribute("aria-label", surface === "today" ? "Wake the NUR mind" : "Wake the NUR star brain");
+  brainHost.setAttribute("role", "button");
+  brainHost.tabIndex = 0;
+  return brainHost;
+}
+
+function observeV197StarBrainPlacement(document: Document, frameWindow: Window): void {
+  if (starBrainControllers.has(document)) return;
+  const root = document.getElementById("nur-front-v61") ?? document.body;
+  if (!root) return;
+
+  const constructors = frameWindow as unknown as {
+    MutationObserver: typeof MutationObserver;
+    HTMLElement: typeof HTMLElement;
+  };
+  const controller: V197StarBrainController = { observer: null as unknown as MutationObserver, frame: null };
+  const observer = new constructors.MutationObserver((records: MutationRecord[]) => {
+    const routeChanged = records.some(record => (
+      record.type === "attributes"
+      || Array.from(record.addedNodes).some(node => node instanceof constructors.HTMLElement)
+      || Array.from(record.removedNodes).some(node => node instanceof constructors.HTMLElement)
+    ));
+    if (!routeChanged || controller.frame !== null) return;
+    controller.frame = frameWindow.requestAnimationFrame(() => {
+      controller.frame = null;
+      placeV197StarBrainHost(document);
+    });
+  });
+  controller.observer = observer;
+  observer.observe(root, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+  starBrainControllers.set(document, controller);
 }
 
 /** Match the reference V197 full-sky wash attenuation without touching stars. */
@@ -67,37 +131,11 @@ export function ensureV197BlackGalaxy(document: Document): void {
  * adapted to canonical V197; anatomy and stellar rendering remain untouched.
  */
 export function ensureV197StarBrain(document: Document): HTMLCanvasElement | null {
-  const resolved = resolveV197StarBrainHost(document);
   const frameWindow = document.defaultView as ExactBrainWindow | null;
-  if (!resolved || !frameWindow) return null;
-  const { host: canonicalHost, surface } = resolved;
-  canonicalHost.dataset.nurStarBrainSurface = surface;
-  removeLegacyMasterStar(canonicalHost, surface);
-
-  let brainHost = document.getElementById(V197_STAR_BRAIN_HOST_ID) as HTMLElement | null;
-  if (!brainHost) {
-    brainHost = document.createElement("div");
-    brainHost.id = V197_STAR_BRAIN_HOST_ID;
-    brainHost.dataset.nurSource = "exact-v197-star-brain-galaxy-port";
-    canonicalHost.append(brainHost);
-  } else if (brainHost.parentElement !== canonicalHost) {
-    canonicalHost.append(brainHost);
-  }
-  brainHost.dataset.nurSurface = surface;
-  brainHost.setAttribute("role", "button");
-  brainHost.tabIndex = 0;
-
-  if (canonicalHost.dataset.nurStarBrainObserved !== "true") {
-    canonicalHost.dataset.nurStarBrainObserved = "true";
-    const FrameMutationObserver = (
-      frameWindow as unknown as { MutationObserver: typeof MutationObserver }
-    ).MutationObserver;
-    const reconnect = new FrameMutationObserver(() => {
-      removeLegacyMasterStar(canonicalHost, surface);
-      if (!brainHost?.isConnected && canonicalHost.isConnected) canonicalHost.append(brainHost);
-    });
-    reconnect.observe(canonicalHost, { childList: true });
-  }
+  if (!frameWindow) return null;
+  const brainHost = placeV197StarBrainHost(document);
+  if (!brainHost) return null;
+  observeV197StarBrainPlacement(document, frameWindow);
 
   if (!document.getElementById(V197_STAR_BRAIN_SCRIPT_ID)) {
     const script = document.createElement("script");
