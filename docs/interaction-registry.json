@@ -16,7 +16,7 @@
     {"id":"top.deep","selector":".universe-deep, #open-web-search","status":"SOURCE_NATIVE","proof":"button-registry.spec.ts"},
     {"id":"top.scope","selector":"#scope-open, #talk-scope, [data-open-scope], .scope-modal-close","status":"SOURCE_NATIVE","proof":"button-registry.spec.ts"},
     {"id":"context.actions","selector":"[data-context-action]","status":"SOURCE_NATIVE","proof":"button-registry.spec.ts"},
-    {"id":"top.star","selector":"#burst-btn, .nur-user, #iSpark","status":"SOURCE_NATIVE","proof":"button-registry.spec.ts"},
+    {"id":"top.star","selector":"#front-nur-star, #burst-btn, .nur-user, #iSpark","status":"SOURCE_NATIVE","proof":"button-registry.spec.ts"},
     {"id":"auth.logout","selector":"#nur-v197-owner-auth-menu [data-action='auth-logout']","status":"WIRED","endpoint":"POST /api/v1/auth/logout","proof":"presentation-auth-recovery.spec.ts"},
     {"id":"today.composer","selector":"#today-input, [data-send='today']","status":"WIRED","endpoint":"POST /api/v1/cognition/events + /cognition/talk","proof":"track-a-sellable.spec.ts"},
     {"id":"today.actions","selector":"[data-action='checkin'], [data-action='show-glows'], [data-action='today-did-it'], [data-action='today-missed-it'], [data-action='today-make-easier'], [data-action='save-today-checkin'], #nur-v197-today-checkin input","status":"WIRED","endpoint":"POST /api/v1/today/*","proof":"sol-living-v197.spec.ts"},
