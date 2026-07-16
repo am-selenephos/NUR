@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import BidiText from "../../components/BidiText";
+import ExactMiniStar from "../../components/ExactMiniStar";
 import MasterStar from "../../components/MasterStar";
 import NURWordmark from "../../components/NURWordmark";
 import { useOrbit } from "../../lib/orbitState";
@@ -27,6 +28,7 @@ import ShareOrbitSheet from "./shell/ShareOrbitSheet";
 import { V197_SYSTEM_NODES } from "../../v197/contract";
 
 type V197SystemNode = typeof V197_SYSTEM_NODES[number];
+type LensSealSize = "nur-mini-12" | "nur-mini-16";
 
 type OrbitBundle = {
   decisions: DecisionRow[];
@@ -45,10 +47,20 @@ function statusLabel(status: string) {
   return status === "STAGED" ? "saved question" : status.toLowerCase().replaceAll("_", " ");
 }
 
+function LensSeal({ size = "nur-mini-16", className = "" }: { size?: LensSealSize; className?: string }) {
+  const pixels = size === "nur-mini-12" ? "12" : "16";
+  return (
+    <span className={`nur-exact-mini-host nur-exact-icon-shell lens-authentic-seal ${className}`.trim()}
+          data-nur-star-size={pixels} aria-hidden="true">
+      <ExactMiniStar size={size} />
+    </span>
+  );
+}
+
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="lens-empty">
-      <span>✦</span>
+      <LensSeal />
       <b>{title}</b>
       <p>{body}</p>
     </div>
@@ -99,7 +111,7 @@ export function UniverseMap() {
                     style={{ left: node.x, top: node.y }}
                     data-testid={`lens-map-node-${node.key}`}
                     onClick={() => setSelected(node)}>
-              <i>{node.glyph}</i>
+              <LensSeal className="lens-map-node-seal" />
               <b>{node.name}</b>
               <small>{node.lensTag}</small>
             </button>
@@ -119,9 +131,9 @@ export function UniverseMap() {
             <span><b>{ownerState?.outcomes_returned ?? orbit.glows}</b><em>outcomes returned</em></span>
           </div>
           <div className="universe-map-legend lens-legend">
-            <span><i className="legend-private" /> private orbit</span>
-            <span><i className="legend-shared" /> system shared</span>
-            <span><i className="legend-learning" /> learning candidate</span>
+            <span><LensSeal size="nur-mini-12" className="legend-private" /> private orbit</span>
+            <span><LensSeal size="nur-mini-12" className="legend-shared" /> system shared</span>
+            <span><LensSeal size="nur-mini-12" className="legend-learning" /> learning candidate</span>
           </div>
         </aside>
       </div>
@@ -407,7 +419,7 @@ export function UniverseResearch() {
                  onKeyDown={e => e.key === "Enter" && saveQuestion()} />
           <button className="thought-send-button send-holo-pill" type="button" data-testid="research-save" onClick={saveQuestion}><span>Save</span></button>
         </div>
-        {savedRef && <p className="f4-privacy"><i>✦</i><span>Saved as an Orbit reference: <b dir="ltr">{savedRef}</b></span></p>}
+        {savedRef && <p className="f4-privacy"><LensSeal size="nur-mini-12" /><span>Saved as an Orbit reference: <b dir="ltr">{savedRef}</b></span></p>}
         <div className="lens-card-list">
           {rows.map(row => (
             <div className="omega-card-row" key={row.id}>
@@ -450,7 +462,7 @@ export function UniverseCommunity() {
                  onKeyDown={e => e.key === "Enter" && saveLocalNote()} />
           <button className="thought-send-button send-holo-pill" type="button" data-testid="community-save" onClick={saveLocalNote}><span>Save</span></button>
         </div>
-        <p className="f4-privacy"><i>✦</i><span>Collaborator Capsules are created through Share Orbit, where source boundaries are explicit and revocable.</span></p>
+        <p className="f4-privacy"><LensSeal size="nur-mini-12" /><span>Collaborator Capsules are created through Share Orbit, where source boundaries are explicit and revocable.</span></p>
         <div className="lens-card-list">
           {rows.map(row => <div className="omega-card-row" key={row.id}><b><BidiText>{row.title}</BidiText></b><span><BidiText>{row.note}</BidiText></span><em>{row.provenance_label.toLowerCase()} · {formatDate(row.created_at)}</em></div>)}
           {rows.length === 0 && <EmptyState title="No consultation note yet" body="Write one collaborator question to persist it locally." />}

@@ -29,6 +29,7 @@ import {
 } from "./routes/universe/UniverseLenses";
 import CapsuleRoom from "./routes/CapsuleRoom";
 import "./styles/global.css";
+import "./styles/v197-lenses-forensic.css";
 
 const OMEGA_RESEARCH_ENABLED = import.meta.env.VITE_NUR_ENABLE_OMEGA_RESEARCH === "true";
 

@@ -4,7 +4,7 @@ export const V197_STAR_BRAIN_CANVAS_ID = "nur-brain-canvas-v197";
 export const V197_STAR_BRAIN_HOST_ID = "front-nur-star";
 const V197_STAR_BRAIN_SCRIPT_ID = "nur-v197-exact-star-brain-runtime";
 
-type V197StarBrainSurface = "entry" | "today" | "universe";
+type V197StarBrainSurface = "entry" | "today" | "universe" | "map";
 
 type ExactBrainWindow = Window & {
   nurStarBrain?: {
@@ -37,20 +37,25 @@ function resolveV197StarBrainHost(document: Document): {
   );
   if (universeHost) return { host: universeHost, surface: "universe" };
 
+  const mapHost = document.querySelector<HTMLElement>(
+    "body.universe-edition #page-universe-map.active .lens-map-master",
+  );
+  if (mapHost) return { host: mapHost, surface: "map" };
+
   const entryHost = document.querySelector<HTMLElement>("#nur-front-v61 #f4-core");
   return entryHost ? { host: entryHost, surface: "entry" } : null;
 }
 
 function removeLegacyMasterStar(host: HTMLElement, surface: V197StarBrainSurface): void {
-  const selector = surface === "universe"
-    ? ":scope > .f4-core"
+  const selector = surface === "universe" || surface === "map"
+    ? ":scope > .f4-core, :scope > .spark, :scope > .f4-master-star"
     : ":scope > .spark, :scope > .f4-master-star";
 
   host.querySelectorAll<HTMLElement>(selector).forEach(element => element.remove());
   host.dataset.nurLegacyMasterStar = "removed";
 }
 
-function placeV197StarBrainHost(document: Document): HTMLElement | null {
+export function placeV197StarBrainHost(document: Document): HTMLElement | null {
   const resolved = resolveV197StarBrainHost(document);
   if (!resolved) return null;
   const { host: canonicalHost, surface } = resolved;

@@ -56,6 +56,26 @@ describe("V197 star seal", () => {
     expect(hosts[1]?.querySelector(`.${V197_STAR_SEAL_CLASS}--16`)).not.toBeNull();
   });
 
+  it("keeps active Map twinkle on the selected authentic node", () => {
+    document.body.innerHTML = `
+      <main id="nur-front-v61">
+        <button class="lens-map-node active"><span class="nur-exact-mini-host"><span class="nur-star-module"></span></span></button>
+        <button class="lens-map-node"><span class="nur-exact-mini-host"><span class="nur-star-module"></span></span></button>
+      </main>
+    `;
+
+    expect(installV197StarSeals(document)).toBe(2);
+    const nodes = document.querySelectorAll<HTMLElement>(".lens-map-node");
+    expect(nodes[0]?.querySelector(`.${V197_STAR_SEAL_CLASS}--16`)?.getAttribute("data-nur-star-twinkle")).toBe("true");
+    expect(nodes[1]?.querySelector(`.${V197_STAR_SEAL_CLASS}--16`)?.getAttribute("data-nur-star-twinkle")).toBe("false");
+
+    nodes[0]?.classList.remove("active");
+    nodes[1]?.classList.add("active");
+    expect(installV197StarSeals(document)).toBe(0);
+    expect(nodes[0]?.querySelector(`.${V197_STAR_SEAL_CLASS}`)?.getAttribute("data-nur-star-twinkle")).toBe("false");
+    expect(nodes[1]?.querySelector(`.${V197_STAR_SEAL_CLASS}`)?.getAttribute("data-nur-star-twinkle")).toBe("true");
+  });
+
   it("uses authentic seals for primary and selected controls without duplicating them", () => {
     document.body.innerHTML = `
       <main id="nur-front-v61">

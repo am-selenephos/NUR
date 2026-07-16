@@ -220,11 +220,23 @@ function nearestSize(value: number): V197StarSealSize {
 function renderedHostSize(host: HTMLElement): V197StarSealSize {
   if (host.closest(".universe-system-node")) return 24;
   if (host.closest(".clean-system-row")) return 16;
+  if (host.closest(".lens-map-node")) return 16;
+  if (host.closest(".lens-legend")) return 12;
   const rect = host.getBoundingClientRect();
   const measured = Math.max(rect.width, rect.height);
   if (measured > 0) return nearestSize(measured);
   const declared = Number(host.dataset.nurStarSize ?? 20);
   return nearestSize(Number.isFinite(declared) ? declared : 20);
+}
+
+function syncV197LegacySealActivity(document: Document): void {
+  document.querySelectorAll<HTMLElement>(".nur-exact-mini-host[data-nur-star-seal='authentic']")
+    .forEach(host => {
+      const control = host.closest("button, a");
+      const active = Boolean(control?.matches(".active, [aria-current='page'], [aria-selected='true']"));
+      const seal = host.querySelector<SVGSVGElement>(`:scope > .${V197_STAR_SEAL_CLASS}`);
+      if (seal) seal.dataset.nurStarTwinkle = String(active);
+    });
 }
 
 export function createV197StarSeal(
@@ -298,6 +310,7 @@ function observeV197ControlSeals(document: Document): void {
     frame = frameWindow.requestAnimationFrame(() => {
       frame = null;
       syncV197ControlSeals(document);
+      syncV197LegacySealActivity(document);
     });
   });
   observer.observe(root, {
@@ -328,6 +341,7 @@ export function installV197StarSeals(document: Document): number {
     installed += 1;
   });
   installed += syncV197ControlSeals(document);
+  syncV197LegacySealActivity(document);
   observeV197ControlSeals(document);
   return installed;
 }
