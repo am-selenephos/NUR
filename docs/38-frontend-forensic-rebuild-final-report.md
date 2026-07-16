@@ -395,9 +395,12 @@ required final screenshot matrix remains blocked with browser execution.
   deliberately avoided.
 - Screenshot baseline acceptance was deferred until the browser matrix can run
   without socket restrictions; baselines will not be blindly updated.
-- Public GitHub delivery is attempted after this report commit. If network
-  access is blocked, the verified Git bundle produced beside the worktree is
-  the handoff artifact.
+- Public GitHub delivery was attempted with
+  `git push -u origin frontend/nur-forensic-rebuild`. The sandbox could not
+  resolve `github.com`, so no public-push success is claimed. A complete-history
+  Git bundle is produced at
+  `/home/nur/Downloads/AM -Clean/NUR_FORENSIC_REBUILD.bundle` and verified with
+  `git bundle verify`; its final checksum is recorded in the delivery response.
 
 ## Delivery Verdict
 
