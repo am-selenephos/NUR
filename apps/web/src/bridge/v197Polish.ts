@@ -994,6 +994,7 @@ export function ensureV197StaticStarfield(
 export function ensureV197EntryPolish(document: Document): HTMLStyleElement {
   const existing = document.getElementById(V197_ENTRY_POLISH_STYLE_ID) as HTMLStyleElement | null;
   if (existing) {
+    installV197StarSeals(document);
     ensureV197BlackGalaxy(document);
     ensureV197StarBrain(document);
     return existing;
@@ -1024,9 +1025,11 @@ body.nur-v197-auth-open #nur-front-v61 .f4-head {
   body.nur-v197-auth-open #nur-front-v61 .f4-head,
   #nur-front-v61:has(#f4-sheet.open) .f4-head { transform: translateY(10px) !important; }
 }
+${V197_STAR_SEAL_CSS}
 ${V197_COSMIC_SKIN_CSS}
 `;
   (document.body ?? document.head).append(style);
+  installV197StarSeals(document);
   ensureV197BlackGalaxy(document);
   ensureV197StarBrain(document);
 

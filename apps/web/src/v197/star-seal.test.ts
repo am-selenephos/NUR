@@ -1,4 +1,6 @@
 import {
+  V197_CONTROL_STAR_SEAL_CLASS,
+  V197_STATE_STAR_SEAL_CLASS,
   V197_STAR_SEAL_CLASS,
   V197_STAR_SEAL_SPRITE_ID,
   V197_STAR_SEAL_SYMBOL_ID,
@@ -34,5 +36,48 @@ describe("V197 star seal", () => {
       expect(seal.getAttribute("width")).toBe(String(size));
       expect(seal.dataset.nurStarTwinkle).toBe("false");
     }
+  });
+
+  it("marks legacy icon shells and normalizes system seal sizes", () => {
+    document.body.innerHTML = `
+      <button class="universe-system-node active">
+        <i class="nur-exact-icon-shell"><span class="nur-exact-mini-host"><span class="nur-star-module"></span></span></i>
+      </button>
+      <button class="clean-system-row">
+        <i class="nur-exact-icon-shell nur-exact-mini-host"><span class="nur-star-module"></span></i>
+      </button>
+    `;
+
+    expect(installV197StarSeals(document)).toBe(2);
+    const hosts = document.querySelectorAll<HTMLElement>(".nur-exact-icon-shell");
+    expect(hosts[0]?.dataset.nurAuthenticStarHost).toBe("true");
+    expect(hosts[1]?.dataset.nurAuthenticStarHost).toBe("true");
+    expect(hosts[0]?.querySelector(`.${V197_STAR_SEAL_CLASS}--24`)).not.toBeNull();
+    expect(hosts[1]?.querySelector(`.${V197_STAR_SEAL_CLASS}--16`)).not.toBeNull();
+  });
+
+  it("uses authentic seals for primary and selected controls without duplicating them", () => {
+    document.body.innerHTML = `
+      <main id="nur-front-v61">
+        <button class="f4-primary compact">Begin</button>
+        <button class="thought-send-button">Send</button>
+        <button class="clean-nav-button active"><span class="clean-nav-glyph">*</span><span>Today</span></button>
+        <button class="clean-nav-button"><span class="clean-nav-glyph">*</span><span>Talk</span></button>
+      </main>
+    `;
+
+    expect(installV197StarSeals(document)).toBe(3);
+    expect(installV197StarSeals(document)).toBe(0);
+    expect(document.querySelectorAll(`.${V197_CONTROL_STAR_SEAL_CLASS}`)).toHaveLength(2);
+    expect(document.querySelectorAll(`.${V197_STATE_STAR_SEAL_CLASS}`)).toHaveLength(1);
+    expect(document.querySelectorAll(`.${V197_CONTROL_STAR_SEAL_CLASS} use`)).toHaveLength(2);
+    expect(document.querySelector(`.clean-nav-button.active .${V197_STATE_STAR_SEAL_CLASS}`)).not.toBeNull();
+
+    const nav = document.querySelectorAll<HTMLElement>(".clean-nav-button");
+    nav[0]?.classList.remove("active");
+    nav[1]?.classList.add("active");
+    expect(installV197StarSeals(document)).toBe(1);
+    expect(nav[0]?.querySelector(`.${V197_STATE_STAR_SEAL_CLASS}`)).toBeNull();
+    expect(nav[1]?.querySelector(`.${V197_STATE_STAR_SEAL_CLASS}`)).not.toBeNull();
   });
 });

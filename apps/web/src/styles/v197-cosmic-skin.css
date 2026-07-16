@@ -500,14 +500,14 @@ body.universe-edition #nur-front-v61 :is(
 }
 
 /* Primary command: transparent black glass with a spectral edge. */
-body #nur-front-v61 :is(.f4-primary, .f4-submit),
+body #nur-front-v61 button:is(.f4-primary, .f4-submit),
 body.universe-edition #nur-front-v61 :is(.send-button, .universe-send, .thought-send-button) {
   isolation: isolate !important;
   min-height: var(--nur-control-h) !important;
   border: 1px solid transparent !important;
   border-radius: var(--nur-radius-control) !important;
   background:
-    linear-gradient(145deg, rgba(255, 211, 90, .1), rgba(3, 3, 7, .76) 42%, rgba(255, 58, 158, .045)) padding-box,
+    linear-gradient(145deg, rgba(255, 211, 90, .075), rgba(3, 3, 7, .54) 42%, rgba(255, 58, 158, .035)) padding-box,
     var(--nur-spectrum-border) border-box !important;
   color: var(--nur-text) !important;
   -webkit-text-fill-color: currentColor !important;
@@ -520,7 +520,7 @@ body.universe-edition #nur-front-v61 :is(.send-button, .universe-send, .thought-
   text-shadow: 0 0 13px rgba(255, 248, 223, .14) !important;
 }
 
-body #nur-front-v61 :is(.f4-primary, .f4-submit)::before,
+body #nur-front-v61 button:is(.f4-primary, .f4-submit)::before,
 body.universe-edition #nur-front-v61 :is(.send-button, .universe-send, .thought-send-button)::before {
   content: "" !important;
   position: absolute !important;
@@ -534,7 +534,7 @@ body.universe-edition #nur-front-v61 :is(.send-button, .universe-send, .thought-
   pointer-events: none !important;
 }
 
-body #nur-front-v61 :is(.f4-primary, .f4-submit):hover::before,
+body #nur-front-v61 button:is(.f4-primary, .f4-submit):hover::before,
 body.universe-edition #nur-front-v61 :is(.send-button, .universe-send, .thought-send-button):hover::before {
   transform: translateX(72%) !important;
   transition: transform 520ms var(--nur-ease) !important;
@@ -652,6 +652,38 @@ body.universe-edition #nur-front-v61 :is(.context-list button, .audit-scope, .cl
   background: rgba(3, 3, 7, .48) !important;
   box-shadow: inset 0 1px 0 rgba(255, 248, 223, .045) !important;
   filter: none !important;
+}
+
+body.universe-edition #nur-front-v61 :is(
+  .universe-system-node > i.nur-exact-icon-shell,
+  .clean-system-row > i.nur-exact-icon-shell
+)[data-nur-authentic-star-host="true"] {
+  display: grid !important;
+  place-items: center !important;
+  flex: 0 0 34px !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+body.universe-edition #nur-front-v61 :is(
+  .universe-system-node > i.nur-exact-icon-shell,
+  .clean-system-row > i.nur-exact-icon-shell
+)[data-nur-authentic-star-host="true"]::before,
+body.universe-edition #nur-front-v61 :is(
+  .universe-system-node > i.nur-exact-icon-shell,
+  .clean-system-row > i.nur-exact-icon-shell
+)[data-nur-authentic-star-host="true"]::after {
+  content: none !important;
+  display: none !important;
 }
 
 body.universe-edition #nur-front-v61 :is(
@@ -850,6 +882,21 @@ body.universe-edition #nur-front-v61 .universe-add-system {
 
 body.universe-edition #nur-front-v61 .universe-map-mantra {
   bottom: 16px !important;
+}
+
+body.universe-edition .toast,
+body.universe-edition #toast.toast,
+body.universe-edition #nur-front-v61 #toast.toast {
+  max-width: min(440px, calc(100vw - 28px)) !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--nur-radius-control) !important;
+  background:
+    linear-gradient(145deg, rgba(255, 211, 90, .055), rgba(3, 3, 7, .64) 46%, rgba(33, 232, 255, .028)) padding-box,
+    var(--nur-spectrum-border) border-box !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 223, .08),
+    0 14px 42px rgba(0, 0, 0, .5),
+    0 0 22px rgba(255, 211, 90, .07) !important;
 }
 
 body.universe-edition #nur-front-v61 .universe-state-strip {
@@ -1062,6 +1109,23 @@ body.universe-edition #nur-front-v61 :is(
 
   body.front-v61-active #nur-front-v61 :is(.f4-actions, .f4-actions *, .f4-privacy, .f4-privacy *) {
     pointer-events: auto !important;
+  }
+}
+
+@media (max-width: 430px) {
+  body.universe-edition #nur-front-v61 .universe-map-panel {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-master-star {
+    width: min(78vw, 300px) !important;
+    height: min(54vw, 220px) !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node,
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.neural {
+    grid-column: 1 !important;
+    min-height: 54px !important;
   }
 }
 

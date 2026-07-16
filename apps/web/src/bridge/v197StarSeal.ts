@@ -3,10 +3,29 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 export const V197_STAR_SEAL_CLASS = "nur-star-seal";
 export const V197_STAR_SEAL_SPRITE_ID = "nur-v197-star-seal-sprite";
 export const V197_STAR_SEAL_SYMBOL_ID = "nur-v197-star-seal-symbol";
+export const V197_CONTROL_STAR_SEAL_CLASS = "nur-star-seal--control";
+export const V197_STATE_STAR_SEAL_CLASS = "nur-star-seal--state";
 
 export type V197StarSealSize = 12 | 16 | 20 | 24 | 32;
 
 const SIZES: readonly V197StarSealSize[] = [12, 16, 20, 24, 32];
+const controlSealObservers = new WeakMap<Document, MutationObserver>();
+const AUTHENTIC_HOST_ATTRIBUTE = "data-nur-authentic-star-host";
+
+const PRIMARY_CONTROL_SELECTOR = [
+  ".f4-primary",
+  ".f4-submit",
+  ".thought-send-button",
+  ".universe-send",
+].join(",");
+
+const SELECTED_STATE_HOST_SELECTOR = [
+  ".clean-nav-button.active > .clean-nav-glyph",
+  ".scope-option[aria-selected='true']",
+  ".scope-option[aria-checked='true']",
+  ".audit-scope.selected",
+  ".clean-scope.selected",
+].join(",");
 
 function svgElement<K extends keyof SVGElementTagNameMap>(
   document: Document,
@@ -199,6 +218,8 @@ function nearestSize(value: number): V197StarSealSize {
 }
 
 function renderedHostSize(host: HTMLElement): V197StarSealSize {
+  if (host.closest(".universe-system-node")) return 24;
+  if (host.closest(".clean-system-row")) return 16;
   const rect = host.getBoundingClientRect();
   const measured = Math.max(rect.width, rect.height);
   if (measured > 0) return nearestSize(measured);
@@ -226,6 +247,68 @@ export function createV197StarSeal(
   return seal;
 }
 
+function ensureControlSeal(
+  document: Document,
+  host: HTMLElement,
+  size: V197StarSealSize,
+  stateSeal: boolean,
+): number {
+  const kind = stateSeal ? V197_STATE_STAR_SEAL_CLASS : V197_CONTROL_STAR_SEAL_CLASS;
+  const existing = host.querySelector<SVGSVGElement>(`:scope > .${kind}`);
+  if (existing) return 0;
+
+  const seal = createV197StarSeal(document, size, stateSeal);
+  seal.classList.add(kind);
+  host.prepend(seal);
+  host.classList.add(stateSeal ? "nur-has-state-star-seal" : "nur-has-control-star-seal");
+  host.dataset.nurStarSeal = stateSeal ? "selected-control" : "primary-control";
+  return 1;
+}
+
+function syncV197ControlSeals(document: Document): number {
+  let installed = 0;
+
+  document.querySelectorAll<HTMLElement>(PRIMARY_CONTROL_SELECTOR).forEach(control => {
+    installed += ensureControlSeal(document, control, control.matches(".compact") ? 16 : 20, false);
+  });
+
+  const selectedHosts = new Set(document.querySelectorAll<HTMLElement>(SELECTED_STATE_HOST_SELECTOR));
+  document.querySelectorAll<SVGSVGElement>(`.${V197_STATE_STAR_SEAL_CLASS}`).forEach(seal => {
+    const host = seal.parentElement;
+    if (host && selectedHosts.has(host)) return;
+    seal.remove();
+    host?.classList.remove("nur-has-state-star-seal");
+    if (host?.dataset.nurStarSeal === "selected-control") delete host.dataset.nurStarSeal;
+  });
+  selectedHosts.forEach(host => {
+    installed += ensureControlSeal(document, host, 20, true);
+  });
+  return installed;
+}
+
+function observeV197ControlSeals(document: Document): void {
+  if (controlSealObservers.has(document)) return;
+  const frameWindow = document.defaultView;
+  const root = document.getElementById("nur-front-v61") ?? document.body;
+  if (!frameWindow || !root) return;
+
+  let frame: number | null = null;
+  const observer = new frameWindow.MutationObserver(() => {
+    if (frame !== null) return;
+    frame = frameWindow.requestAnimationFrame(() => {
+      frame = null;
+      syncV197ControlSeals(document);
+    });
+  });
+  observer.observe(root, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ["class", "aria-selected", "aria-checked"],
+  });
+  controlSealObservers.set(document, observer);
+}
+
 export function installV197StarSeals(document: Document): number {
   let installed = 0;
   document.querySelectorAll<HTMLElement>(".nur-exact-mini-host").forEach(host => {
@@ -238,7 +321,13 @@ export function installV197StarSeals(document: Document): number {
     host.replaceChildren(createV197StarSeal(document, renderedHostSize(host), active));
     host.dataset.nurMiniCompacted = "true";
     host.dataset.nurStarSeal = "authentic";
+    const visualHost = host.matches(".nur-exact-icon-shell")
+      ? host
+      : host.closest<HTMLElement>(".nur-exact-icon-shell");
+    visualHost?.setAttribute(AUTHENTIC_HOST_ATTRIBUTE, "true");
     installed += 1;
   });
+  installed += syncV197ControlSeals(document);
+  observeV197ControlSeals(document);
   return installed;
 }
