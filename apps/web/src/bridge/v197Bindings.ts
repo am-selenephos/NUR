@@ -120,24 +120,27 @@ export class V197ActionBindings {
         position: fixed;
         inset-block-start: 58px;
         inset-inline-end: 18px;
-        z-index: 2147482000;
+        z-index: var(--nur-layer-popover, 60);
         width: min(260px, calc(100vw - 36px));
         padding: 14px;
-        border: 1px solid rgba(255, 218, 128, .3);
-        border-radius: 8px;
-        background: rgba(6, 2, 9, .96);
-        box-shadow: 0 22px 54px rgba(0, 0, 0, .58), inset 0 1px rgba(255, 245, 220, .06);
-        color: #fff0d1;
+        border: 1px solid rgba(248, 217, 138, .24);
+        border-radius: 7px;
+        background: linear-gradient(145deg, rgba(255, 248, 223, .035), transparent 36%), rgba(3, 3, 7, .96);
+        box-shadow: 0 22px 54px rgba(0, 0, 0, .58), inset 0 1px rgba(255, 248, 223, .06);
+        color: #fff8df;
         font: 16px/1.35 "Crimson Pro", serif;
       }
       #nur-v197-owner-auth-menu[hidden] { display: none !important; }
-      #nur-v197-owner-auth-menu p { margin: 0 0 10px; color: rgba(255, 232, 190, .64); }
+      #nur-v197-owner-auth-menu p { margin: 0 0 10px; color: rgba(255, 248, 223, .68); }
       #nur-v197-owner-auth-menu button {
         width: 100%;
-        border: 1px solid rgba(255, 205, 105, .35);
-        border-radius: 999px;
-        background: linear-gradient(110deg, rgba(174, 83, 31, .6), rgba(91, 43, 84, .58));
-        color: #fff0d1;
+        min-height: 44px;
+        border: 1px solid transparent;
+        border-radius: 7px;
+        background:
+          linear-gradient(145deg, rgba(255, 211, 90, .075), rgba(3, 3, 7, .62) 48%, rgba(255, 58, 158, .035)) padding-box,
+          var(--nur-spectrum-border) border-box;
+        color: #fff8df;
         padding: 10px 14px;
         font: 600 14px/1 "Crimson Pro", serif;
         cursor: pointer;
@@ -1032,14 +1035,14 @@ function ensureV197AuthWaitLayer(document: Document): HTMLElement {
       #${V197_AUTH_WAIT_ID} {
         position: fixed;
         inset: 0;
-        z-index: 1200;
+        z-index: var(--nur-layer-critical, 140);
         display: grid;
         place-items: center;
         overflow: hidden;
         background:
           radial-gradient(circle at 50% 46%, rgba(216, 155, 55, .12), transparent 28%),
           radial-gradient(circle at 48% 50%, rgba(90, 196, 255, .06), transparent 43%),
-          #020103;
+          #000000;
         opacity: 1;
         transition: opacity .28s ease;
       }

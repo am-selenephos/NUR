@@ -37,5 +37,11 @@ describe("V197 responsive and accessibility contract", () => {
     expect(adjunct).toContain("min-height: 44px");
     expect(adjunct).toContain("outline: 2px solid #ffd35a");
     expect(read("apps/web/src/bridge/v197Accessibility.ts")).toContain("user-scalable");
+
+    const bindings = read("apps/web/src/bridge/v197Bindings.ts");
+    const polish = read("apps/web/src/bridge/v197Polish.ts");
+    expect(bindings).not.toContain("2147482000");
+    expect(bindings).not.toContain("border-radius: 999px");
+    expect(polish).not.toContain("2147483000");
   });
 });

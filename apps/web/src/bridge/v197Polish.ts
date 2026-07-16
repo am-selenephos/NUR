@@ -718,7 +718,7 @@ body.universe-edition .universe-map-title > .nur-master-subtitle {
 
 @media (max-width: 760px) {
   body.universe-edition .mobile-tabs {
-    z-index: 2147483000 !important;
+    z-index: var(--nur-layer-sticky, 30) !important;
     isolation: isolate !important;
     pointer-events: auto !important;
     transform: translateZ(0) !important;
