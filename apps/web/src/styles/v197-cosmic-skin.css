@@ -1570,8 +1570,17 @@ body.universe-edition #nur-front-v61 :is(.toast, [role="status"][data-toast]) {
 
 @media (prefers-reduced-motion: reduce) {
   body #nur-front-v61 *,
-  body.universe-edition #nur-front-v61 * {
+  body #nur-front-v61 *::before,
+  body #nur-front-v61 *::after,
+  body.universe-edition #nur-front-v61 *,
+  body.universe-edition #nur-front-v61 *::before,
+  body.universe-edition #nur-front-v61 *::after {
+    animation-delay: 0s !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
+    transition-delay: 0s !important;
+    transition-duration: .01ms !important;
   }
 
   body #nur-front-v61 button,
@@ -1583,5 +1592,102 @@ body.universe-edition #nur-front-v61 :is(.toast, [role="status"][data-toast]) {
   body #nur-front-v61 :is(.f4-primary, .f4-submit)::before,
   body.universe-edition #nur-front-v61 :is(.send-button, .universe-send)::before {
     content: none !important;
+  }
+}
+
+/* -------------------------------------------------------------------------
+ * Input and accessibility contract
+ * ---------------------------------------------------------------------- */
+body #nur-front-v61 :is(
+  a[href],
+  button,
+  input,
+  textarea,
+  select,
+  summary,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible,
+body.universe-edition #nur-front-v61 :is(
+  a[href],
+  button,
+  input,
+  textarea,
+  select,
+  summary,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: 2px solid rgba(255, 211, 90, .88) !important;
+  outline-offset: 3px !important;
+  box-shadow: var(--nur-focus) !important;
+  scroll-margin: 12px !important;
+}
+
+body #nur-front-v61 :is(.f4-sheet, .f4-success),
+body.universe-edition #nur-front-v61 :is(.scope-modal, .modal, .share-sheet) {
+  max-width: calc(100vw - 24px) !important;
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+}
+
+body.universe-edition #nur-front-v61 :is(
+  .clean-nav-title,
+  .clean-nav-note,
+  .universe-system-node,
+  .universe-system-node > span,
+  .scope-option,
+  .scope-option > span,
+  .world-command,
+  .universe-state-strip > article
+) {
+  min-width: 0 !important;
+  overflow-wrap: anywhere !important;
+}
+
+[dir="rtl"] body.universe-edition #nur-front-v61 :is(
+  .universe-nav-tabs,
+  .universe-top-tools,
+  .clean-nav-button,
+  .clean-tool-button,
+  .clean-system-row,
+  .universe-command-row
+) {
+  direction: rtl !important;
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+  body #nur-front-v61 :is(button, [role="button"], input, select),
+  body.universe-edition #nur-front-v61 :is(button, [role="button"], input, select) {
+    min-height: 44px !important;
+  }
+
+  body.universe-edition #nur-front-v61 :is(
+    .nur-user,
+    #scope-open,
+    .voice-button,
+    .composer-action--voice,
+    .send-button,
+    .universe-nav-tabs button
+  ) {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  body #nur-front-v61 :is(input, textarea, select),
+  body.universe-edition #nur-front-v61 :is(input, textarea, select) {
+    font-size: max(16px, 1em) !important;
+  }
+}
+
+@media (forced-colors: active) {
+  body #nur-front-v61 :focus-visible,
+  body.universe-edition #nur-front-v61 :focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 3px !important;
   }
 }

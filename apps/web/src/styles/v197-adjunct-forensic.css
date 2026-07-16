@@ -65,7 +65,7 @@
 .nur-adjunct-back,
 .nur-adjunct-button {
   appearance: none;
-  min-height: 40px;
+  min-height: 44px;
   padding: 9px 13px;
   border: 1px solid transparent;
   border-radius: 7px;
@@ -106,8 +106,10 @@
 }
 
 :is(.nur-adjunct-back, .nur-adjunct-button, .nur-adjunct-input, .nur-adjunct-select, .nur-adjunct-textarea):focus-visible {
-  outline: 1px solid #8af5ff;
-  outline-offset: 2px;
+  outline: 2px solid #ffd35a;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 2px #000000, 0 0 0 4px rgba(255, 211, 90, .72), 0 0 24px rgba(33, 232, 255, .13);
+  scroll-margin: 12px;
 }
 
 .nur-adjunct-brand {

@@ -1,4 +1,5 @@
 import V197_STAR_BRAIN_RUNTIME from "./v197StarBrainRuntime.js?raw";
+import { ensureV197AccessibleViewport } from "./v197Accessibility";
 import {
   applyV197StarBrainLifecycleProfile,
   V197_STAR_BRAIN_LIFECYCLE_PROFILE,
@@ -140,6 +141,7 @@ export function ensureV197BlackGalaxy(document: Document): void {
  * adapted to canonical V197; anatomy and stellar rendering remain untouched.
  */
 export function ensureV197StarBrain(document: Document): HTMLCanvasElement | null {
+  ensureV197AccessibleViewport(document);
   const frameWindow = document.defaultView as ExactBrainWindow | null;
   if (!frameWindow) return null;
   const brainHost = placeV197StarBrainHost(document);
