@@ -9,6 +9,8 @@ import {
   type V197OwnedCapsule,
 } from "./v197ApiClient";
 import { applyV197Locale, directionForPreference, V197_LOCALE_META, type WritingPreference } from "./v197I18n";
+import V197_ADJUNCT_FORENSIC_CSS from "../styles/v197-adjunct-forensic.css?raw";
+import { createV197StarSeal } from "./v197StarSeal";
 
 const ROOT_ID = "nur-v197-adjunct-root";
 const STYLE_ID = "nur-v197-adjunct-style";
@@ -62,7 +64,9 @@ function panel(document: Document, eyebrow: string, title: string): HTMLElement 
 
 function empty(document: Document, title: string, body: string): HTMLElement {
   const node = element(document, "div", "nur-adjunct-empty");
-  node.append(element(document, "strong", undefined, title));
+  const seal = createV197StarSeal(document, 20, false);
+  seal.classList.add("nur-adjunct-empty-seal");
+  node.append(seal, element(document, "strong", undefined, title));
   node.append(element(document, "p", undefined, body));
   return node;
 }
@@ -81,104 +85,7 @@ function ensureStyle(document: Document): void {
   if (document.getElementById(STYLE_ID)) return;
   const style = element(document, "style");
   style.id = STYLE_ID;
-  style.textContent = `
-    #${ROOT_ID} {
-      --adj-pearl: #fff0d1;
-      --adj-gold: #efb84e;
-      --adj-muted: rgba(255, 232, 190, .62);
-      position: fixed;
-      inset: 0;
-      z-index: 2147483000;
-      overflow: auto;
-      overscroll-behavior: contain;
-      color: var(--adj-pearl);
-      background:
-        radial-gradient(circle at 18% 18%, rgba(240, 137, 38, .09), transparent 31%),
-        radial-gradient(circle at 82% 34%, rgba(82, 224, 255, .055), transparent 28%),
-        rgba(2, 1, 5, .94);
-      font: 16px/1.45 "Crimson Pro", Georgia, serif;
-      scrollbar-color: rgba(231, 168, 60, .55) rgba(5, 2, 8, .8);
-    }
-    #${ROOT_ID}, #${ROOT_ID} * { box-sizing: border-box; }
-    #${ROOT_ID}::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      opacity: .5;
-      background-image:
-        radial-gradient(circle at 14% 23%, rgba(255,255,255,.82) 0 1px, transparent 1.4px),
-        radial-gradient(circle at 74% 18%, rgba(255,205,105,.8) 0 1px, transparent 1.5px),
-        radial-gradient(circle at 88% 67%, rgba(104,225,255,.72) 0 1px, transparent 1.4px),
-        radial-gradient(circle at 33% 79%, rgba(234,140,255,.66) 0 1px, transparent 1.4px);
-      background-size: 173px 191px, 211px 223px, 257px 241px, 307px 277px;
-    }
-    .nur-adjunct-shell { position: relative; width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 28px 0 72px; }
-    .nur-adjunct-topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding-block: 0 18px; border-bottom: 1px solid rgba(245, 189, 85, .2); }
-    .nur-adjunct-back { appearance: none; border: 1px solid rgba(245, 189, 85, .3); border-radius: 999px; background: rgba(18, 9, 21, .78); color: var(--adj-pearl); padding: 9px 14px; font: 600 13px/1 "Crimson Pro", serif; letter-spacing: .08em; cursor: pointer; }
-    .nur-adjunct-brand { font-family: "Bodoni Moda", Didot, serif; font-size: 29px; letter-spacing: .22em; background-image: linear-gradient(100deg,#fff4c7,#ffbd5a,#ff7bb9,#aa8cff,#62dcff,#a9ffca,#fff4c7); background-size: 240% 100%; background-clip: text; -webkit-background-clip: text; color: transparent; animation: nurAdjunctWordmark 7s linear infinite; }
-    @keyframes nurAdjunctWordmark { to { background-position: 240% 50%; } }
-    .nur-adjunct-privacy { color: var(--adj-muted); font-style: italic; }
-    .nur-adjunct-hero { padding-block: 52px 30px; max-width: 850px; }
-    .nur-adjunct-hero h1 { margin: 5px 0 12px; color: #fff1d2; font: 500 clamp(42px, 6vw, 78px)/.96 "Bodoni Moda", Didot, serif; letter-spacing: 0; }
-    .nur-adjunct-hero .nur-adjunct-subtitle { max-width: 720px; color: rgba(255,235,196,.68); font-size: 19px; }
-    .nur-adjunct-eyebrow, .nur-adjunct-label { margin: 0; color: #e8b85c; font: 600 11px/1.25 "Crimson Pro", serif; letter-spacing: .2em; text-transform: uppercase; }
-    .nur-adjunct-grid { display: grid; grid-template-columns: repeat(12, minmax(0,1fr)); gap: 14px; }
-    .nur-adjunct-panel { grid-column: span 6; min-width: 0; padding: 22px; border: 1px solid rgba(238, 189, 94, .2); border-radius: 8px; background: rgba(7, 3, 11, .74); box-shadow: inset 0 1px rgba(255,245,221,.04), 0 20px 50px rgba(0,0,0,.24); backdrop-filter: blur(12px); }
-    .nur-adjunct-panel.is-wide { grid-column: 1 / -1; }
-    .nur-adjunct-panel h2 { margin: 7px 0 14px; color: #fff0cf; font: 500 28px/1.05 "Bodoni Moda", Didot, serif; letter-spacing: 0; }
-    .nur-adjunct-panel h3 { color: #f4d59b; font: 500 20px/1.15 "Bodoni Moda", serif; }
-    .nur-adjunct-facts { display: grid; gap: 0; }
-    .nur-adjunct-fact { display: flex; justify-content: space-between; gap: 20px; padding: 10px 0; border-top: 1px solid rgba(255,233,188,.1); }
-    .nur-adjunct-fact strong { color: rgba(255,240,209,.86); font-weight: 500; text-align: end; overflow-wrap: anywhere; }
-    .nur-adjunct-list { display: grid; gap: 10px; margin-top: 14px; }
-    .nur-adjunct-row { padding: 14px; border: 1px solid rgba(235,188,94,.14); border-radius: 7px; background: rgba(0,0,0,.28); }
-    .nur-adjunct-row p { margin: 5px 0 0; color: rgba(255,236,202,.65); }
-    .nur-adjunct-row-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
-    .nur-adjunct-row-head strong { color: #ffe7b6; font: 500 19px/1.15 "Bodoni Moda", serif; }
-    .nur-adjunct-chip { display: inline-flex; align-items: center; border: 1px solid rgba(235,188,94,.25); border-radius: 999px; padding: 5px 9px; color: #edc375; font: 600 10px/1 "Crimson Pro", serif; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
-    .nur-adjunct-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-    .nur-adjunct-button { appearance: none; border: 1px solid rgba(239,190,87,.34); border-radius: 999px; background: rgba(30,16,30,.72); color: #ffebc0; padding: 9px 14px; font: 600 13px/1 "Crimson Pro", serif; cursor: pointer; transition: border-color .2s ease, background .2s ease, transform .2s ease; }
-    .nur-adjunct-button:hover:not(:disabled) { transform: translateY(-1px); border-color: rgba(255,220,140,.66); background: rgba(105,55,39,.5); }
-    .nur-adjunct-button.is-primary { background: linear-gradient(110deg, rgba(201,105,42,.64), rgba(104,48,97,.62)); box-shadow: 0 0 24px rgba(235,151,62,.11); }
-    .nur-adjunct-button:disabled { opacity: .38; cursor: not-allowed; }
-    .nur-adjunct-field { display: grid; gap: 7px; margin-top: 12px; }
-    .nur-adjunct-field > span { color: #e6b96a; font-size: 13px; letter-spacing: .06em; }
-    .nur-adjunct-input, .nur-adjunct-select, .nur-adjunct-textarea { appearance: none; width: 100%; border: 1px solid rgba(239,191,97,.27); border-radius: 7px; outline: none; background: rgba(2,1,5,.92); color: #fff0d2; padding: 11px 12px; color-scheme: dark; font: 16px/1.35 "Crimson Pro", serif; }
-    .nur-adjunct-textarea { min-height: 100px; resize: vertical; }
-    .nur-adjunct-input:focus, .nur-adjunct-select:focus, .nur-adjunct-textarea:focus { border-color: rgba(91,225,255,.58); box-shadow: 0 0 0 2px rgba(91,225,255,.08); }
-    .nur-adjunct-select option { background: #09060d; color: #fff0ce; }
-    .nur-adjunct-toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 0; border-top: 1px solid rgba(255,233,188,.1); }
-    .nur-adjunct-toggle input { appearance: none; width: 42px; height: 22px; border: 1px solid rgba(239,191,97,.38); border-radius: 999px; background: rgba(0,0,0,.7); position: relative; cursor: pointer; }
-    .nur-adjunct-toggle input::after { content: ""; position: absolute; width: 14px; height: 14px; inset: 3px auto auto 4px; border-radius: 50%; background: #dbc594; transition: transform .2s ease; }
-    .nur-adjunct-toggle input:checked { background: rgba(179,98,31,.55); }
-    .nur-adjunct-toggle input:checked::after { transform: translateX(18px); background: #ffe29b; box-shadow: 0 0 12px rgba(255,210,104,.55); }
-    .nur-adjunct-status { margin: 12px 0 0; color: var(--adj-muted); }
-    .nur-adjunct-status.is-good { color: #9be7b0; }
-    .nur-adjunct-status.is-warn { color: #f4be78; }
-    .nur-adjunct-empty { padding: 18px 0; color: rgba(255,235,200,.62); }
-    .nur-adjunct-empty strong { color: #f2d59e; font: 500 20px/1.2 "Bodoni Moda", serif; }
-    .nur-adjunct-empty p { margin: 6px 0 0; }
-    .nur-adjunct-answer { margin-top: 14px; padding: 18px; border-inline-start: 2px solid #d9a54b; background: rgba(230,165,60,.055); }
-    .nur-adjunct-answer blockquote { margin: 8px 0; color: #fff0d1; font: 500 22px/1.3 "Bodoni Moda", serif; }
-    .nur-adjunct-boundary { color: #e6bf78; font-style: italic; }
-    .nur-adjunct-json { max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; color: rgba(255,236,201,.68); font: 12px/1.45 ui-monospace, monospace; }
-    [dir="rtl"] #${ROOT_ID} { text-align: right; }
-    [dir="rtl"] .nur-adjunct-toggle input::after { inset-inline-start: 4px; }
-    [dir="rtl"] .nur-adjunct-toggle input:checked::after { transform: translateX(-18px); }
-    @media (max-width: 760px) {
-      .nur-adjunct-shell { width: min(100% - 24px, 1180px); padding-top: 14px; }
-      .nur-adjunct-topbar { align-items: flex-start; }
-      .nur-adjunct-privacy { max-width: 150px; text-align: end; }
-      .nur-adjunct-hero { padding-block: 34px 20px; }
-      .nur-adjunct-hero h1 { font-size: clamp(38px, 13vw, 58px); }
-      .nur-adjunct-grid { display: block; }
-      .nur-adjunct-panel { margin-bottom: 12px; padding: 18px; }
-      .nur-adjunct-fact { display: grid; gap: 4px; }
-      .nur-adjunct-fact strong { text-align: start; }
-    }
-    @media (prefers-reduced-motion: reduce) { .nur-adjunct-brand { animation: none; } }
-  `;
+  style.textContent = V197_ADJUNCT_FORENSIC_CSS;
   document.head.append(style);
 }
 
@@ -193,7 +100,11 @@ function mount(document: Document, title: string, subtitle: string, backRoute = 
   const back = element(document, "button", "nur-adjunct-back", "← Return to NUR");
   back.type = "button";
   back.dataset.adjunctRoute = backRoute;
-  topbar.append(back, element(document, "div", "nur-adjunct-brand", "NUR"), element(document, "span", "nur-adjunct-privacy", "Private by default. Shared only by choice."));
+  const brand = element(document, "div", "nur-adjunct-brand", "NUR");
+  const brandSeal = createV197StarSeal(document, 24, true);
+  brandSeal.classList.add("nur-adjunct-brand-seal");
+  brand.prepend(brandSeal);
+  topbar.append(back, brand, element(document, "span", "nur-adjunct-privacy", "Private by default. Shared only by choice."));
   const hero = element(document, "section", "nur-adjunct-hero");
   hero.append(element(document, "p", "nur-adjunct-eyebrow", "Neural Upgrade Rewiring"));
   hero.append(element(document, "h1", undefined, title));

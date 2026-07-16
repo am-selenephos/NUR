@@ -100,4 +100,18 @@ describe("V197 star seal", () => {
     expect(nav[0]?.querySelector(`.${V197_STATE_STAR_SEAL_CLASS}`)).toBeNull();
     expect(nav[1]?.querySelector(`.${V197_STATE_STAR_SEAL_CLASS}`)).not.toBeNull();
   });
+
+  it("covers adjunct primary and current navigation controls", () => {
+    document.body.innerHTML = `
+      <main id="nur-front-v61"></main>
+      <section id="nur-v197-adjunct-root">
+        <button class="nur-adjunct-button is-primary">Continue</button>
+        <nav class="nur-community-nav"><button class="nur-adjunct-button" aria-current="page">Feed</button></nav>
+      </section>
+    `;
+
+    expect(installV197StarSeals(document)).toBe(2);
+    expect(document.querySelector(".nur-adjunct-button.is-primary .nur-star-seal--control use")).not.toBeNull();
+    expect(document.querySelector(".nur-community-nav [aria-current='page'] .nur-star-seal--state use")).not.toBeNull();
+  });
 });

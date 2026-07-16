@@ -17,6 +17,7 @@ const PRIMARY_CONTROL_SELECTOR = [
   ".f4-submit",
   ".thought-send-button",
   ".universe-send",
+  ".nur-adjunct-button.is-primary",
 ].join(",");
 
 const SELECTED_STATE_HOST_SELECTOR = [
@@ -25,6 +26,7 @@ const SELECTED_STATE_HOST_SELECTOR = [
   ".scope-option[aria-checked='true']",
   ".audit-scope.selected",
   ".clean-scope.selected",
+  ".nur-community-nav .nur-adjunct-button[aria-current='page']",
 ].join(",");
 
 function svgElement<K extends keyof SVGElementTagNameMap>(
@@ -301,7 +303,7 @@ function syncV197ControlSeals(document: Document): number {
 function observeV197ControlSeals(document: Document): void {
   if (controlSealObservers.has(document)) return;
   const frameWindow = document.defaultView;
-  const root = document.getElementById("nur-front-v61") ?? document.body;
+  const root = document.body ?? document.getElementById("nur-front-v61");
   if (!frameWindow || !root) return;
 
   let frame: number | null = null;
