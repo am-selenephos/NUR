@@ -34,7 +34,9 @@ describe("V197 deterministic runtime performance profile", () => {
     expect(result.source).toContain("galaxy:90,far:45,dust:12,super:6");
     expect(result.source).toContain("const nodeBudget=innerWidth<700?12:18");
     expect(result.source).toContain('if(!isS&&p.kind==="galaxy")');
-    expect(result.source).toContain('dataset.nurInteractionActive==="true"?72:25');
+    expect(result.source).toContain('budget=active?16.7:__q<.45?33.3:__q<.7?25:20');
+    expect(result.source).not.toContain("setTimeout(()=>{frameRAF=requestAnimationFrame(frame)},delay)");
+    expect(result.source).not.toContain('?72:25');
     expect(canonical).toContain("const PARTICLE_CAP=1880");
   });
 

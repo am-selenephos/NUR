@@ -29,7 +29,7 @@ const UNIVERSE_REPLACEMENTS: readonly Replacement[] = [
   ],
   [
     "function scheduleFrame(){if(reduced||frameRAF)return;frameRAF=requestAnimationFrame(frame)}",
-    'function scheduleFrame(){if(reduced||frameRAF)return;const delay=document.documentElement.dataset.nurInteractionActive==="true"?72:25;frameRAF=setTimeout(()=>{frameRAF=requestAnimationFrame(frame)},delay)}',
+    'function scheduleFrame(){if(reduced||frameRAF)return;frameRAF=requestAnimationFrame(now=>{frameRAF=0;const active=document.documentElement.dataset.nurInteractionActive==="true",budget=active?16.7:__q<.45?33.3:__q<.7?25:20;if(now-last+1<budget){scheduleFrame();return}frame(now)})}',
   ],
 ] as const;
 

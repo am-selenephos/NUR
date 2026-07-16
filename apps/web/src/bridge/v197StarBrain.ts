@@ -1,4 +1,8 @@
 import V197_STAR_BRAIN_RUNTIME from "./v197StarBrainRuntime.js?raw";
+import {
+  applyV197StarBrainLifecycleProfile,
+  V197_STAR_BRAIN_LIFECYCLE_PROFILE,
+} from "./v197StarBrainLifecycle";
 
 export const V197_STAR_BRAIN_CANVAS_ID = "nur-brain-canvas-v197";
 export const V197_STAR_BRAIN_HOST_ID = "front-nur-star";
@@ -144,9 +148,16 @@ export function ensureV197StarBrain(document: Document): HTMLCanvasElement | nul
 
   if (!document.getElementById(V197_STAR_BRAIN_SCRIPT_ID)) {
     const script = document.createElement("script");
+    const lifecycleProfile = applyV197StarBrainLifecycleProfile(V197_STAR_BRAIN_RUNTIME);
     script.id = V197_STAR_BRAIN_SCRIPT_ID;
     script.dataset.nurSource = "exact-v197-star-brain-galaxy-port";
-    script.textContent = V197_STAR_BRAIN_RUNTIME;
+    script.dataset.nurLifecycleProfile = lifecycleProfile.applied
+      ? V197_STAR_BRAIN_LIFECYCLE_PROFILE
+      : "canonical-fallback";
+    if (!lifecycleProfile.applied && lifecycleProfile.failure) {
+      script.dataset.nurLifecycleProfileError = lifecycleProfile.failure;
+    }
+    script.textContent = lifecycleProfile.source;
     (document.body ?? document.head).append(script);
 
   }
