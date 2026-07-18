@@ -9,13 +9,11 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx",
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["node", "vitest/globals", "@testing-library/jest-dom"],
-    "paths": { "@nur/shared-types": ["../../packages/shared-types/src/index.ts"] }
+    "types": ["node", "vitest/globals"]
   },
   "include": ["src", "e2e"]
 }

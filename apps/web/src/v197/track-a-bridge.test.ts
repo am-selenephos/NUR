@@ -10,15 +10,14 @@ import { renderPersistedGlow } from "../bridge/v197Rewards";
 import {
   V197_COMPACT_MINI_STAR_CLASS,
   V197_ENTRY_POLISH_STYLE_ID,
-  V197_INTERACTION_BUDGET_MARKER,
+  V197_LOCKUP_CLASS,
+  V197_LOCKUP_SUBTITLE_CLASS,
   V197_PREMIUM_POLISH_STYLE_ID,
   V197_STABLE_WORDMARK_CLASS,
-  V197_STATIC_STARFIELD_ID,
+  V197_WORDMARK_CLASS,
   compactV197MiniStars,
-  ensureV197InteractionBudget,
   ensureV197EntryPolish,
   ensureV197PremiumPolish,
-  ensureV197StaticStarfield,
 } from "../bridge/v197Polish";
 
 function fixture(): Document {
@@ -179,13 +178,15 @@ describe("Track A V197 premium polish", () => {
 
     const styles = document.querySelectorAll(`#${V197_PREMIUM_POLISH_STYLE_ID}`);
     expect(styles).toHaveLength(1);
-    expect(styles[0]?.textContent).toContain(".universe-main-grid");
-    expect(styles[0]?.textContent).toContain(".universe-system-node.neural");
-    expect(styles[0]?.textContent).toContain(".universe-command-row");
+    expect((styles[0] as HTMLElement | undefined)?.dataset.nurLayer).toBe("v197-native-universe-presentation");
     expect(document.querySelectorAll(`.${V197_STABLE_WORDMARK_CLASS}`)).toHaveLength(1);
     expect(document.querySelector(`.${V197_STABLE_WORDMARK_CLASS}`)?.textContent).toBe("NUR");
-    expect((document.querySelector(`.${V197_STABLE_WORDMARK_CLASS}`) as HTMLElement).style.getPropertyValue("font-family")).toContain("Bodoni Moda");
     expect(document.querySelector(".nur-holo-word")?.getAttribute("data-nur-stable-source")).toBe("true");
+    expect(document.querySelector(".universe-map-title")?.classList.contains(V197_LOCKUP_CLASS)).toBe(true);
+    expect(document.querySelector(".universe-map-title")?.getAttribute("data-nur-lockup-axis")).toBe("center");
+    expect(document.querySelector(".nur-holo-word")?.classList.contains(V197_WORDMARK_CLASS)).toBe(true);
+    expect(document.querySelector(".nur-holo-word")?.getAttribute("data-nur-holographic-wordmark")).toBe("animated");
+    expect(document.querySelector(".universe-map-title small")?.classList.contains(V197_LOCKUP_SUBTITLE_CLASS)).toBe(true);
     expect(document.querySelector(".universe-map-panel")).toBe(originalMap);
     expect(miniHost.dataset.nurMiniCompacted).toBe("true");
     expect(miniHost.querySelectorAll(`.${V197_COMPACT_MINI_STAR_CLASS}`)).toHaveLength(1);
@@ -194,45 +195,31 @@ describe("Track A V197 premium polish", () => {
     expect(document.querySelector("#root")).toBeNull();
   });
 
-  it("binds the foreground interaction budget once on a live document", () => {
-    delete window.document.documentElement.dataset[V197_INTERACTION_BUDGET_MARKER];
-    ensureV197InteractionBudget(window.document);
-    ensureV197InteractionBudget(window.document);
-    expect(window.document.documentElement.dataset[V197_INTERACTION_BUDGET_MARKER]).toBe("bound");
-  });
-
-  it("adds one non-animated seeded star layer to a live frame document", () => {
-    const context = {
-      clearRect: vi.fn(),
-      fillRect: vi.fn(),
-      beginPath: vi.fn(),
-      moveTo: vi.fn(),
-      lineTo: vi.fn(),
-      stroke: vi.fn(),
-      fillStyle: "",
-      strokeStyle: "",
-      lineWidth: 1,
-    } as unknown as CanvasRenderingContext2D;
-    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext")
-      .mockReturnValue(context);
-    window.document.getElementById(V197_STATIC_STARFIELD_ID)?.remove();
-    const first = ensureV197StaticStarfield(window.document, "universe");
-    const second = ensureV197StaticStarfield(window.document, "universe");
-    expect(first).toBe(second);
-    expect(first?.dataset.nurLayer).toBe("universe-seeded-static-stars");
-    expect(first?.dataset.nurStarCount).toBeTruthy();
-    expect(window.document.querySelectorAll(`#${V197_STATIC_STARFIELD_ID}`)).toHaveLength(1);
-    expect(context.fillRect).toHaveBeenCalled();
-    getContext.mockRestore();
-  });
-
-  it("installs one Entry auth wordmark clearance layer", () => {
+  it("installs one Entry presentation layer with a stable centered header", () => {
     const document = fixture();
-    document.body.innerHTML = '<section id="nur-front-v61"><header class="f4-head"></header><aside id="f4-sheet" class="f4-sheet open"></aside></section>';
+    document.body.innerHTML = `
+      <section id="nur-front-v61">
+        <header class="f4-head">
+          <button class="f4-brand">
+            <span class="f4-brand-copy">
+              <span class="f4-brand-word">NUR</span>
+              <span class="f4-brand-sub">Neural Upgrade Rewiring</span>
+            </span>
+          </button>
+        </header>
+        <aside id="f4-sheet" class="f4-sheet open"></aside>
+      </section>
+    `;
     ensureV197EntryPolish(document);
     ensureV197EntryPolish(document);
     expect(document.querySelectorAll(`#${V197_ENTRY_POLISH_STYLE_ID}`)).toHaveLength(1);
-    expect(document.getElementById(V197_ENTRY_POLISH_STYLE_ID)?.textContent).toContain("translateY(28px)");
+    expect(document.getElementById(V197_ENTRY_POLISH_STYLE_ID)?.dataset.nurLayer).toBe("v197-native-entry-presentation");
+    expect(document.querySelector(".f4-brand-copy")?.classList.contains(V197_LOCKUP_CLASS)).toBe(true);
+    expect(document.querySelector(".f4-brand-copy")?.getAttribute("data-nur-lockup-axis")).toBe("center");
+    expect(document.querySelector(".f4-brand-word")?.classList.contains(V197_WORDMARK_CLASS)).toBe(true);
+    expect(document.querySelector(".f4-brand-word")?.getAttribute("data-nur-holographic-wordmark")).toBe("animated");
+    expect(document.querySelector(".f4-brand-sub")?.classList.contains(V197_LOCKUP_SUBTITLE_CLASS)).toBe(true);
+    expect(document.body.classList.contains("nur-v197-auth-open")).toBe(true);
   });
 
   it("compacts only newly expanded mini stars and stays idempotent", () => {

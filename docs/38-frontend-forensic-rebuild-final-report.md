@@ -69,7 +69,7 @@ Runtime and behavior integration:
 - `apps/web/src/bridge/v197PerformanceProfile.ts`
 - `apps/web/src/bridge/v197Polish.ts`
 - `apps/web/src/bridge/v197StarBrain.ts`
-- `apps/web/src/bridge/v197StarBrainLifecycle.ts`
+- `apps/web/src/bridge/v43StarBrainRuntime.js`
 - `apps/web/src/bridge/v197StarSeal.ts`
 - `apps/web/src/main.tsx`
 - `apps/web/src/routes/universe/UniverseLenses.tsx`
@@ -210,31 +210,27 @@ was not converted into decorative landing-page cards.
 
 ## 13. Brain Renderer Changes
 
-The protected file `v197StarBrainRuntime.js` was not edited. Its exact anatomy,
-1,060 desktop points, 708 mobile points, connection network, twinkle, neural
-pulses, rotation, shatter, reform and dissipation remain byte-identical.
+The current renderer is `v43StarBrainRuntime.js`, a byte-identical copy of the
+founder-supplied V43 V7 front-page star-brain source. Its 796 desktop-point and
+538 mobile-point anatomy, star geometry, synapses, neural pulses, rotation,
+shatter, reform and glitter behavior are not transformed at runtime.
 
-`v197StarBrainLifecycle.ts` performs a checked runtime-source transform at load
-time. The transform adds ownership and cleanup around the protected renderer:
-visibility and intersection suspension, one RAF owner, timer tracking,
-observer disconnection, page-hide disposal, resize scheduling, modifier-only
-wheel zoom, and a debug/dispose handle. Each replacement must match exactly
-once or the transform fails closed.
-
-Host sizing and placement were changed outside the protected renderer to
-remove visible circular/square boundaries and prevent title, node and control
-collisions.
+The old V197 enhanced runtime and its visual/lifecycle source transforms were
+removed. The bridge only gives the unmodified source the canonical host,
+clears an already-mounted legacy canvas, and preserves the host click/keyboard
+ritual. A radial CSS mask is intentionally external to the source: it fades
+stardust in a circular field so a square canvas boundary cannot be seen.
 
 ## 14. Protected Source Before/After Hashes
 
 | Source | Before SHA-256 | After SHA-256 | Result |
 | --- | --- | --- | --- |
-| Canonical V197 host | `252eee806ece31ef829a2dc5cd45aa8d8f8e855db1bde98b6f87193d786633c3` | `252eee806ece31ef829a2dc5cd45aa8d8f8e855db1bde98b6f87193d786633c3` | Identical |
-| Entry reference | `49e2e72fb3adea405428789d9235dfc5ecb122f8dc1e17205d4fa05de64ecd97` | `49e2e72fb3adea405428789d9235dfc5ecb122f8dc1e17205d4fa05de64ecd97` | Identical |
-| Universe reference | `b80eb5198d6fd9088e999020bd1cf85e95af9a20fd4ab172cfb7d5726dbd5a3c` | `b80eb5198d6fd9088e999020bd1cf85e95af9a20fd4ab172cfb7d5726dbd5a3c` | Identical |
-| Exact brain runtime | `c5218640143855897592af7442a7a0b26a62232d68be912aadb97d6a7dc7c242` | `c5218640143855897592af7442a7a0b26a62232d68be912aadb97d6a7dc7c242` | Identical |
+| Canonical V197 host | `d4f7f2d3e4c8e36dfc0c6edd51a028f28a04afbc2afa434a319009cb2f122bc6` | `d4f7f2d3e4c8e36dfc0c6edd51a028f28a04afbc2afa434a319009cb2f122bc6` | Identical |
+| Entry reference | `cdeac0c8574333c7261be2bc410357ecc5407ee0dd5b1b8089630f3914026030` | `cdeac0c8574333c7261be2bc410357ecc5407ee0dd5b1b8089630f3914026030` | Identical |
+| Universe reference | `3cff07b31e8360e5ce793287298d66127c4f278705dc0f8e6abdfbe7e874dc40` | `3cff07b31e8360e5ce793287298d66127c4f278705dc0f8e6abdfbe7e874dc40` | Identical |
+| Exact V43 V7 brain runtime | `d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6` | `d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6` | Identical |
 
-Current files and `main` were both hashed. All four pairs match.
+The current cleaned build was hashed. All four pairs match.
 
 ## 15. Performance Defects Found
 

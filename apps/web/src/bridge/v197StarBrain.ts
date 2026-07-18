@@ -1,13 +1,10 @@
-import V197_STAR_BRAIN_RUNTIME from "./v197StarBrainRuntime.js?raw";
+import V43_STAR_BRAIN_RUNTIME from "./v43StarBrainRuntime.js?raw";
 import { ensureV197AccessibleViewport } from "./v197Accessibility";
-import {
-  applyV197StarBrainLifecycleProfile,
-  V197_STAR_BRAIN_LIFECYCLE_PROFILE,
-} from "./v197StarBrainLifecycle";
 
-export const V197_STAR_BRAIN_CANVAS_ID = "nur-brain-canvas-v197";
+export const V197_STAR_BRAIN_CANVAS_ID = "nur-brain-canvas";
 export const V197_STAR_BRAIN_HOST_ID = "front-nur-star";
-const V197_STAR_BRAIN_SCRIPT_ID = "nur-v197-exact-star-brain-runtime";
+const V197_STAR_BRAIN_SCRIPT_ID = "nur-v43-exact-star-brain-runtime";
+const V43_STAR_BRAIN_RUNTIME_HASH = "d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6";
 
 type V197StarBrainSurface = "entry" | "today" | "universe" | "map";
 
@@ -28,6 +25,7 @@ type V197StarBrainController = {
 };
 
 const starBrainControllers = new WeakMap<Document, V197StarBrainController>();
+const starBrainHosts = new WeakMap<Document, HTMLElement>();
 
 function resolveV197StarBrainHost(document: Document): {
   host: HTMLElement;
@@ -67,14 +65,18 @@ export function placeV197StarBrainHost(document: Document): HTMLElement | null {
   canonicalHost.dataset.nurStarBrainSurface = surface;
   removeLegacyMasterStar(canonicalHost, surface);
 
-  let brainHost = document.getElementById(V197_STAR_BRAIN_HOST_ID) as HTMLElement | null;
+  let brainHost = (document.getElementById(V197_STAR_BRAIN_HOST_ID) as HTMLElement | null)
+    ?? starBrainHosts.get(document)
+    ?? null;
   if (!brainHost) {
     brainHost = document.createElement("div");
     brainHost.id = V197_STAR_BRAIN_HOST_ID;
-    brainHost.dataset.nurSource = "exact-v197-star-brain-galaxy-port";
+    brainHost.dataset.nurSource = "exact-v43-front-page-signup-v7-star-brain";
+    starBrainHosts.set(document, brainHost);
   }
   if (brainHost.parentElement !== canonicalHost) canonicalHost.append(brainHost);
   brainHost.dataset.nurSurface = surface;
+  brainHost.dataset.nurDispersal = "radial-circle";
   brainHost.setAttribute("aria-label", surface === "today" ? "Wake the NUR mind" : "Wake the NUR star brain");
   brainHost.setAttribute("role", "button");
   brainHost.tabIndex = 0;
@@ -136,9 +138,10 @@ export function ensureV197BlackGalaxy(document: Document): void {
 }
 
 /**
- * Mount the exact final `nur-v197-star-brain-galaxy-port` script extracted
- * byte-for-byte from the approved reference HTML. Only its expected host is
- * adapted to canonical V197; anatomy and stellar rendering remain untouched.
+ * Mount the exact V43 V7 star-brain script supplied by the founder. Its source
+ * remains byte-for-byte intact; the bridge only provides the canonical host,
+ * removes any already-mounted legacy canvas, and supplies the circular CSS
+ * dispersal boundary outside the renderer.
  */
 export function ensureV197StarBrain(document: Document): HTMLCanvasElement | null {
   ensureV197AccessibleViewport(document);
@@ -146,22 +149,28 @@ export function ensureV197StarBrain(document: Document): HTMLCanvasElement | nul
   if (!frameWindow) return null;
   const brainHost = placeV197StarBrainHost(document);
   if (!brainHost) return null;
+  brainHost.dataset.nurModel = "v43-v7";
+  brainHost.dataset.nurPointCount = frameWindow.innerWidth < 700 ? "538" : "796";
   observeV197StarBrainPlacement(document, frameWindow);
 
   if (!document.getElementById(V197_STAR_BRAIN_SCRIPT_ID)) {
-    const script = document.createElement("script");
-    const lifecycleProfile = applyV197StarBrainLifecycleProfile(V197_STAR_BRAIN_RUNTIME);
-    script.id = V197_STAR_BRAIN_SCRIPT_ID;
-    script.dataset.nurSource = "exact-v197-star-brain-galaxy-port";
-    script.dataset.nurLifecycleProfile = lifecycleProfile.applied
-      ? V197_STAR_BRAIN_LIFECYCLE_PROFILE
-      : "canonical-fallback";
-    if (!lifecycleProfile.applied && lifecycleProfile.failure) {
-      script.dataset.nurLifecycleProfileError = lifecycleProfile.failure;
+    for (const canvasId of [V197_STAR_BRAIN_CANVAS_ID, "nur-brain-canvas-v197"]) {
+      const existingCanvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
+      if (!existingCanvas) continue;
+      try {
+        existingCanvas.width = 0;
+        existingCanvas.height = 0;
+      } catch {
+        // A canvas may have been mounted by an older source before the bridge.
+      }
+      existingCanvas.remove();
     }
-    script.textContent = lifecycleProfile.source;
+    const script = document.createElement("script");
+    script.id = V197_STAR_BRAIN_SCRIPT_ID;
+    script.dataset.nurSource = "exact-v43-front-page-signup-v7-star-brain";
+    script.dataset.nurRuntimeHash = V43_STAR_BRAIN_RUNTIME_HASH;
+    script.textContent = V43_STAR_BRAIN_RUNTIME;
     (document.body ?? document.head).append(script);
-
   }
 
   if (brainHost.dataset.nurExactBridgeBound !== "true") {
@@ -169,6 +178,7 @@ export function ensureV197StarBrain(document: Document): HTMLCanvasElement | nul
     /* The reference page's existing V4 host listener supplies this class.
      * Canonical V197 has different hosts, so bridge only that event signal. */
     brainHost.addEventListener("click", () => {
+      brainHost.dataset.nurLastInteraction = "shatter";
       brainHost?.classList.remove("is-bursting");
       void brainHost?.offsetWidth;
       brainHost?.classList.add("is-bursting");

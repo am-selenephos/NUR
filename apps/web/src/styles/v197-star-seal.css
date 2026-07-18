@@ -1,11 +1,3 @@
-.nur-star-seal-sprite {
-  position: absolute !important;
-  width: 0 !important;
-  height: 0 !important;
-  overflow: hidden !important;
-  pointer-events: none !important;
-}
-
 .nur-exact-mini-host[data-nur-star-seal="authentic"] {
   contain: layout style paint !important;
   isolation: isolate !important;
@@ -24,33 +16,61 @@
   position: absolute !important;
   left: 50% !important;
   top: 50% !important;
-  display: block !important;
-  width: 100% !important;
-  height: 100% !important;
   max-width: none !important;
   max-height: none !important;
-  overflow: visible !important;
   transform: translate(-50%, -50%) !important;
 }
 
 .nur-star-seal {
+  --nur-star-seal-size: 20px;
+  --nur-star-seal-scale: .2;
+  position: relative;
   display: inline-block;
-  flex: 0 0 auto;
+  width: var(--nur-star-seal-size);
+  height: var(--nur-star-seal-size);
+  flex: 0 0 var(--nur-star-seal-size);
   overflow: visible;
-  color: #fff8df;
-  filter:
-    drop-shadow(0 0 .7px rgba(255, 248, 223, .96))
-    drop-shadow(0 0 2px rgba(255, 211, 90, .58))
-    drop-shadow(0 0 3px rgba(255, 58, 158, .16))
-    drop-shadow(0 0 4px rgba(33, 232, 255, .12));
+  isolation: isolate;
+  vertical-align: middle;
+  pointer-events: none;
   transform-origin: 50% 50%;
 }
 
-.nur-star-seal--12 { width: 12px; height: 12px; }
-.nur-star-seal--16 { width: 16px; height: 16px; }
-.nur-star-seal--20 { width: 20px; height: 20px; }
-.nur-star-seal--24 { width: 24px; height: 24px; }
-.nur-star-seal--32 { width: 32px; height: 32px; }
+.nur-star-seal:not(.nur-star-seal--startup) > .nur-v197-sigil-star {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  display: block !important;
+  width: 100px !important;
+  height: 100px !important;
+  margin: 0 !important;
+  opacity: 1 !important;
+  transform: translate(-50%, -50%) scale(var(--nur-star-seal-scale)) !important;
+  transform-origin: 50% 50% !important;
+  pointer-events: none !important;
+}
+
+.nur-star-seal--startup {
+  --nur-star-seal-size: 100px;
+  --nur-star-seal-scale: 1;
+}
+
+.nur-star-seal--startup > .i-spark.spark {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  display: block !important;
+  width: 100px !important;
+  height: 100px !important;
+  margin: 0 !important;
+  pointer-events: none !important;
+}
+
+.nur-star-seal--12 { --nur-star-seal-size: 12px; --nur-star-seal-scale: .12; }
+.nur-star-seal--16 { --nur-star-seal-size: 16px; --nur-star-seal-scale: .16; }
+.nur-star-seal--20 { --nur-star-seal-size: 20px; --nur-star-seal-scale: .2; }
+.nur-star-seal--24 { --nur-star-seal-size: 24px; --nur-star-seal-scale: .24; }
+.nur-star-seal--32 { --nur-star-seal-size: 32px; --nur-star-seal-scale: .32; }
 
 :is(button, a).nur-has-control-star-seal,
 .nur-has-state-star-seal {
@@ -64,43 +84,49 @@
 .nur-star-seal--state {
   position: relative !important;
   inset: auto !important;
-  flex: 0 0 auto !important;
-  width: var(--nur-control-star-size, 18px) !important;
-  height: var(--nur-control-star-size, 18px) !important;
+  width: var(--nur-star-seal-size) !important;
+  height: var(--nur-star-seal-size) !important;
+  flex: 0 0 var(--nur-star-seal-size) !important;
   transform: none !important;
   pointer-events: none !important;
 }
 
 .nur-has-state-star-seal {
-  --nur-control-star-size: 20px;
   overflow: visible !important;
-  font-size: 0 !important;
   color: transparent !important;
+  font-size: 0 !important;
 }
 
 .nur-has-state-star-seal > .nur-star-seal--state {
   margin: 0 !important;
 }
 
-.nur-star-seal[data-nur-star-twinkle="true"] {
+.nur-star-seal:not(.nur-star-seal--startup)[data-nur-star-twinkle="true"] {
   animation: nurStarSealTwinkle 5.8s ease-in-out infinite;
 }
 
-:is(button, a):hover .nur-star-seal {
+:is(button, a):hover .nur-star-seal:not(.nur-star-seal--startup) {
   filter:
-    brightness(1.12)
-    drop-shadow(0 0 1px rgba(255, 248, 223, 1))
-    drop-shadow(0 0 3px rgba(255, 211, 90, .72))
-    drop-shadow(0 0 4px rgba(255, 58, 158, .22))
-    drop-shadow(0 0 5px rgba(33, 232, 255, .18));
+    brightness(1.15)
+    saturate(1.12)
+    drop-shadow(0 0 3px rgba(255, 239, 191, .78))
+    drop-shadow(0 0 6px rgba(33, 232, 255, .22));
 }
 
 @keyframes nurStarSealTwinkle {
-  0%, 76%, 100% { opacity: .9; filter: brightness(.98) drop-shadow(0 0 3px rgba(255, 211, 90, .42)); }
-  82% { opacity: 1; filter: brightness(1.24) drop-shadow(0 0 7px rgba(255, 248, 223, .96)) drop-shadow(0 0 11px rgba(255, 58, 158, .24)); }
-  88% { opacity: .94; filter: brightness(1.06) drop-shadow(0 0 5px rgba(33, 232, 255, .32)); }
+  0%, 76%, 100% { opacity: .9; filter: brightness(.98) saturate(1); }
+  82% { opacity: 1; filter: brightness(1.24) saturate(1.18) drop-shadow(0 0 7px rgba(255, 248, 223, .92)); }
+  88% { opacity: .95; filter: brightness(1.06) saturate(1.08) drop-shadow(0 0 5px rgba(33, 232, 255, .3)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nur-star-seal[data-nur-star-twinkle="true"] { animation: none !important; }
+  .nur-star-seal,
+  .nur-star-seal :is(.spark-glow, .spark-halo, .spark-h2, .spark-core, .rayset, .ray, .ob) {
+    animation: none !important;
+  }
+
+  .nur-star-seal--startup > .i-spark.spark {
+    opacity: 1 !important;
+    transform: translate(-50%, -50%) !important;
+  }
 }

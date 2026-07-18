@@ -158,8 +158,7 @@ test("Track A owner mutation loop uses exact V197 controls", async ({ page }, te
   expect(wordmarkStyle.fontFamily).toContain("Bodoni Moda");
   expect(wordmarkStyle.fontWeight).toBe("500");
   expect(wordmarkStyle.backgroundClip).toBe("text");
-  expect(wordmarkStyle.animationName).toContain("nurV197StableWordmarkFlow");
-  expect(wordmarkStyle.animationName).toContain("nurV197StableWordmarkGlow");
+  expect(wordmarkStyle.animationName).toContain("univPrism");
   const topbar = await universe.locator(".nur-topbar").evaluate(node => {
     const boundary = node.getBoundingClientRect();
     const nav = node.querySelector<HTMLElement>(".universe-nav-tabs");

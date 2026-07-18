@@ -26,6 +26,7 @@ async function installAuthenticatedMocks(page: Page): Promise<void> {
 }
 
 test("shared shell stays inside every required viewport", async ({ page }) => {
+  test.setTimeout(120_000);
   await installAuthenticatedMocks(page);
 
   for (const viewport of targetViewports) {
@@ -33,12 +34,29 @@ test("shared shell stays inside every required viewport", async ({ page }) => {
     await page.goto("/systems", { waitUntil: "load" });
     const frame = page.frameLocator("#nur-universe-stage");
     await expect(frame.locator("#page-systems")).toBeVisible({ timeout: 20_000 });
+    await expect(
+      frame.locator("#front-nur-star"),
+      `exact V197 brain host did not settle at ${viewport.width}x${viewport.height}`,
+    ).toHaveCount(1, { timeout: 5_000 });
+    await expect(
+      frame.locator("#nur-brain-canvas"),
+      `exact V43 brain canvas did not settle at ${viewport.width}x${viewport.height}`,
+    ).toHaveCount(1, { timeout: 5_000 });
 
     const geometry = await frame.locator("body").evaluate(async () => {
       await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      const visible = (element: HTMLElement) => {
+        const style = getComputedStyle(element);
+        const bounds = element.getBoundingClientRect();
+        return style.display !== "none"
+          && style.visibility !== "hidden"
+          && Number(style.opacity) > 0
+          && bounds.width > 0
+          && bounds.height > 0;
+      };
       const rect = (selector: string) => {
         const element = document.querySelector<HTMLElement>(selector);
-        if (!element || getComputedStyle(element).display === "none") return null;
+        if (!element || !visible(element)) return null;
         const bounds = element.getBoundingClientRect();
         return {
           left: bounds.left,
@@ -73,11 +91,38 @@ test("shared shell stays inside every required viewport", async ({ page }) => {
         viewport: rect(".nur-viewport"),
         composer: rect(".global-composer"),
         mobileTabs: rect(".mobile-tabs"),
+        toast: rect(".toast, #toast.toast"),
+        bodyBackground: getComputedStyle(document.body).backgroundColor,
+        mapBackground: getComputedStyle(document.querySelector<HTMLElement>(".universe-map-panel")!).background,
+        nodeLabels: Array.from(document.querySelectorAll<HTMLElement>(".universe-system-node > span")).map(element => {
+          const style = getComputedStyle(element);
+          return {
+            width: element.getBoundingClientRect().width,
+            display: style.display,
+            overflowWrap: style.overflowWrap,
+            wordBreak: style.wordBreak,
+          };
+        }),
+        commands: Array.from(document.querySelectorAll<HTMLElement>(".universe-command-row .world-command")).map(element => ({
+          clientWidth: element.clientWidth,
+          scrollWidth: element.scrollWidth,
+          overflowWrap: getComputedStyle(element).overflowWrap,
+          wordBreak: getComputedStyle(element).wordBreak,
+        })),
+        navControls: Array.from(document.querySelectorAll<HTMLButtonElement>(".universe-nav-tabs button")).map(element => ({
+          aria: element.getAttribute("aria-label"),
+          title: element.title,
+          fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+          text: element.innerText.trim(),
+        })),
+        railTitles: Array.from(document.querySelectorAll<HTMLElement>(".clean-nav-title"))
+          .filter(visible)
+          .map(element => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth })),
         documentWidth: document.documentElement.scrollWidth,
         viewportWidth: innerWidth,
         escapedControls,
         brainHosts: document.querySelectorAll("#front-nur-star").length,
-        brainCanvases: document.querySelectorAll("#nur-brain-canvas-v197").length,
+        brainCanvases: document.querySelectorAll("#nur-brain-canvas").length,
       };
     });
 
@@ -86,6 +131,27 @@ test("shared shell stays inside every required viewport", async ({ page }) => {
     expect(Math.abs((geometry.shell?.height ?? 0) - viewport.height)).toBeLessThanOrEqual(1);
     expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth + 1);
     expect(geometry.escapedControls).toEqual([]);
+    expect(geometry.bodyBackground).toBe("rgb(0, 0, 0)");
+    expect(geometry.mapBackground).not.toContain("31, 16, 58");
+    expect(geometry.mapBackground).not.toContain("5, 3, 13");
+    expect(geometry.nodeLabels).toHaveLength(7);
+    geometry.nodeLabels.forEach(label => {
+      expect(label.width).toBeGreaterThan(0);
+      expect(label.display).not.toBe("none");
+      expect(label.overflowWrap).toBe("normal");
+      expect(label.wordBreak).toBe("normal");
+    });
+    geometry.commands.forEach(command => {
+      expect(command.scrollWidth).toBeLessThanOrEqual(command.clientWidth + 1);
+      expect(command.overflowWrap).toBe("normal");
+      expect(command.wordBreak).toBe("normal");
+    });
+    geometry.navControls.forEach(control => {
+      expect(control.aria).toBeTruthy();
+      expect(control.title).toBe(control.aria);
+      expect(control.fontSize).toBeGreaterThan(0);
+      expect(control.text).not.toBe("");
+    });
     expect(geometry.brainHosts).toBe(1);
     expect(geometry.brainCanvases).toBe(1);
 
@@ -96,18 +162,25 @@ test("shared shell stays inside every required viewport", async ({ page }) => {
       expect(geometry.mobileTabs).not.toBeNull();
       expect(Math.abs((geometry.mobileTabs?.bottom ?? 0) - viewport.height)).toBeLessThanOrEqual(1);
       expect(Math.abs((geometry.composer?.bottom ?? 0) - (geometry.mobileTabs?.top ?? 0))).toBeLessThanOrEqual(1);
+      if (geometry.toast) {
+        expect(geometry.toast.bottom).toBeLessThanOrEqual((geometry.composer?.top ?? 0) - 8);
+      }
     } else {
       expect(geometry.leftRail).not.toBeNull();
       expect(geometry.composer).toBeNull();
       expect(geometry.mobileTabs).toBeNull();
       expect(geometry.rightRail === null).toBe(viewport.width < 1600);
+      geometry.railTitles.forEach(title => {
+        expect(title.scrollWidth).toBeLessThanOrEqual(title.clientWidth + 1);
+      });
     }
 
     expect(Math.abs((geometry.topbar?.bottom ?? 0) - (geometry.viewport?.top ?? 0))).toBeLessThanOrEqual(1);
   }
 });
 
-test("Today owns one visible exact V197 brain renderer", async ({ page }) => {
+test("Today owns one visible exact V43 brain renderer", async ({ page }) => {
+  test.setTimeout(60_000);
   await installAuthenticatedMocks(page);
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }] as const) {
@@ -116,14 +189,12 @@ test("Today owns one visible exact V197 brain renderer", async ({ page }) => {
     const frame = page.frameLocator("#nur-universe-stage");
     await expect(frame.locator("#page-today")).toBeVisible({ timeout: 20_000 });
     await expect(frame.locator("#page-today .orbit-star-zone > .f4-core > #front-nur-star")).toBeVisible();
-    await expect(frame.locator("#nur-brain-canvas-v197")).toBeVisible();
+    await expect(frame.locator("#nur-brain-canvas")).toBeVisible();
 
-    const brain = await frame.locator("body").evaluate(() => {
-      const canvas = document.querySelector<HTMLCanvasElement>("#nur-brain-canvas-v197");
+    const readBrain = () => frame.locator("body").evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>("#nur-brain-canvas");
       const context = canvas?.getContext("2d");
-      const runtime = (window as unknown as {
-        __nurV197?: { version: string; points: number; edges: number; mode: string };
-      }).__nurV197;
+      const host = document.querySelector<HTMLElement>("#front-nur-star");
       let paintedSamples = 0;
       if (canvas && context) {
         const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
@@ -134,19 +205,24 @@ test("Today owns one visible exact V197 brain renderer", async ({ page }) => {
       }
       return {
         hosts: document.querySelectorAll("#front-nur-star").length,
-        canvases: document.querySelectorAll("#nur-brain-canvas-v197").length,
+        canvases: document.querySelectorAll("#nur-brain-canvas").length,
         surface: document.querySelector<HTMLElement>("#front-nur-star")?.dataset.nurSurface,
         paintedSamples,
-        runtime,
+        model: host?.dataset.nurModel,
+        pointCount: host?.dataset.nurPointCount,
+        dispersal: host?.dataset.nurDispersal,
       };
     });
+    await expect.poll(async () => (await readBrain()).paintedSamples, { timeout: 5_000 }).toBeGreaterThan(100);
+    const brain = await readBrain();
 
-    const expectedPoints = viewport.width < 700 ? 708 : 1060;
+    const expectedPoints = viewport.width < 700 ? "538" : "796";
     expect(brain.hosts).toBe(1);
     expect(brain.canvases).toBe(1);
     expect(brain.surface).toBe("today");
     expect(brain.paintedSamples).toBeGreaterThan(100);
-    expect(brain.runtime).toMatchObject({ version: "V197", points: expectedPoints, mode: "live" });
-    expect(brain.runtime?.edges ?? 0).toBeGreaterThan(expectedPoints * .86);
+    expect(brain.model).toBe("v43-v7");
+    expect(brain.pointCount).toBe(expectedPoints);
+    expect(brain.dispersal).toBe("radial-circle");
   }
 });

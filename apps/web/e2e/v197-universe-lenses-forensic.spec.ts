@@ -1,15 +1,15 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type FrameLocator, type Page } from "@playwright/test";
 
 import { installNurMocks } from "./helpers/nurMocks";
 
 const lenses = [
-  { route: "/universe/map", testId: "universe-map-page" },
-  { route: "/universe/orbits", testId: "universe-orbits-page" },
-  { route: "/universe/timeline", testId: "universe-timeline-page" },
-  { route: "/universe/insights", testId: "universe-insights-page" },
-  { route: "/universe/research", testId: "universe-research-page" },
-  { route: "/universe/community", testId: "universe-community-page" },
-  { route: "/universe/web-signals", testId: "universe-web-signals-page" },
+  { route: "/universe/map", focus: "map", laneLabel: "Owner map summary" },
+  { route: "/universe/orbits", focus: "orbits", laneLabel: "Owner Orbits summary" },
+  { route: "/universe/timeline", focus: "timeline", laneLabel: "Owner timeline summary" },
+  { route: "/universe/insights", focus: "insights", laneLabel: "Owner insight summary" },
+  { route: "/universe/research", focus: "research", laneLabel: "Owner map summary" },
+  { route: "/universe/community", focus: "community", laneLabel: "Persisted community rooms" },
+  { route: "/universe/web-signals", focus: "web", laneLabel: "Owner map summary" },
 ] as const;
 
 async function authenticate(page: Page): Promise<void> {
@@ -20,74 +20,173 @@ async function authenticate(page: Page): Promise<void> {
   ]);
 }
 
-test("all seven Universe lenses share bounded black-glass laws", async ({ page }) => {
+async function expectExactV197Sigils(frame: FrameLocator): Promise<void> {
+  const sigils = frame.locator(".nur-star-seal[data-nur-v197-sigil-source='#iSpark']");
+  await expect.poll(() => sigils.count()).toBeGreaterThan(0);
+  await expect(frame.locator(".nur-star-seal svg, .nur-star-seal use")).toHaveCount(0);
+
+  const contract = await sigils.evaluateAll(elements => elements.map(element => {
+    const star = element.querySelector<HTMLElement>(":scope > .spark");
+    return {
+      hasExactRoot: Boolean(star?.classList.contains("nur-v197-sigil-star")),
+      rays: star?.querySelectorAll(".ray").length ?? 0,
+      orbitSparks: star?.querySelectorAll(".ob").length ?? 0,
+      coreLayers: star?.querySelectorAll(".spark-glow, .spark-halo, .spark-h2, .spark-core").length ?? 0,
+    };
+  }));
+  contract.forEach(sigil => {
+    expect(sigil.hasExactRoot).toBe(true);
+    expect(sigil.rays).toBe(12);
+    expect(sigil.orbitSparks).toBe(3);
+    expect(sigil.coreLayers).toBe(4);
+  });
+}
+
+test("all seven Universe routes retain one bounded canonical V197 surface", async ({ page }) => {
+  test.setTimeout(120_000);
   await authenticate(page);
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }] as const) {
     await page.setViewportSize(viewport);
     for (const lens of lenses) {
       await page.goto(lens.route, { waitUntil: "load" });
-      const root = page.getByTestId(lens.testId);
+      const frame = page.frameLocator("#nur-universe-stage");
+      const root = frame.locator("#page-systems");
       await expect(root).toBeVisible({ timeout: 20_000 });
+      await expect.poll(() => frame.locator("body").getAttribute("data-nur-world-focus"))
+        .toBe(lens.focus);
+      await expect.poll(() => frame.locator(
+        `[data-world-focus="${lens.focus}"].active, [data-world-tab="${lens.focus}"].active`,
+      ).count()).toBeGreaterThan(0);
+      await expect(frame.locator(".universe-system-lane")).toHaveAttribute("aria-label", lens.laneLabel);
+
       const result = await root.evaluate(async element => {
+        await document.fonts.ready;
         await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
         const visible = (node: HTMLElement) => {
           const style = getComputedStyle(node);
           const rect = node.getBoundingClientRect();
-          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+          return style.display !== "none"
+            && style.visibility !== "hidden"
+            && Number(style.opacity) > 0
+            && rect.width > 0
+            && rect.height > 0;
         };
-        const controls = Array.from(element.querySelectorAll<HTMLElement>("button, input, textarea, select")).filter(visible);
-        const excessiveRadii = controls.map(control => ({
-          name: `${control.tagName.toLowerCase()}.${control.className}`,
-          radius: Number.parseFloat(getComputedStyle(control).borderTopLeftRadius),
-        })).filter(control => control.radius > 7.5);
+        const viewportControls = Array.from(
+          element.querySelectorAll<HTMLElement>("button, input, textarea, select, [role='button']"),
+        ).filter(node => {
+          if (!visible(node)) return false;
+          const rect = node.getBoundingClientRect();
+          return rect.bottom >= 0 && rect.top <= innerHeight;
+        });
+        const escapedControls = viewportControls.flatMap(control => {
+          const rect = control.getBoundingClientRect();
+          return rect.left < -1 || rect.right > innerWidth + 1
+            ? [{ name: `${control.tagName.toLowerCase()}.${control.className}`, left: rect.left, right: rect.right }]
+            : [];
+        });
+        const title = element.querySelector<HTMLElement>(".universe-map-title")!;
+        const wordmark = title.querySelector<HTMLElement>(".nur-v197-stable-wordmark")!;
+        const subtitle = title.querySelector<HTMLElement>(".nur-master-subtitle")!;
+        const visualCenter = (node: HTMLElement) => {
+          const rect = node.getBoundingClientRect();
+          const style = getComputedStyle(node);
+          const matrix = style.transform === "none" ? new DOMMatrix() : new DOMMatrix(style.transform);
+          return rect.left + rect.width / 2 - matrix.m41;
+        };
+        const wordmarkStyle = getComputedStyle(wordmark);
         const bounds = element.getBoundingClientRect();
         return {
           left: bounds.left,
           right: bounds.right,
           scrollWidth: document.documentElement.scrollWidth,
           viewportWidth: innerWidth,
-          excessiveRadii,
-          fakeGlyphs: (element.textContent?.match(/[✦✧★☆]/g) ?? []).length,
+          escapedControls,
+          lockupDelta: visualCenter(wordmark) - visualCenter(subtitle),
+          lockupAxis: title.dataset.nurLockupAxis,
+          holographic: wordmark.dataset.nurHolographicWordmark,
+          animation: wordmarkStyle.animationName,
+          backgroundClip: wordmarkStyle.backgroundClip,
+          textFill: wordmarkStyle.webkitTextFillColor,
         };
       });
 
       expect(result.left).toBeGreaterThanOrEqual(-1);
       expect(result.right).toBeLessThanOrEqual(viewport.width + 1);
       expect(result.scrollWidth).toBeLessThanOrEqual(result.viewportWidth + 1);
-      expect(result.excessiveRadii).toEqual([]);
-      expect(result.fakeGlyphs).toBe(0);
+      expect(result.escapedControls).toEqual([]);
+      expect(Math.abs(result.lockupDelta)).toBeLessThanOrEqual(.25);
+      expect(result.lockupAxis).toBe("center");
+      expect(result.holographic).toBe("animated");
+      expect(result.animation).toContain("univPrism");
+      expect(result.backgroundClip).toBe("text");
+      expect(result.textFill).toBe("rgba(0, 0, 0, 0)");
+      await expectExactV197Sigils(frame);
     }
   }
 });
 
-test("Map owns the exact brain and seven authentic node seals", async ({ page }) => {
+test("Map owns the exact V43 brain and seven clean native system symbols", async ({ page }) => {
+  test.setTimeout(60_000);
   await authenticate(page);
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }] as const) {
     await page.setViewportSize(viewport);
     await page.goto("/universe/map", { waitUntil: "load" });
-    const root = page.getByTestId("universe-map-page");
-    await expect(root).toBeVisible({ timeout: 20_000 });
-    await expect(root.locator(".lens-map-master > #front-nur-star[data-nur-surface='map']")).toBeVisible();
-    await expect(root.locator("#nur-brain-canvas-v197")).toBeVisible();
-    await expect(root.locator(".lens-map-master > .spark, .lens-map-master > .f4-master-star")).toHaveCount(0);
-    await expect(root.locator(".lens-map-node [data-nur-authentic-star-host='true'] .nur-star-seal--16 use")).toHaveCount(7);
+    const frame = page.frameLocator("#nur-universe-stage");
+    const panel = frame.locator("#page-systems .universe-map-panel");
+    await expect(panel).toBeVisible({ timeout: 20_000 });
 
-    const rows = await root.locator(".lens-map-node").evaluateAll(nodes => nodes
-      .map(node => {
+    const brain = panel.locator(".universe-master-star > #front-nur-star");
+    await expect(brain).toBeVisible();
+    await expect(brain).toHaveAttribute("data-nur-source", "exact-v43-front-page-signup-v7-star-brain");
+    await expect(brain).toHaveAttribute("data-nur-dispersal", "radial-circle");
+    await expect(brain.locator("#nur-brain-canvas")).toBeVisible();
+    await expect(panel.locator(".universe-master-star > .f4-core, .universe-master-star > .f4-master-star"))
+      .toHaveCount(0);
+    await expect(panel.locator(".universe-rings:visible")).toHaveCount(0);
+    await expect(panel.locator(".universe-system-node")).toHaveCount(7);
+    await expect(panel.locator(".universe-system-node > i[data-nur-native-glyph='true']")).toHaveCount(7);
+    await expect(panel.locator(
+      ".universe-system-node svg, .universe-system-node [data-nur-star-seal='authentic']",
+    )).toHaveCount(0);
+
+    const geometry = await panel.evaluate(element => {
+      const panelRect = element.getBoundingClientRect();
+      return Array.from(element.querySelectorAll<HTMLElement>(".universe-system-node")).map(node => {
         const rect = node.getBoundingClientRect();
-        return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right };
-      })
-      .sort((a, b) => a.top - b.top));
-    rows.forEach(row => {
-      expect(row.left).toBeGreaterThanOrEqual(-1);
-      expect(row.right).toBeLessThanOrEqual(viewport.width + 1);
+        const copy = node.querySelector<HTMLElement>(":scope > span")!.getBoundingClientRect();
+        const style = getComputedStyle(node);
+        return {
+          name: node.className,
+          left: rect.left - panelRect.left,
+          right: rect.right - panelRect.left,
+          top: rect.top - panelRect.top,
+          bottom: rect.bottom - panelRect.top,
+          computed: {
+            left: style.left,
+            right: style.right,
+            top: style.top,
+            width: style.width,
+            transform: style.transform,
+          },
+          copyFits: copy.left >= rect.left - 1
+            && copy.right <= rect.right + 1
+            && copy.top >= rect.top - 1
+            && copy.bottom <= rect.bottom + 1,
+          scrollFits: node.scrollWidth <= node.clientWidth + 1 && node.scrollHeight <= node.clientHeight + 1,
+        };
+      });
     });
-    if (viewport.width <= 600) {
-      for (let index = 1; index < rows.length; index += 1) {
-        expect(rows[index]!.top).toBeGreaterThanOrEqual(rows[index - 1]!.bottom - 1);
-      }
-    }
+    const panelSize = await panel.evaluate(element => ({ width: element.clientWidth, height: element.clientHeight }));
+    geometry.forEach(node => {
+      const detail = `${node.name} ${JSON.stringify(node.computed)}`;
+      expect(node.left, detail).toBeGreaterThanOrEqual(-1);
+      expect(node.right, detail).toBeLessThanOrEqual(panelSize.width + 1);
+      expect(node.top, detail).toBeGreaterThanOrEqual(-1);
+      expect(node.bottom, detail).toBeLessThanOrEqual(panelSize.height + 1);
+      expect(node.copyFits, detail).toBe(true);
+      expect(node.scrollFits, detail).toBe(true);
+    });
   }
 });

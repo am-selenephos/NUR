@@ -131,6 +131,17 @@
   animation: nurAdjunctWordmark 12s ease-in-out infinite;
 }
 
+.nur-adjunct-brand.nur-v197-wordmark {
+  background: linear-gradient(100deg, #fff8df 0%, #ffd35a 16%, #ff7a68 29%, #6ff0b9 42%, #21e8ff 55%, #748cff 67%, #c16bff 79%, #ff3a9e 90%, #fff8df 100%);
+  background-size: 260% 100%;
+  background-position: 0 50%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: nurAdjunctWordmark 6.4s ease-in-out infinite;
+  will-change: background-position;
+}
+
 .nur-adjunct-brand-seal {
   flex: 0 0 24px;
 }

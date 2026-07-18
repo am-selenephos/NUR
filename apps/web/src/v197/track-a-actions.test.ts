@@ -211,7 +211,10 @@ describe("Track A V197 authentication transition", () => {
     const wait = document.querySelector<HTMLElement>("#nur-v197-auth-wait");
     expect(wait?.hidden).toBe(false);
     expect(wait?.textContent).toContain("NUR is opening your Orbit");
-    expect(wait?.querySelector(".spark-core")?.textContent).toBe("star");
+    expect(wait?.querySelectorAll(".nur-star-seal")).toHaveLength(1);
+    expect(wait?.querySelector(".nur-star-seal--startup > .i-spark.spark")).not.toBeNull();
+    expect(wait?.querySelector(".spark-core")).not.toBeNull();
+    expect(wait?.querySelectorAll(".ray")).toHaveLength(0);
     expect(document.querySelector("#f4-signin-form")?.getAttribute("aria-busy")).toBe("true");
 
     resolveLogin();

@@ -9,7 +9,7 @@
 :root {
   /* Canonical color primitives. */
   --nur-black: #000000;
-  --nur-ink: #030307;
+  --nur-ink: #000000;
   --nur-navy: #06062b;
   --nur-indigo: #101052;
   --nur-violet-deep: #32106e;
@@ -32,9 +32,9 @@
 
   /* Semantic color roles. */
   --nur-world: var(--nur-black);
-  --nur-surface-0: rgba(3, 3, 7, .42);
-  --nur-surface-1: rgba(3, 3, 7, .62);
-  --nur-surface-2: rgba(3, 3, 7, .82);
+  --nur-surface-0: rgba(0, 0, 0, .42);
+  --nur-surface-1: rgba(0, 0, 0, .62);
+  --nur-surface-2: rgba(0, 0, 0, .82);
   --nur-line-faint: rgba(248, 217, 138, .1);
   --nur-line: rgba(248, 217, 138, .2);
   --nur-line-strong: rgba(255, 211, 90, .48);
@@ -69,6 +69,16 @@
     rgba(33, 232, 255, .68) 86%,
     rgba(255, 211, 90, .76)
   );
+  --nur-selected-rim: linear-gradient(
+    112deg,
+    rgba(33, 232, 255, .82) 0%,
+    rgba(132, 61, 255, .78) 18%,
+    rgba(255, 58, 158, .8) 36%,
+    rgba(255, 122, 69, .76) 54%,
+    rgba(255, 211, 90, .78) 70%,
+    rgba(105, 240, 180, .74) 84%,
+    rgba(33, 232, 255, .82) 100%
+  );
 
   /* Geometry. */
   --nur-radius-control: 7px;
@@ -78,8 +88,11 @@
   --nur-control-h-compact: 32px;
   --nur-shell-gap: clamp(10px, 1vw, 16px);
   --nur-page-pad: clamp(16px, 2vw, 30px);
-  --nur-left-rail: clamp(190px, 15vw, 226px);
+  --nur-left-rail: clamp(204px, 15.75vw, 232px);
   --nur-right-rail: clamp(278px, 20vw, 332px);
+
+  /* Brand typography is a contract, not an inherited shell style. */
+  --nur-lockup-subtitle-font: "Crimson Pro", serif;
 
   /* Material and light. */
   --nur-glass-blur: 10px;
@@ -89,6 +102,12 @@
   --nur-control-shadow:
     inset 0 1px 0 rgba(255, 248, 223, .08),
     0 8px 22px rgba(0, 0, 0, .24);
+  --nur-control-glass: rgba(0, 0, 0, .24);
+  --nur-control-holo-edge:
+    inset 0 1px 0 rgba(255, 211, 90, .26),
+    inset -1px 0 0 rgba(255, 58, 158, .1),
+    inset 0 -1px 0 rgba(33, 232, 255, .16),
+    inset 1px 0 0 rgba(255, 122, 69, .08);
   --nur-glow-gold: 0 0 22px rgba(255, 211, 90, .16);
   --nur-glow-holo:
     0 0 22px rgba(255, 58, 158, .07),
@@ -187,10 +206,11 @@ body #nur-front-v61 .f4-foot {
   text-shadow: 0 1px 14px rgba(0, 0, 0, .95), 0 0 34px rgba(0, 0, 0, .72);
 }
 
-body #nur-front-v61 .f4-brand-word,
-body.universe-edition :is(.nur-holo-word, .universe-map-title b, .clean-audit-word) {
-  background: var(--nur-spectrum) !important;
+body #nur-front-v61 .nur-v197-wordmark,
+body.universe-edition #nur-front-v61 .nur-v197-wordmark {
+  background-image: var(--nur-spectrum) !important;
   background-size: 240% 100% !important;
+  background-position: 0 50%;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   color: transparent !important;
@@ -199,6 +219,31 @@ body.universe-edition :is(.nur-holo-word, .universe-map-title b, .clean-audit-wo
     drop-shadow(0 0 5px rgba(255, 248, 223, .68))
     drop-shadow(0 0 16px rgba(255, 173, 50, .3))
     drop-shadow(0 0 28px rgba(33, 232, 255, .09)) !important;
+  animation: univPrism 6.4s ease-in-out infinite !important;
+  will-change: background-position !important;
+}
+
+body #nur-front-v61 .nur-v197-lockup,
+body.universe-edition #nur-front-v61 .nur-v197-lockup {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  justify-items: center !important;
+  align-items: start !important;
+  text-align: center !important;
+}
+
+body #nur-front-v61 .nur-v197-lockup > :is(
+  .nur-v197-wordmark,
+  .nur-v197-lockup-subtitle
+),
+body.universe-edition #nur-front-v61 .nur-v197-lockup > :is(
+  .nur-v197-wordmark,
+  .nur-v197-lockup-subtitle
+) {
+  grid-column: 1 !important;
+  justify-self: center !important;
+  margin-inline: auto !important;
+  text-align: center !important;
 }
 
 body #nur-front-v61 :is(.f4-eyebrow, .f4-privacy i),
@@ -211,22 +256,231 @@ body.universe-edition :is(.page-title, .universe-card-head h2, .candidate-insigh
   color: var(--nur-text) !important;
 }
 
-/* Entry wordmark and subtitle share one true center axis. */
-body.front-v61-active #nur-front-v61 .f4-brand-copy {
+/* Entry owns three reserved rows. Copy, actions, privacy, and footer can never
+ * compete for the same pixels, and narrow viewports reflow vertically. */
+body.front-v61-active #nur-front-v61 {
+  display: grid !important;
+  grid-template: clamp(158px, 20dvh, 184px) minmax(0, 1fr) auto / minmax(0, 1fr) !important;
+  width: 100% !important;
+  height: 100dvh !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-head {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
+  align-items: start !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  padding: clamp(18px, 3dvh, 30px) clamp(18px, 5vw, 72px) 0 !important;
+  animation: none !important;
+  transform: none !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-brand {
+  grid-column: 2 !important;
+  justify-self: center !important;
+  align-self: start !important;
   display: grid !important;
   justify-items: center !important;
+  min-width: 0 !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  text-align: center !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-brand-copy {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  justify-items: center !important;
+  align-items: start !important;
   width: max-content !important;
   max-width: min(92vw, 680px) !important;
   margin-inline: auto !important;
+  gap: 5px !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-brand-star {
+  display: none !important;
 }
 
 body.front-v61-active #nur-front-v61 .f4-brand-copy > .f4-brand-word,
 body.front-v61-active #nur-front-v61 .f4-brand-copy > .f4-brand-sub {
   box-sizing: border-box !important;
-  width: 100% !important;
+  display: block !important;
+  width: auto !important;
   padding-inline: 0 !important;
-  transform: none !important;
   text-align: center !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-brand-word {
+  font-family: "Bodoni Moda", serif !important;
+  font-size: clamp(74px, 8.9vw, 122px) !important;
+  font-style: normal !important;
+  font-weight: 500 !important;
+  line-height: .92 !important;
+  letter-spacing: .18em !important;
+  background-image: linear-gradient(
+    90deg,
+    #ffe6a8 0%,
+    #ffb45d 10%,
+    #ff8477 19%,
+    #ffd95a 28%,
+    #69f0b4 38%,
+    #58dcff 48%,
+    #5e86ff 58%,
+    #9b71ff 68%,
+    #da7dff 78%,
+    #ff79cb 89%,
+    #ffe3a8 100%
+  ) !important;
+  background-size: 240% 100% !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  animation: univPrism 6.4s ease-in-out infinite !important;
+  transform: translateX(calc(.09em + 2px)) !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-brand-copy > .f4-brand-sub {
+  justify-self: center !important;
+  width: auto !important;
+  font-family: var(--nur-lockup-subtitle-font) !important;
+  font-size: clamp(13px, 1.15vw, 16px) !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  font-stretch: normal !important;
+  font-synthesis: none !important;
+  font-variant: normal !important;
+  font-variation-settings: "wght" 400 !important;
+  line-height: 1.12 !important;
+  letter-spacing: .16em !important;
+  text-transform: uppercase !important;
+  transform: translateX(.08em) !important;
+  white-space: nowrap !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-signin {
+  grid-column: 3 !important;
+  justify-self: end !important;
+  align-self: start !important;
+  width: max-content !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  white-space: normal !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  text-align: center !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-stage {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, .9fr) !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: clamp(28px, 4vw, 70px) !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 8px clamp(24px, 5vw, 72px) 10px !important;
+  overflow: hidden !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-copy {
+  align-self: center !important;
+  width: 100% !important;
+  max-width: 640px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  animation: none !important;
+  transform: none !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-eyebrow {
+  margin: 0 0 13px !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-title {
+  max-width: 570px !important;
+  margin: 0 !important;
+  font-size: 80px !important;
+  line-height: .9 !important;
+  letter-spacing: 0 !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-lede {
+  max-width: 560px !important;
+  margin: 18px 0 0 !important;
+  font-size: 24px !important;
+  line-height: 1.32 !important;
+  pointer-events: none !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-actions {
+  position: relative !important;
+  z-index: 3 !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 14px !important;
+  margin: 22px 0 0 !important;
+  pointer-events: auto !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-actions > button {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  white-space: normal !important;
+  hyphens: none !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-privacy {
+  max-width: 560px !important;
+  margin: 14px 0 0 !important;
+  line-height: 1.3 !important;
+  pointer-events: none !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-orbit {
+  align-self: stretch !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  animation: none !important;
+  transform: none !important;
+}
+
+body.front-v61-active #nur-front-v61 #f4-core {
+  width: min(36vw, 390px) !important;
+  height: min(36vw, 390px) !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-foot {
+  position: relative !important;
+  z-index: 2 !important;
+  display: flex !important;
+  align-items: end !important;
+  justify-content: space-between !important;
+  gap: 20px !important;
+  min-width: 0 !important;
+  min-height: 50px !important;
+  padding: 0 clamp(24px, 5vw, 72px) 15px !important;
+  animation: none !important;
+  transform: none !important;
+  pointer-events: none !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-foot > span {
+  min-width: 0 !important;
+  hyphens: none !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
 }
 
 body #nur-front-v61 .f4-brand,
@@ -238,7 +492,231 @@ body #nur-front-v61 .f4-brand:active {
   transform: none !important;
 }
 
-/* Approved anatomical star brain. The canvas dissipates naturally; no mask. */
+body.front-v61-active #nur-front-v61 .f4-sheet {
+  position: fixed !important;
+  inset-block-start: clamp(76px, 9dvh, 104px) !important;
+  inset-inline-end: clamp(16px, 3.5vw, 52px) !important;
+  inset-block-end: auto !important;
+  width: min(430px, calc(100vw - 32px)) !important;
+  max-width: calc(100vw - 32px) !important;
+  max-height: calc(100dvh - 96px) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+@media (min-width: 1600px) {
+  body.front-v61-active #nur-front-v61 .f4-brand-word {
+    font-size: 122px !important;
+  }
+}
+
+@media (min-width: 901px) and (max-height: 790px) {
+  body.front-v61-active #nur-front-v61 {
+    grid-template-rows: 132px minmax(0, 1fr) auto !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-head {
+    padding-top: 14px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-brand-word {
+    font-size: 86px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-brand-copy > .f4-brand-sub {
+    font-size: 12px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-title {
+    font-size: 66px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-lede {
+    margin-top: 13px !important;
+    font-size: 21px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-actions {
+    margin-top: 16px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-privacy {
+    margin-top: 10px !important;
+    font-size: 14px !important;
+  }
+}
+
+@media (max-width: 900px) {
+  body.front-v61-active #nur-front-v61 {
+    display: block !important;
+    height: 100dvh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-head {
+    min-height: 138px !important;
+    height: auto !important;
+    padding: 16px 18px 8px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-brand-word {
+    font-size: 82px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-brand-copy > .f4-brand-sub {
+    font-size: 11px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-signin {
+    font-size: 16px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-stage {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(420px, 58vw) !important;
+    align-items: start !important;
+    gap: 12px !important;
+    padding: 24px clamp(18px, 6vw, 48px) 18px !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-copy {
+    align-self: start !important;
+    justify-self: start !important;
+    max-width: 620px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-title {
+    max-width: 570px !important;
+    font-size: 68px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-lede {
+    font-size: 22px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-orbit {
+    position: relative !important;
+    inset: auto !important;
+    z-index: 1 !important;
+    grid-row: 2 !important;
+    min-height: 420px !important;
+    opacity: 1 !important;
+  }
+
+  body.front-v61-active #nur-front-v61 #f4-core {
+    width: min(58vw, 390px) !important;
+    height: min(58vw, 390px) !important;
+  }
+}
+
+@media (max-width: 600px) {
+  body.front-v61-active #nur-front-v61 .f4-head {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    justify-items: center !important;
+    row-gap: 8px !important;
+    min-height: 134px !important;
+    padding: 12px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-brand {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-brand-word {
+    font-size: 58px !important;
+    letter-spacing: .15em !important;
+    transform: translateX(calc(.075em + 2.3px)) !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-brand-copy > .f4-brand-sub {
+    display: block !important;
+    font-size: 9px !important;
+    letter-spacing: .1em !important;
+    transform: translateX(.05em) !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-signin {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    justify-self: end !important;
+    align-self: start !important;
+    width: auto !important;
+    max-width: calc(100vw - 24px) !important;
+    min-height: 40px !important;
+    padding: 0 14px !important;
+    font-size: 13px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-stage {
+    grid-template-rows: auto minmax(330px, 98vw) !important;
+    padding: 24px 18px 16px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-title {
+    font-size: 54px !important;
+    line-height: .91 !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-lede {
+    max-width: 100% !important;
+    font-size: 20px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    margin-top: 20px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-actions > button {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-privacy {
+    max-width: 100% !important;
+    font-size: 14px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-orbit {
+    min-height: 330px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 #f4-core {
+    width: min(84vw, 320px) !important;
+    height: min(84vw, 320px) !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-foot {
+    min-height: 44px !important;
+    padding: 0 18px 14px !important;
+    font-size: 13px !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-foot span:last-child,
+  body.front-v61-active #nur-front-v61 .f4-rule {
+    display: none !important;
+  }
+
+  body.front-v61-active #nur-front-v61 .f4-sheet {
+    inset: 68px 12px 12px !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    padding: 24px 20px !important;
+  }
+}
+
+/* Exact V43 star brain. The radial mask removes square-canvas edges so the
+ * stardust disperses as a soft circle around the anatomy. */
 body #nur-front-v61 #f4-core {
   overflow: visible !important;
   cursor: grab !important;
@@ -276,11 +754,17 @@ body #nur-front-v61 #front-nur-star {
   touch-action: pan-y pinch-zoom !important;
   background: none !important;
   filter: none !important;
-  -webkit-mask-image: none !important;
-  mask-image: none !important;
+  -webkit-mask-image: radial-gradient(circle closest-side at 50% 50%, #000 0 58%, rgba(0,0,0,.92) 69%, rgba(0,0,0,.55) 81%, transparent 100%) !important;
+  mask-image: radial-gradient(circle closest-side at 50% 50%, #000 0 58%, rgba(0,0,0,.92) 69%, rgba(0,0,0,.55) 81%, transparent 100%) !important;
+  -webkit-mask-repeat: no-repeat !important;
+  mask-repeat: no-repeat !important;
+  -webkit-mask-size: 100% 100% !important;
+  mask-size: 100% 100% !important;
+  -webkit-mask-position: center !important;
+  mask-position: center !important;
 }
 
-body #nur-front-v61 #nur-brain-canvas-v197 {
+body #nur-front-v61 #nur-brain-canvas {
   position: absolute !important;
   inset: 0 !important;
   display: block !important;
@@ -390,7 +874,7 @@ body.universe-edition :is(
   border-color: var(--nur-line-faint) !important;
   background:
     linear-gradient(145deg, rgba(255, 248, 223, .024), transparent 35%),
-    rgba(3, 3, 7, .68) !important;
+    rgba(0, 0, 0, .68) !important;
   box-shadow:
     inset 0 1px 0 rgba(248, 217, 138, .06),
     0 20px 54px rgba(0, 0, 0, .32) !important;
@@ -419,7 +903,7 @@ body.universe-edition :is(
   border-radius: var(--nur-radius-panel) !important;
   background:
     linear-gradient(145deg, rgba(255, 248, 223, .026), transparent 32%),
-    rgba(3, 3, 7, .48) !important;
+    rgba(0, 0, 0, .48) !important;
   box-shadow: var(--nur-panel-shadow) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -436,7 +920,7 @@ body #nur-front-v61 :is(.f4-sheet, .f4-success) {
   border-radius: var(--nur-radius-panel) !important;
   background:
     linear-gradient(145deg, rgba(255, 248, 223, .035), transparent 36%),
-    rgba(3, 3, 7, .9) !important;
+    rgba(0, 0, 0, .9) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 248, 223, .06),
     0 24px 74px rgba(0, 0, 0, .68),
@@ -502,18 +986,17 @@ body.universe-edition #nur-front-v61 :is(
 /* Primary command: transparent black glass with a spectral edge. */
 body #nur-front-v61 button:is(.f4-primary, .f4-submit),
 body.universe-edition #nur-front-v61 :is(.send-button, .universe-send, .thought-send-button) {
+  position: relative !important;
   isolation: isolate !important;
+  overflow: hidden !important;
   min-height: var(--nur-control-h) !important;
-  border: 1px solid transparent !important;
+  border: 1px solid rgba(255, 226, 147, .42) !important;
   border-radius: var(--nur-radius-control) !important;
-  background:
-    linear-gradient(145deg, rgba(255, 211, 90, .075), rgba(3, 3, 7, .54) 42%, rgba(255, 58, 158, .035)) padding-box,
-    var(--nur-spectrum-border) border-box !important;
+  background: rgba(0, 0, 0, .3) !important;
   color: var(--nur-text) !important;
   -webkit-text-fill-color: currentColor !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 248, 223, .12),
-    inset 0 -1px 0 rgba(33, 232, 255, .08),
+    var(--nur-control-holo-edge),
     var(--nur-control-shadow),
     var(--nur-glow-gold),
     var(--nur-glow-holo) !important;
@@ -525,12 +1008,21 @@ body.universe-edition #nur-front-v61 :is(.send-button, .universe-send, .thought-
   content: "" !important;
   position: absolute !important;
   inset: 1px !important;
-  z-index: -1 !important;
+  z-index: 0 !important;
   display: block !important;
   border-radius: calc(var(--nur-radius-control) - 2px) !important;
-  background: linear-gradient(108deg, transparent 18%, rgba(255, 248, 223, .14) 49%, transparent 78%) !important;
-  opacity: .48 !important;
+  background-image: linear-gradient(
+    108deg,
+    transparent 14%,
+    rgba(255, 211, 90, .08) 40%,
+    rgba(255, 248, 223, .16) 48%,
+    rgba(33, 232, 255, .08) 54%,
+    rgba(255, 58, 158, .05) 61%,
+    transparent 82%
+  ) !important;
+  opacity: .36 !important;
   transform: translateX(-72%) !important;
+  mix-blend-mode: screen !important;
   pointer-events: none !important;
 }
 
@@ -565,10 +1057,10 @@ body.universe-edition #nur-front-v61 :is(
   min-height: var(--nur-control-h-compact) !important;
   border: 1px solid var(--nur-line) !important;
   border-radius: var(--nur-radius-control) !important;
-  background: rgba(3, 3, 7, .46) !important;
+  background: var(--nur-control-glass) !important;
   color: var(--nur-text-soft) !important;
   -webkit-text-fill-color: currentColor !important;
-  box-shadow: var(--nur-control-shadow) !important;
+  box-shadow: var(--nur-control-holo-edge), var(--nur-control-shadow) !important;
 }
 
 /* Navigation is structurally quiet; state comes from one luminous axis. */
@@ -616,15 +1108,17 @@ body.universe-edition #nur-front-v61 :is(
   button[aria-current="page"],
   button[aria-selected="true"]
 ) {
-  border-color: rgba(255, 211, 90, .34) !important;
+  border-color: transparent !important;
   background:
-    linear-gradient(90deg, rgba(255, 211, 90, .07), rgba(3, 3, 7, .32) 48%, rgba(33, 232, 255, .04)) !important;
+    linear-gradient(102deg, rgba(255, 211, 90, .1), rgba(255, 58, 158, .065) 54%, rgba(33, 232, 255, .11)) padding-box,
+    linear-gradient(145deg, rgba(7, 7, 12, .9), rgba(0, 0, 0, .94) 56%, rgba(3, 9, 12, .9)) padding-box,
+    var(--nur-selected-rim) border-box !important;
   color: var(--nur-text) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 211, 90, .62),
-    inset 0 -1px 0 rgba(33, 232, 255, .28),
-    0 0 18px rgba(255, 211, 90, .08),
-    0 0 24px rgba(255, 58, 158, .035) !important;
+    inset 0 1px 0 rgba(255, 248, 223, .08),
+    0 0 14px rgba(255, 58, 158, .065),
+    0 0 20px rgba(33, 232, 255, .055),
+    0 0 24px rgba(255, 211, 90, .045) !important;
 }
 
 /* Icon actions keep a stable square target and no pill silhouette. */
@@ -641,16 +1135,16 @@ body.universe-edition #nur-front-v61 :is(
   padding: 0 !important;
   border: 1px solid var(--nur-line) !important;
   border-radius: var(--nur-radius-control) !important;
-  background: rgba(3, 3, 7, .48) !important;
-  box-shadow: var(--nur-control-shadow) !important;
+  background: var(--nur-control-glass) !important;
+  box-shadow: var(--nur-control-holo-edge), var(--nur-control-shadow) !important;
 }
 
 body.universe-edition #nur-front-v61 :is(.context-list button, .audit-scope, .clean-scope, .scope-option) {
   width: 100% !important;
   border: 1px solid var(--nur-line) !important;
   border-radius: var(--nur-radius-control) !important;
-  background: rgba(3, 3, 7, .48) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 248, 223, .045) !important;
+  background: var(--nur-control-glass) !important;
+  box-shadow: var(--nur-control-holo-edge), var(--nur-control-shadow) !important;
   filter: none !important;
 }
 
@@ -694,17 +1188,18 @@ body.universe-edition #nur-front-v61 :is(
 ) {
   border-color: transparent !important;
   background:
-    linear-gradient(145deg, rgba(255, 211, 90, .075), rgba(3, 3, 7, .68) 46%, rgba(255, 58, 158, .035)) padding-box,
-    var(--nur-spectrum-border) border-box !important;
+    linear-gradient(102deg, rgba(255, 211, 90, .09), rgba(255, 58, 158, .06) 54%, rgba(33, 232, 255, .1)) padding-box,
+    linear-gradient(145deg, rgba(7, 7, 12, .9), rgba(0, 0, 0, .94) 58%, rgba(3, 9, 12, .9)) padding-box,
+    var(--nur-selected-rim) border-box !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 248, 223, .1),
-    inset 0 -1px 0 rgba(33, 232, 255, .12),
-    0 0 22px rgba(255, 211, 90, .08) !important;
+    inset 0 1px 0 rgba(255, 248, 223, .07),
+    0 0 16px rgba(255, 58, 158, .06),
+    0 0 22px rgba(33, 232, 255, .05) !important;
 }
 
 body.universe-edition #nur-front-v61 :is(.journal-tag, .scope-chip, .quiet-chip, .system-badge) {
   border-radius: var(--nur-radius-control) !important;
-  background: rgba(3, 3, 7, .42) !important;
+  background: rgba(0, 0, 0, .42) !important;
   box-shadow: none !important;
 }
 
@@ -734,6 +1229,33 @@ body.universe-edition #nur-front-v61 button:active {
   transform: translateY(0) scale(.985) !important;
 }
 
+body.universe-edition #nur-front-v61 :is(
+  .clean-nav-button.active,
+  .clean-tool-button.active,
+  .clean-system-row.active,
+  .world-command.active,
+  .universe-nav-tabs button.active,
+  .mobile-tabs button.active,
+  .audit-tabs button.active,
+  .audit-scope.selected,
+  .clean-scope.selected,
+  .scope-option[aria-selected="true"],
+  .scope-option[aria-checked="true"],
+  button[aria-current="page"],
+  button[aria-selected="true"]
+):is(:hover, :focus-visible) {
+  border-color: transparent !important;
+  background:
+    linear-gradient(102deg, rgba(255, 211, 90, .13), rgba(255, 58, 158, .085) 54%, rgba(33, 232, 255, .13)) padding-box,
+    linear-gradient(145deg, rgba(9, 9, 14, .88), rgba(0, 0, 0, .93) 54%, rgba(4, 11, 14, .88)) padding-box,
+    var(--nur-selected-rim) border-box !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 223, .1),
+    0 0 18px rgba(255, 58, 158, .09),
+    0 0 24px rgba(33, 232, 255, .08),
+    0 0 28px rgba(255, 211, 90, .055) !important;
+}
+
 body #nur-front-v61 button:not(.f4-brand):focus-visible,
 body.universe-edition #nur-front-v61 button:focus-visible,
 body #nur-front-v61 :is(input, textarea, select):focus-visible,
@@ -750,6 +1272,174 @@ body.universe-edition #nur-front-v61 button[aria-disabled="true"] {
   cursor: not-allowed !important;
   transform: none !important;
   box-shadow: none !important;
+}
+
+/* Entry controls use one celestial glass family with deliberate hierarchy. */
+body.front-v61-active #nur-front-v61 :is(.f4-primary, .f4-link, .f4-signin) {
+  position: relative !important;
+  isolation: isolate !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 0 !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--nur-radius-round) !important;
+  color: var(--nur-text) !important;
+  -webkit-text-fill-color: currentColor !important;
+  overflow: hidden !important;
+  backdrop-filter: blur(8px) saturate(1.16) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(1.16) !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-primary {
+  min-height: 48px !important;
+  padding: 0 22px !important;
+  background:
+    linear-gradient(180deg, rgba(8, 8, 10, .7), rgba(0, 0, 0, .86)) padding-box,
+    linear-gradient(
+      118deg,
+      rgba(255, 211, 90, .76),
+      rgba(255, 121, 200, .4) 34%,
+      rgba(33, 232, 255, .4) 64%,
+      rgba(255, 211, 90, .72)
+    ) border-box !important;
+  background-size: 100% 100%, 220% 100% !important;
+  color: #fff8df !important;
+  font-weight: 600 !important;
+  letter-spacing: .01em !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 223, .16),
+    inset 0 0 18px rgba(255, 211, 90, .07),
+    0 0 18px rgba(255, 173, 50, .12),
+    0 0 34px rgba(255, 24, 200, .055),
+    0 0 42px rgba(33, 232, 255, .045) !important;
+  text-shadow:
+    0 0 10px rgba(255, 211, 90, .18),
+    0 0 18px rgba(255, 248, 223, .1) !important;
+  animation: nurHeroRim 9s linear infinite !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-primary::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: -30% auto -30% -42% !important;
+  z-index: 0 !important;
+  display: block !important;
+  width: 42% !important;
+  height: 160% !important;
+  border-radius: 0 !important;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 248, 223, 0),
+    rgba(255, 248, 223, .2),
+    rgba(255, 255, 255, .34),
+    rgba(255, 248, 223, .1),
+    transparent
+  ) !important;
+  filter: blur(6px) !important;
+  opacity: 0 !important;
+  transform: translateX(-160%) rotate(18deg) !important;
+  mix-blend-mode: screen !important;
+  pointer-events: none !important;
+  animation: nurHeroSheen 5.8s ease-in-out infinite !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-primary::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  display: block !important;
+  border-radius: inherit !important;
+  background:
+    radial-gradient(circle at 18% 24%, rgba(255, 255, 255, .92) 0 1px, rgba(255, 211, 90, .4) 1.4px, transparent 3px),
+    radial-gradient(circle at 72% 70%, rgba(255, 248, 223, .76) 0 .8px, rgba(33, 232, 255, .28) 1.4px, transparent 3px),
+    radial-gradient(circle at 88% 26%, rgba(255, 248, 223, .72) 0 .7px, rgba(255, 58, 158, .25) 1.3px, transparent 2.8px) !important;
+  opacity: .56 !important;
+  pointer-events: none !important;
+  animation: nurHeroSparkle 4.8s ease-in-out infinite !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-primary > :is(span, .nur-star-seal) {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-link {
+  min-height: 48px !important;
+  padding: 0 18px !important;
+  background:
+    linear-gradient(180deg, rgba(4, 4, 6, .42), rgba(0, 0, 0, .58)) padding-box,
+    linear-gradient(118deg, rgba(248, 217, 138, .34), rgba(255, 121, 200, .16), rgba(33, 232, 255, .18), rgba(248, 217, 138, .28)) border-box !important;
+  color: rgba(255, 248, 223, .92) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .08),
+    inset 0 0 14px rgba(255, 211, 90, .025),
+    0 0 14px rgba(255, 211, 90, .055) !important;
+}
+
+body.front-v61-active #nur-front-v61 .f4-signin {
+  min-height: 38px !important;
+  padding: 0 16px !important;
+  background:
+    linear-gradient(180deg, rgba(4, 4, 6, .4), rgba(0, 0, 0, .62)) padding-box,
+    linear-gradient(118deg, rgba(248, 217, 138, .28), rgba(255, 121, 200, .11), rgba(33, 232, 255, .13), rgba(248, 217, 138, .22)) border-box !important;
+  color: rgba(255, 248, 223, .94) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .075),
+    0 0 14px rgba(255, 211, 90, .045) !important;
+}
+
+body.front-v61-active #nur-front-v61 :is(.f4-link, .f4-signin)::after {
+  content: "" !important;
+  position: absolute !important;
+  right: 12px !important;
+  top: 8px !important;
+  width: 2px !important;
+  height: 2px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 248, 223, .9) !important;
+  box-shadow:
+    0 0 5px rgba(255, 248, 223, .72),
+    0 0 10px rgba(255, 211, 90, .34) !important;
+  opacity: .58 !important;
+  pointer-events: none !important;
+  animation: nurHeroSparkle 5.6s ease-in-out infinite !important;
+}
+
+body.front-v61-active #nur-front-v61 :is(.f4-primary, .f4-link, .f4-signin):hover {
+  border-color: transparent !important;
+  color: #fffdf4 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 223, .18),
+    inset 0 0 22px rgba(255, 211, 90, .08),
+    0 0 22px rgba(255, 173, 50, .13),
+    0 0 36px rgba(255, 24, 200, .075),
+    0 0 42px rgba(33, 232, 255, .065) !important;
+  transform: translateY(-1px) !important;
+}
+
+body.front-v61-active #nur-front-v61 :is(.f4-primary, .f4-link, .f4-signin):active {
+  box-shadow:
+    inset 0 0 18px rgba(255, 211, 90, .13),
+    0 0 16px rgba(255, 173, 50, .09) !important;
+  transform: translateY(0) scale(.99) !important;
+}
+
+@keyframes nurHeroRim {
+  to { background-position: 0 0, 220% 0; }
+}
+
+@keyframes nurHeroSheen {
+  0%, 12%, 100% { opacity: 0; transform: translateX(-160%) rotate(18deg); }
+  28% { opacity: .82; }
+  45% { opacity: 0; transform: translateX(520%) rotate(18deg); }
+}
+
+@keyframes nurHeroSparkle {
+  0%, 100% { opacity: .3; filter: brightness(.9); }
+  50% { opacity: .82; filter: brightness(1.28); }
 }
 
 /* Forms are clear black glass with a single focus edge. */
@@ -804,37 +1494,116 @@ body.universe-edition #nur-front-v61 .universe-map-panel {
 body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node {
   --node-x: 50;
   --node-y: 50;
+  z-index: 7 !important;
+  display: grid !important;
+  grid-template-columns: 22px minmax(0, 1fr) !important;
+  align-items: center !important;
+  column-gap: 9px !important;
   left: calc(var(--node-x) * 1%) !important;
   right: auto !important;
   top: calc(var(--node-y) * 1%) !important;
   bottom: auto !important;
-  width: clamp(148px, 19cqw, 214px) !important;
-  min-height: 56px !important;
+  width: clamp(184px, 25cqw, 214px) !important;
+  min-height: 64px !important;
+  height: 64px !important;
+  padding: 6px 10px !important;
+  overflow: hidden !important;
   transform: translate(-50%, -50%) !important;
   border: 1px solid rgba(248, 217, 138, .2) !important;
-  border-radius: var(--nur-radius-control) !important;
+  border-radius: 8px !important;
   background:
-    linear-gradient(135deg, rgba(255, 211, 90, .05), rgba(3, 3, 7, .62) 52%, rgba(33, 232, 255, .025)) !important;
-  box-shadow: var(--nur-control-shadow) !important;
+    linear-gradient(145deg, rgba(255, 248, 223, .035), rgba(0, 0, 0, .72) 48%, rgba(33, 232, 255, .025)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 223, .055),
+    0 10px 28px rgba(0, 0, 0, .26) !important;
+  backdrop-filter: blur(8px) saturate(1.12) !important;
+  animation: none !important;
+  transition:
+    border-color var(--nur-motion-fast) ease,
+    background-color var(--nur-motion-fast) ease,
+    box-shadow var(--nur-motion-fast) ease,
+    color var(--nur-motion-fast) ease !important;
 }
 
-body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.quiet { --node-x: 20; --node-y: 30; }
-body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.public { --node-x: 20; --node-y: 53; }
-body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.social { --node-x: 20; --node-y: 75; }
-body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.wealth { --node-x: 80; --node-y: 30; }
-body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.embodied { --node-x: 80; --node-y: 53; }
-body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.relational { --node-x: 80; --node-y: 75; }
-body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.neural { --node-x: 50; --node-y: 90; }
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node::before,
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node::after {
+  content: none !important;
+  display: none !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node > i {
+  display: grid !important;
+  place-items: center !important;
+  width: 22px !important;
+  min-width: 22px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: rgba(255, 235, 184, .94) !important;
+  font: normal 18px/1 "Crimson Pro", serif !important;
+  text-shadow:
+    0 0 7px rgba(255, 211, 90, .7),
+    0 0 13px rgba(33, 232, 255, .16) !important;
+  animation: none !important;
+  transition: none !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node > i > * {
+  display: none !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node > span {
+  display: grid !important;
+  align-content: center !important;
+  gap: 3px !important;
+  min-width: 0 !important;
+  text-align: start !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node > span > b {
+  margin: 0 !important;
+  color: var(--nur-ivory) !important;
+  font-family: "Bodoni Moda", serif !important;
+  font-size: clamp(15px, 1.85cqw, 17px) !important;
+  font-style: normal !important;
+  font-weight: 500 !important;
+  line-height: 1.02 !important;
+  letter-spacing: 0 !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node > span > small {
+  margin: 0 !important;
+  overflow: hidden !important;
+  color: rgba(248, 217, 138, .62) !important;
+  font-size: 12px !important;
+  line-height: 1.08 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.quiet { --node-x: 18; --node-y: 28; }
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.public { --node-x: 18; --node-y: 52; }
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.social { --node-x: 18; --node-y: 76; }
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.wealth { --node-x: 82; --node-y: 28; }
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.embodied { --node-x: 82; --node-y: 52; }
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.relational { --node-x: 82; --node-y: 76; }
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.neural { --node-x: 50; --node-y: 79; }
 
 body.universe-edition #nur-front-v61 .universe-map-panel .universe-system-node.active {
-  border-color: rgba(255, 211, 90, .6) !important;
+  border-color: transparent !important;
   background:
-    linear-gradient(135deg, rgba(255, 211, 90, .12), rgba(3, 3, 7, .7) 54%, rgba(255, 58, 158, .04)) !important;
+    linear-gradient(102deg, rgba(255, 211, 90, .1), rgba(255, 58, 158, .07) 54%, rgba(33, 232, 255, .11)) padding-box,
+    linear-gradient(145deg, rgba(8, 8, 13, .9), rgba(0, 0, 0, .95) 52%, rgba(4, 10, 13, .9)) padding-box,
+    var(--nur-selected-rim) border-box !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 211, 90, .72),
-    inset 0 -1px 0 rgba(33, 232, 255, .26),
-    0 0 24px rgba(255, 211, 90, .16),
-    0 0 34px rgba(33, 232, 255, .04) !important;
+    inset 0 1px 0 rgba(255, 248, 223, .1),
+    0 0 18px rgba(255, 58, 158, .08),
+    0 0 24px rgba(33, 232, 255, .07),
+    0 0 28px rgba(255, 211, 90, .06) !important;
 }
 
 /* The optimized seal is the icon. Remove the inherited circular badge that
@@ -854,19 +1623,188 @@ body.universe-edition #nur-front-v61 :is(
 }
 
 body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-title {
+  z-index: 8 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  justify-items: center !important;
+  align-content: start !important;
   left: 50% !important;
-  top: clamp(22px, 4%, 34px) !important;
-  width: min(190px, 38%) !important;
+  top: 14px !important;
+  width: min(560px, 72%) !important;
+  padding-top: 8px !important;
   transform: translateX(-50%) !important;
   text-align: center !important;
 }
 
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-title > .nur-master-subtitle {
+  display: block !important;
+  grid-column: 1 !important;
+  justify-self: center !important;
+  width: max-content !important;
+  max-width: 100% !important;
+  margin: 8px auto 0 !important;
+  color: rgba(255, 239, 211, .8) !important;
+  font-family: var(--nur-lockup-subtitle-font) !important;
+  font-size: 14px !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  font-synthesis: none !important;
+  line-height: 1.08 !important;
+  letter-spacing: .19em !important;
+  text-align: center !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+  text-shadow: 0 1px 8px rgba(255, 213, 132, .12) !important;
+  opacity: 1 !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-title > :is(
+  b.nur-holo-word,
+  b.nur-v197-stable-wordmark
+) {
+  display: inline-block !important;
+  grid-column: 1 !important;
+  justify-self: center !important;
+  margin: 0 0 -8px !important;
+  color: transparent !important;
+  background-image: linear-gradient(
+    90deg,
+    #fff0b7 0%,
+    #ffba63 10%,
+    #ff857a 19%,
+    #ffd85f 29%,
+    #70f0bc 39%,
+    #5edfff 49%,
+    #628cff 59%,
+    #9c73ff 69%,
+    #dd80ff 79%,
+    #ff7dc6 89%,
+    #fff0b7 100%
+  ) !important;
+  background-position: 0 50%;
+  background-size: 245% 100% !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  filter:
+    drop-shadow(0 0 7px rgba(255, 250, 229, .85))
+    drop-shadow(0 0 18px rgba(255, 204, 90, .46))
+    drop-shadow(0 0 38px rgba(255, 131, 40, .18)) !important;
+  font-family: "Bodoni Moda", serif !important;
+  font-size: 72px !important;
+  font-style: normal !important;
+  font-weight: 500 !important;
+  line-height: .79 !important;
+  letter-spacing: .125em !important;
+  transform: translate(.058em, -12px) !important;
+  white-space: nowrap !important;
+  animation: univPrism 6.4s ease-in-out infinite !important;
+  will-change: background-position, filter !important;
+}
+
+@media (max-width: 1180px) {
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-title > :is(
+    b.nur-holo-word,
+    b.nur-v197-stable-wordmark
+  ) {
+    margin-bottom: -7px !important;
+    font-size: 62px !important;
+    line-height: .82 !important;
+    transform: translate(.0595em, -10px) !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-title > .nur-master-subtitle {
+    margin-top: 7px !important;
+    font-size: 13px !important;
+    letter-spacing: .165em !important;
+  }
+}
+
+@media (max-width: 720px) {
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-title > :is(
+    b.nur-holo-word,
+    b.nur-v197-stable-wordmark
+  ) {
+    margin-bottom: -5px !important;
+    font-size: 50px !important;
+    line-height: .85 !important;
+    letter-spacing: .11em !important;
+    transform: translate(.055em, -7px) !important;
+  }
+
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-title > .nur-master-subtitle {
+    margin-top: 6px !important;
+    max-width: calc(100vw - 74px) !important;
+    font-size: 12px !important;
+    line-height: 1.15 !important;
+    letter-spacing: .135em !important;
+    white-space: normal !important;
+  }
+}
+
+body.universe-edition #nur-front-v61 .universe-map-panel > .universe-map-title::before,
+body.universe-edition #nur-front-v61 .universe-map-panel > .universe-map-title::after,
+body.universe-edition #nur-front-v61 .universe-map-panel > .universe-map-title > *::before,
+body.universe-edition #nur-front-v61 .universe-map-panel > .universe-map-title > :not(.nur-v197-wordmark)::after {
+  content: none !important;
+  display: none !important;
+}
+
+@keyframes univPrism {
+  0%, 100% { background-position: 0 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+body.universe-edition #nur-front-v61 .universe-map-title > .nur-v197-wordmark {
+  position: relative !important;
+  isolation: isolate !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-map-title > .nur-v197-wordmark::after {
+  content: attr(data-nur-wordmark-text) !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  display: block !important;
+  background-image: inherit !important;
+  background-position: 0 50%;
+  background-size: inherit !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  font: inherit !important;
+  letter-spacing: inherit !important;
+  line-height: inherit !important;
+  text-align: inherit !important;
+  white-space: inherit !important;
+  pointer-events: none !important;
+  animation: univPrism 6.4s ease-in-out infinite !important;
+  will-change: background-position !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-map-panel > :is(
+  .universe-rings,
+  .ring-a,
+  .ring-b,
+  .ring-c
+) {
+  display: none !important;
+}
+
 body.universe-edition #nur-front-v61 .universe-map-panel .universe-master-star {
+  z-index: 3 !important;
   left: 50% !important;
-  top: 51% !important;
-  width: clamp(230px, 35cqw, 360px) !important;
-  height: clamp(190px, 30cqw, 310px) !important;
+  top: 52% !important;
+  width: clamp(360px, 56cqw, 560px) !important;
+  height: clamp(300px, 46cqw, 460px) !important;
   transform: translate(-50%, -50%) !important;
+}
+
+body.universe-edition .universe-map-panel > .universe-master-star > #front-nur-star[data-nur-surface="universe"] {
+  inset: -14% !important;
+  width: 128% !important;
+  height: 128% !important;
 }
 
 body.universe-edition #nur-front-v61 .universe-add-system {
@@ -874,29 +1812,93 @@ body.universe-edition #nur-front-v61 .universe-add-system {
   right: 20px !important;
   left: auto !important;
   bottom: auto !important;
-  min-height: 50px !important;
+  min-height: 46px !important;
+  padding: 7px 12px !important;
   border: 1px solid var(--nur-line) !important;
   border-radius: var(--nur-radius-control) !important;
-  background: rgba(3, 3, 7, .58) !important;
+  background: rgba(0, 0, 0, .58) !important;
 }
 
-body.universe-edition #nur-front-v61 .universe-map-mantra {
-  bottom: 16px !important;
+body.universe-edition #nur-front-v61 .universe-add-system > b {
+  font-size: 16px !important;
+  line-height: 1 !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-add-system > small {
+  font-size: 10px !important;
+  line-height: 1.08 !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-field-readout {
+  min-width: 0 !important;
+  width: max-content !important;
+  max-width: 230px !important;
+  padding: 9px 11px !important;
+  gap: 5px !important;
+  border-radius: 8px !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-field-readout > b {
+  font-family: "Crimson Pro", serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: .15em !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-field-readout > span {
+  font-size: 11px !important;
+  line-height: 1.15 !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-hero-copy .nur-systems-epigraph {
+  position: static !important;
+  inset: auto !important;
+  display: block !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin: 9px 0 0 !important;
+  transform: none !important;
+  color: rgba(255, 229, 184, .68) !important;
+  font: italic 15px/1.18 "Crimson Pro", serif !important;
+  letter-spacing: .01em !important;
+  text-align: left !important;
+  text-shadow: 0 0 14px rgba(255, 190, 78, .09) !important;
+  white-space: normal !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-hero-copy .nur-systems-epigraph br {
+  display: none !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-hero-copy .nur-systems-epigraph em {
+  margin-inline-start: .28em !important;
+  color: rgba(255, 210, 119, .92) !important;
 }
 
 body.universe-edition .toast,
 body.universe-edition #toast.toast,
 body.universe-edition #nur-front-v61 #toast.toast {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
   max-width: min(440px, calc(100vw - 28px)) !important;
   border: 1px solid transparent !important;
   border-radius: var(--nur-radius-control) !important;
   background:
-    linear-gradient(145deg, rgba(255, 211, 90, .055), rgba(3, 3, 7, .64) 46%, rgba(33, 232, 255, .028)) padding-box,
+    linear-gradient(145deg, rgba(255, 211, 90, .055), rgba(0, 0, 0, .72) 46%, rgba(33, 232, 255, .028)) padding-box,
     var(--nur-spectrum-border) border-box !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 248, 223, .08),
     0 14px 42px rgba(0, 0, 0, .5),
     0 0 22px rgba(255, 211, 90, .07) !important;
+}
+
+body.universe-edition .toast.show,
+body.universe-edition #toast.toast.show,
+body.universe-edition #nur-front-v61 #toast.toast.show {
+  visibility: hidden !important;
+  opacity: 0 !important;
 }
 
 body.universe-edition #nur-front-v61 .universe-state-strip {
@@ -906,7 +1908,7 @@ body.universe-edition #nur-front-v61 .universe-state-strip {
   margin-top: var(--nur-shell-gap) !important;
   border: 1px solid var(--nur-line-faint) !important;
   border-radius: var(--nur-radius-panel) !important;
-  background: rgba(3, 3, 7, .5) !important;
+  background: rgba(0, 0, 0, .5) !important;
   overflow: hidden !important;
 }
 
@@ -1156,6 +2158,24 @@ body.universe-edition #nur-front-v61 .nur-shell {
   height: 100dvh !important;
   min-height: 0 !important;
   overflow: hidden !important;
+  background:
+    radial-gradient(44% 58% at 46% 16%, rgba(255, 211, 90, .018), transparent 70%),
+    radial-gradient(36% 47% at 69% 77%, rgba(33, 232, 255, .018), transparent 78%),
+    linear-gradient(90deg, rgba(0, 0, 0, .74), rgba(0, 0, 0, .08) 50%, rgba(0, 0, 0, .66)) !important;
+}
+
+body.universe-edition #nur-front-v61 :is(
+  .universe-map-panel,
+  .universe-insight-panel,
+  .universe-card,
+  .clean-audit-card,
+  .context-rail-card,
+  .v172-context-card,
+  .candidate-insight
+) {
+  background:
+    linear-gradient(145deg, rgba(255, 248, 223, .022), transparent 32%),
+    rgba(0, 0, 0, .52) !important;
 }
 
 body.universe-edition #nur-front-v61 .clean-left-rail,
@@ -1182,7 +2202,7 @@ body.universe-edition #nur-front-v61 .clean-nav-button {
   display: grid !important;
   grid-template-columns: 24px minmax(0, 1fr) auto !important;
   align-items: center !important;
-  gap: 8px !important;
+  gap: 6px !important;
 }
 
 body.universe-edition #nur-front-v61 .clean-nav-button[data-page="today"] {
@@ -1195,12 +2215,13 @@ body.universe-edition #nur-front-v61 :is(.clean-nav-title, .clean-nav-note) {
 }
 
 body.universe-edition #nur-front-v61 .clean-nav-title {
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
 }
 
 body.universe-edition #nur-front-v61 .clean-nav-note {
   justify-self: end !important;
+  font-size: 10.5px !important;
 }
 
 body.universe-edition #nur-front-v61 .clean-right-rail {
@@ -1349,6 +2370,17 @@ body.universe-edition #nur-front-v61 :is(.toast, [role="status"][data-toast]) {
   body.universe-edition #nur-front-v61 .universe-deep span {
     display: none !important;
   }
+
+}
+
+@media (max-width: 1399px) {
+  body.universe-edition #nur-front-v61 .clean-nav-button {
+    grid-template-columns: 24px minmax(0, 1fr) !important;
+  }
+
+  body.universe-edition #nur-front-v61 .clean-nav-note {
+    display: none !important;
+  }
 }
 
 @media (max-width: 900px) {
@@ -1451,12 +2483,20 @@ body.universe-edition #nur-front-v61 :is(.toast, [role="status"][data-toast]) {
     justify-content: flex-start !important;
     width: 100% !important;
     min-width: 0 !important;
-    min-height: 42px !important;
+    min-height: 48px !important;
     padding: 8px 10px !important;
-    overflow: hidden !important;
+    overflow: visible !important;
+    line-height: 1.15 !important;
+    overflow-wrap: normal !important;
     text-align: start !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    word-break: normal !important;
+  }
+
+  body.universe-edition :is(.toast, #toast.toast),
+  body.universe-edition #nur-front-v61 :is(.toast, #toast.toast) {
+    bottom: calc(128px + env(safe-area-inset-bottom)) !important;
   }
 
   body.universe-edition #nur-front-v61 .universe-command-row .world-command:last-child {
@@ -1510,7 +2550,8 @@ body.universe-edition #nur-front-v61 :is(.toast, [role="status"][data-toast]) {
     width: 38px !important;
     min-width: 38px !important;
     padding: 0 !important;
-    font-size: 0 !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
   }
 
   body.universe-edition #nur-front-v61 .universe-nav-tabs button span {
@@ -1523,11 +2564,20 @@ body.universe-edition #nur-front-v61 :is(.toast, [role="status"][data-toast]) {
   }
 
   body.universe-edition #nur-front-v61 #scope-open {
+    display: grid !important;
+    place-items: center !important;
     width: 38px !important;
     min-width: 38px !important;
     padding: 0 !important;
     overflow: hidden !important;
     font-size: 0 !important;
+  }
+
+  body.universe-edition #nur-front-v61 #scope-open::before {
+    content: "\25C8" !important;
+    display: block !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
   }
 
   body.universe-edition #nur-front-v61 .nur-page {
@@ -1644,7 +2694,23 @@ body.universe-edition #nur-front-v61 :is(
   .universe-state-strip > article
 ) {
   min-width: 0 !important;
-  overflow-wrap: anywhere !important;
+  hyphens: none !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-system-node > span {
+  display: grid !important;
+  min-width: 0 !important;
+  text-align: start !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-system-node > span > :is(b, small) {
+  display: block !important;
+  min-width: 0 !important;
+  hyphens: none !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
 }
 
 [dir="rtl"] body.universe-edition #nur-front-v61 :is(

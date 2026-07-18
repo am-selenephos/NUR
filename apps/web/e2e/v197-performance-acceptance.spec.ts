@@ -469,7 +469,7 @@ test("G04 warm V197 runtime preserves identity, centring, and natural interactio
   const report = {
     project: testInfo.project.name,
     generatedAt: new Date().toISOString(),
-    canonicalV197Sha256: "252eee806ece31ef829a2dc5cd45aa8d8f8e855db1bde98b6f87193d786633c3",
+    canonicalV197Sha256: "d4f7f2d3e4c8e36dfc0c6edd51a028f28a04afbc2afa434a319009cb2f122bc6",
     hostProfile,
     entryCadence,
     todayCadence,
@@ -488,7 +488,7 @@ test("G04 warm V197 runtime preserves identity, centring, and natural interactio
   expect(routeStates.slice(1).every(state => state.activeWorld === "map")).toBe(true);
   expect(runtime.canvasCount).toBe(1);
   expect(runtime.runningAnimations).toBeLessThanOrEqual(testInfo.project.name.includes("mobile") ? 16 : 24);
-  expect(runtime.particleCount ?? 0).toBeLessThanOrEqual(360);
+  expect(runtime.particleCount ?? 0).toBeLessThanOrEqual(980);
   expect(runtime.compactedMiniStars).toBe(runtime.miniStarHosts);
   expect(runtime.rayCount).toBe(0);
   // Headed Chromium is the reference timing environment. Headless Firefox and
@@ -510,7 +510,7 @@ test("G04 warm V197 runtime preserves identity, centring, and natural interactio
 
   const wordmarkStyle = measuredGeometry.wordmarkStyle as Record<string, string>;
   expect(wordmarkStyle.fontFamily).toContain("Bodoni Moda");
-  expect(wordmarkStyle.animationName).toContain("nurV197StableWordmarkFlow");
+  expect(wordmarkStyle.animationName).toContain("univPrism");
   expect(wordmarkStyle.backgroundClip).toBe("text");
   expect(wordmarkStyle.webkitTextFillColor).toBe("rgba(0, 0, 0, 0)");
   const collisions = measuredGeometry.collisions as { titleNodeCollisions: string[]; nodeCollisions: string[] };

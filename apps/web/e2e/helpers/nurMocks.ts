@@ -207,6 +207,25 @@ export async function installNurMocks(page: Page) {
 
     if (path === "/api/v1/auth/me") return json(route, mockUser);
     if (path === "/api/v1/auth/logout") return json(route, undefined, 204);
+    if (path === "/api/v1/universe/live") return json(route, null);
+    if (path === "/api/v1/map") return json(route, null);
+    if (path === "/api/v1/glow/scoreboard") return json(route, null);
+    if (path === "/api/v1/glow/summary") return json(route, {
+      balance: 0,
+      lifetime_points: 0,
+      today_points: 0,
+      weekly_points: 0,
+      level: 1,
+      rank: "Orbit Seed",
+      next_unlock: null,
+      recent_transactions: [],
+      streaks: [],
+      achievements: [],
+      daily_quest: {},
+      weekly_mission: {},
+    });
+    if (path === "/api/v1/projects/summary") return json(route, null);
+    if (path === "/api/v1/community/rooms" && method === "GET") return json(route, []);
     if (path === "/api/v1/orbits/current-state") return json(route, {
       active_systems: 1,
       outcomes_returned: state.outcomePosts,

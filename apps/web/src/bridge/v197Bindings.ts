@@ -10,6 +10,7 @@ import {
 import { ensureV197LanguageControls, type WritingPreference } from "./v197I18n";
 import { hydrateTrackAV197 } from "./v197Hydration";
 import { announcePersistedGlow } from "./v197Rewards";
+import { createV197StartupStar } from "./v197StarSeal";
 import {
   V197StreamClient,
   type V197StreamEvent,
@@ -107,46 +108,11 @@ export class V197ActionBindings {
       this.document.removeEventListener("keydown", this.keyHandler, true);
       this.document.removeEventListener("click", this.scopeHandler);
       this.document.getElementById("nur-v197-owner-auth-menu")?.remove();
-      this.document.querySelector('style[data-nur-layer="v197-owner-auth-menu"]')?.remove();
     };
   }
 
   private installOwnerAuthMenu(): void {
     if (this.document.getElementById("nur-v197-owner-auth-menu")) return;
-    const style = this.document.createElement("style");
-    style.dataset.nurLayer = "v197-owner-auth-menu";
-    style.textContent = `
-      #nur-v197-owner-auth-menu {
-        position: fixed;
-        inset-block-start: 58px;
-        inset-inline-end: 18px;
-        z-index: var(--nur-layer-popover, 60);
-        width: min(260px, calc(100vw - 36px));
-        padding: 14px;
-        border: 1px solid rgba(248, 217, 138, .24);
-        border-radius: 7px;
-        background: linear-gradient(145deg, rgba(255, 248, 223, .035), transparent 36%), rgba(3, 3, 7, .96);
-        box-shadow: 0 22px 54px rgba(0, 0, 0, .58), inset 0 1px rgba(255, 248, 223, .06);
-        color: #fff8df;
-        font: 16px/1.35 "Crimson Pro", serif;
-      }
-      #nur-v197-owner-auth-menu[hidden] { display: none !important; }
-      #nur-v197-owner-auth-menu p { margin: 0 0 10px; color: rgba(255, 248, 223, .68); }
-      #nur-v197-owner-auth-menu button {
-        width: 100%;
-        min-height: 44px;
-        border: 1px solid transparent;
-        border-radius: 7px;
-        background:
-          linear-gradient(145deg, rgba(255, 211, 90, .075), rgba(3, 3, 7, .62) 48%, rgba(255, 58, 158, .035)) padding-box,
-          var(--nur-spectrum-border) border-box;
-        color: #fff8df;
-        padding: 10px 14px;
-        font: 600 14px/1 "Crimson Pro", serif;
-        cursor: pointer;
-      }
-    `;
-    this.document.head.append(style);
     const menu = this.document.createElement("aside");
     menu.id = "nur-v197-owner-auth-menu";
     menu.hidden = true;
@@ -962,6 +928,8 @@ export function bindV197EntryAuth(
     form.setAttribute("aria-busy", "true");
     submit?.setAttribute("aria-busy", "true");
     waitLayer.querySelector<HTMLElement>("[data-nur-auth-wait-message]")!.textContent = waitMessage;
+    waitLayer.querySelector<HTMLElement>("[data-nur-auth-wait-star]")
+      ?.replaceChildren(createV197StartupStar(document));
     waitLayer.hidden = false;
     if (status) status.textContent = form.id === "f4-signup-form" ? "Creating your private Orbit…" : "Returning to your Orbit…";
 
@@ -1020,104 +988,11 @@ export function bindV197EntryAuth(
   return () => document.removeEventListener("submit", handler, true);
 }
 
-const V197_AUTH_WAIT_STYLE_ID = "nur-v197-auth-wait-style";
 const V197_AUTH_WAIT_ID = "nur-v197-auth-wait";
 
 function ensureV197AuthWaitLayer(document: Document): HTMLElement {
   const existing = document.getElementById(V197_AUTH_WAIT_ID);
   if (existing) return existing;
-
-  if (!document.getElementById(V197_AUTH_WAIT_STYLE_ID)) {
-    const style = document.createElement("style");
-    style.id = V197_AUTH_WAIT_STYLE_ID;
-    style.dataset.nurLayer = "v197-native-auth-wait";
-    style.textContent = `
-      #${V197_AUTH_WAIT_ID} {
-        position: fixed;
-        inset: 0;
-        z-index: var(--nur-layer-critical, 140);
-        display: grid;
-        place-items: center;
-        overflow: hidden;
-        background:
-          radial-gradient(circle at 50% 46%, rgba(216, 155, 55, .12), transparent 28%),
-          radial-gradient(circle at 48% 50%, rgba(90, 196, 255, .06), transparent 43%),
-          #000000;
-        opacity: 1;
-        transition: opacity .28s ease;
-      }
-      #${V197_AUTH_WAIT_ID}[hidden] { display: none !important; }
-      #f4-status.nur-v197-auth-error {
-        position: static !important;
-        display: block !important;
-        width: auto !important;
-        height: auto !important;
-        overflow: visible !important;
-        clip: auto !important;
-        clip-path: none !important;
-        white-space: normal !important;
-        margin-top: 10px;
-        padding: 10px 12px;
-        border: 1px solid rgba(255, 168, 87, .45);
-        border-radius: 8px;
-        background: rgba(255, 140, 40, .12);
-        color: #ffd9a8;
-        font: 500 14px/1.45 "Crimson Pro", serif;
-        text-align: left;
-      }
-      #${V197_AUTH_WAIT_ID} .nur-v197-auth-wait-inner {
-        display: grid;
-        place-items: center;
-        gap: 15px;
-        width: min(420px, calc(100vw - 44px));
-        text-align: center;
-      }
-      #${V197_AUTH_WAIT_ID} .nur-v197-auth-wait-star {
-        position: relative;
-        display: grid;
-        place-items: center;
-        width: 124px;
-        height: 124px;
-        filter: brightness(1.12) saturate(1.12);
-      }
-      #${V197_AUTH_WAIT_ID} .nur-v197-auth-wait-star > .spark {
-        position: relative !important;
-        inset: auto !important;
-        top: auto !important;
-        left: auto !important;
-        width: 100px !important;
-        height: 100px !important;
-        margin: 0 !important;
-        opacity: 1 !important;
-        transform: none !important;
-        animation: nurV197AuthWaitBreathe 2.8s ease-in-out infinite !important;
-      }
-      #${V197_AUTH_WAIT_ID} .nur-v197-auth-wait-word {
-        color: rgba(255, 240, 203, .94);
-        font: 500 34px/.9 "Bodoni Moda", serif;
-        letter-spacing: .18em;
-        padding-inline-start: .18em;
-        text-shadow: 0 0 18px rgba(255, 198, 78, .42), 0 0 38px rgba(84, 218, 255, .14);
-      }
-      #${V197_AUTH_WAIT_ID} [data-nur-auth-wait-message] {
-        color: rgba(255, 234, 194, .78);
-        font: italic 20px/1.25 "Crimson Pro", serif;
-        letter-spacing: .02em;
-      }
-      #${V197_AUTH_WAIT_ID} .nur-v197-auth-wait-note {
-        color: rgba(255, 238, 208, .43);
-        font: 15px/1.3 "Crimson Pro", serif;
-      }
-      @keyframes nurV197AuthWaitBreathe {
-        0%, 100% { transform: scale(.96); filter: brightness(.96); }
-        50% { transform: scale(1.04); filter: brightness(1.16); }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        #${V197_AUTH_WAIT_ID} .nur-v197-auth-wait-star > .spark { animation: none !important; }
-      }
-    `;
-    document.head.append(style);
-  }
 
   const layer = document.createElement("div");
   layer.id = V197_AUTH_WAIT_ID;
@@ -1129,16 +1004,7 @@ function ensureV197AuthWaitLayer(document: Document): HTMLElement {
   inner.className = "nur-v197-auth-wait-inner";
   const starHost = document.createElement("div");
   starHost.className = "nur-v197-auth-wait-star";
-  const sourceStar = document.querySelector<HTMLElement>("#iSpark, .f4-master-star--hero .spark, .f4-core .spark");
-  if (sourceStar) {
-    const star = sourceStar.cloneNode(true) as HTMLElement;
-    star.removeAttribute("id");
-    starHost.append(star);
-  } else {
-    const core = document.createElement("span");
-    core.className = "spark spark-core";
-    starHost.append(core);
-  }
+  starHost.dataset.nurAuthWaitStar = "true";
   const word = document.createElement("div");
   word.className = "nur-v197-auth-wait-word";
   word.textContent = "NUR";

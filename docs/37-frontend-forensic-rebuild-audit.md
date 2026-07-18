@@ -10,12 +10,12 @@ persistence, and backend code are outside the rebuild boundary.
 
 ## Protected Sources
 
-| Source | SHA-256 before rebuild | Policy |
+| Source | SHA-256 in current cleaned build | Policy |
 | --- | --- | --- |
-| `apps/web/public/v197/NUR_V197_CHECKBOX_TICK_RESTORED.html` | `252eee806ece31ef829a2dc5cd45aa8d8f8e855db1bde98b6f87193d786633c3` | Preserve byte-for-byte |
-| `docs/reference/entry_decoded_v197.html` | `49e2e72fb3adea405428789d9235dfc5ecb122f8dc1e17205d4fa05de64ecd97` | Reference only |
-| `docs/reference/universe_decoded_v197.html` | `b80eb5198d6fd9088e999020bd1cf85e95af9a20fd4ab172cfb7d5726dbd5a3c` | Reference only |
-| `apps/web/src/bridge/v197StarBrainRuntime.js` | `c5218640143855897592af7442a7a0b26a62232d68be912aadb97d6a7dc7c242` | Preserve approved visual output; lifecycle edits require explicit proof |
+| `apps/web/public/v197/NUR_V197_CHECKBOX_TICK_RESTORED.html` | `d4f7f2d3e4c8e36dfc0c6edd51a028f28a04afbc2afa434a319009cb2f122bc6` | Preserve byte-for-byte |
+| `docs/reference/entry_decoded_v197.html` | `cdeac0c8574333c7261be2bc410357ecc5407ee0dd5b1b8089630f3914026030` | Reference only |
+| `docs/reference/universe_decoded_v197.html` | `3cff07b31e8360e5ce793287298d66127c4f278705dc0f8e6abdfbe7e874dc40` | Reference only |
+| `apps/web/src/bridge/v43StarBrainRuntime.js` | `d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6` | Byte-identical V43 V7 founder-supplied star-brain source; only host placement and circular CSS dispersal live outside it |
 
 ## Runtime Ownership
 

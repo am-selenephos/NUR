@@ -10,6 +10,7 @@ import {
 } from "./v197ApiClient";
 import { applyV197Locale, directionForPreference, V197_LOCALE_META, type WritingPreference } from "./v197I18n";
 import V197_ADJUNCT_FORENSIC_CSS from "../styles/v197-adjunct-forensic.css?raw";
+import { markV197HolographicWordmark } from "./v197Brand";
 import { createV197StarSeal } from "./v197StarSeal";
 
 const ROOT_ID = "nur-v197-adjunct-root";
@@ -101,6 +102,7 @@ function mount(document: Document, title: string, subtitle: string, backRoute = 
   back.type = "button";
   back.dataset.adjunctRoute = backRoute;
   const brand = element(document, "div", "nur-adjunct-brand", "NUR");
+  markV197HolographicWordmark(brand);
   const brandSeal = createV197StarSeal(document, 24, true);
   brandSeal.classList.add("nur-adjunct-brand-seal");
   brand.prepend(brandSeal);

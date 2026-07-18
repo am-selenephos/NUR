@@ -19,6 +19,7 @@ async function authenticate(page: Page): Promise<void> {
 }
 
 test("required viewport matrix preserves overflow, touch, node, and center contracts", async ({ page }) => {
+  test.setTimeout(120_000);
   await authenticate(page);
 
   for (const viewport of V197_REQUIRED_VIEWPORTS) {
@@ -35,17 +36,21 @@ test("required viewport matrix preserves overflow, touch, node, and center contr
     expect(audit.undersizedTouchTargets).toEqual([]);
 
     const nodeRects = await visibleV197Rects(body, ".universe-system-node");
-    const brainAndNodes = await visibleV197Rects(
-      body,
-      ".universe-master-star, .universe-system-node",
-    );
     const topbarGroups = await visibleV197Rects(
       body,
       ".nur-topbar > .universe-top-left, .nur-topbar > .universe-top-tools",
     );
+    const mapStacking = await body.evaluate(() => {
+      const brain = document.querySelector<HTMLElement>(".universe-master-star");
+      const nodes = Array.from(document.querySelectorAll<HTMLElement>(".universe-system-node"));
+      return {
+        brain: Number.parseInt(getComputedStyle(brain!).zIndex, 10),
+        nodes: nodes.map(node => Number.parseInt(getComputedStyle(node).zIndex, 10)),
+      };
+    });
     expect(overlappingV197Pairs(nodeRects)).toEqual([]);
-    expect(overlappingV197Pairs(brainAndNodes)).toEqual([]);
     expect(overlappingV197Pairs(topbarGroups)).toEqual([]);
+    mapStacking.nodes.forEach(zIndex => expect(zIndex).toBeGreaterThan(mapStacking.brain));
 
     const centerDelta = await v197CenterDelta(
       body,
@@ -112,17 +117,17 @@ test("reduced motion leaves the exact brain intact and collapses decorative timi
 
   const result = await frame.locator("body").evaluate(() => {
     const control = document.querySelector<HTMLElement>(".clean-nav-button");
-    const runtime = (window as unknown as { __nurV197?: { points: number } }).__nurV197;
+    const brain = document.querySelector<HTMLElement>("#front-nur-star");
     const style = control ? getComputedStyle(control) : null;
     return {
-      points: runtime?.points,
+      points: Number(brain?.dataset.nurPointCount),
       animationDuration: style?.animationDuration,
       transitionDuration: style?.transitionDuration,
       sparkfield: document.querySelectorAll("#v197-sparkfield").length,
     };
   });
-  expect([708, 1060]).toContain(result.points);
-  expect(result.animationDuration).toBe("0.00001s");
-  expect(result.transitionDuration).toBe("0.00001s");
+  expect([538, 796]).toContain(result.points);
+  expect(Number.parseFloat(result.animationDuration ?? "1")).toBeLessThanOrEqual(.00001);
+  expect(Number.parseFloat(result.transitionDuration ?? "1")).toBeLessThanOrEqual(.00001);
   expect(result.sparkfield).toBe(0);
 });

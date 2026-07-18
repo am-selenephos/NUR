@@ -1,19 +1,21 @@
 import {
   V197_CONTROL_STAR_SEAL_CLASS,
+  V197_SIGIL_STAR_CLASS,
   V197_STATE_STAR_SEAL_CLASS,
   V197_STAR_SEAL_CLASS,
-  V197_STAR_SEAL_SPRITE_ID,
-  V197_STAR_SEAL_SYMBOL_ID,
+  V197_STARTUP_STAR_CLASS,
   createV197StarSeal,
+  createV197StartupStar,
   installV197StarSeals,
 } from "../bridge/v197StarSeal";
+import { applyV197Locale } from "../bridge/v197I18n";
 
 describe("V197 star seal", () => {
   beforeEach(() => {
     document.body.replaceChildren();
   });
 
-  it("installs one shared detailed symbol and lightweight use instances", () => {
+  it("reuses the exact V197 startup-star structure without an SVG approximation", () => {
     document.body.innerHTML = `
       <button class="active"><span class="nur-exact-mini-host" data-nur-star-size="16"><span class="nur-star-module"></span></span></button>
       <button><span class="nur-exact-mini-host" data-nur-star-size="24"><span class="nur-star-module"></span></span></button>
@@ -21,21 +23,50 @@ describe("V197 star seal", () => {
 
     expect(installV197StarSeals(document)).toBe(2);
     expect(installV197StarSeals(document)).toBe(0);
-    expect(document.querySelectorAll(`#${V197_STAR_SEAL_SPRITE_ID}`)).toHaveLength(1);
-    expect(document.querySelectorAll(`#${V197_STAR_SEAL_SYMBOL_ID} path`).length).toBeGreaterThanOrEqual(16);
-    expect(document.querySelectorAll(`.${V197_STAR_SEAL_CLASS} use`)).toHaveLength(2);
+    const seals = [...document.querySelectorAll<HTMLElement>(`.${V197_STAR_SEAL_CLASS}`)];
+    expect(seals).toHaveLength(2);
+    seals.forEach(seal => {
+      expect(seal.dataset.nurV197SigilSource).toBe("#iSpark");
+      expect(seal.querySelectorAll(`:scope > .${V197_SIGIL_STAR_CLASS}.spark`)).toHaveLength(1);
+      expect(seal.querySelectorAll(".ray")).toHaveLength(12);
+      expect(seal.querySelectorAll(".ob")).toHaveLength(3);
+      expect(seal.querySelector(".spark-glow")).not.toBeNull();
+      expect(seal.querySelector(".spark-halo")).not.toBeNull();
+      expect(seal.querySelector(".spark-h2")).not.toBeNull();
+      expect(seal.querySelector(".spark-core")).not.toBeNull();
+    });
+    expect(document.querySelector("svg, use")).toBeNull();
     expect(document.querySelector(".nur-v197-mini-star-lite")).toBeNull();
     expect(document.querySelector<HTMLElement>(".nur-exact-mini-host")?.dataset.nurStarSeal).toBe("authentic");
-    expect(document.querySelector<SVGSVGElement>(`.${V197_STAR_SEAL_CLASS}`)?.dataset.nurStarTwinkle).toBe("true");
+    expect(document.querySelector<HTMLElement>(`.${V197_STAR_SEAL_CLASS}`)?.dataset.nurStarTwinkle).toBe("true");
   });
 
   it("supports the canonical 12, 16, 20, 24, and 32 pixel sizes", () => {
     for (const size of [12, 16, 20, 24, 32] as const) {
       const seal = createV197StarSeal(document, size);
       expect(seal.classList.contains(`${V197_STAR_SEAL_CLASS}--${size}`)).toBe(true);
-      expect(seal.getAttribute("width")).toBe(String(size));
+      expect(seal.style.getPropertyValue("--nur-star-seal-size")).toBe(`${size}px`);
       expect(seal.dataset.nurStarTwinkle).toBe("false");
     }
+  });
+
+  it("can replay the exact intro presentation from the canonical iSpark source", () => {
+    document.body.innerHTML = `
+      <div id="iSpark" class="i-spark spark">
+        <div class="spark-glow"></div><div class="spark-halo"></div>
+        <div class="spark-h2"></div><div class="spark-core"></div>
+        <div class="rayset">${Array.from({ length: 12 }, (_, index) => `<div class="ray g r${index + 1}"><div class="ray-glow"></div><div class="ray-core"></div></div>`).join("")}</div>
+        <div class="ob ob1"></div><div class="ob ob2"></div><div class="ob ob3"></div>
+      </div>
+    `;
+
+    const startup = createV197StartupStar(document);
+    expect(startup.classList.contains(V197_STARTUP_STAR_CLASS)).toBe(true);
+    expect(startup.dataset.nurV197SigilSource).toBe("#iSpark");
+    expect(startup.querySelector("#iSpark")).toBeNull();
+    expect(startup.querySelector(`.i-spark.${V197_SIGIL_STAR_CLASS}`)).not.toBeNull();
+    expect(startup.querySelectorAll(".ray")).toHaveLength(12);
+    expect(startup.querySelectorAll(".ob")).toHaveLength(3);
   });
 
   it("marks legacy icon shells and normalizes system seal sizes", () => {
@@ -90,7 +121,7 @@ describe("V197 star seal", () => {
     expect(installV197StarSeals(document)).toBe(0);
     expect(document.querySelectorAll(`.${V197_CONTROL_STAR_SEAL_CLASS}`)).toHaveLength(2);
     expect(document.querySelectorAll(`.${V197_STATE_STAR_SEAL_CLASS}`)).toHaveLength(1);
-    expect(document.querySelectorAll(`.${V197_CONTROL_STAR_SEAL_CLASS} use`)).toHaveLength(2);
+    expect(document.querySelectorAll(`.${V197_CONTROL_STAR_SEAL_CLASS} > .spark`)).toHaveLength(2);
     expect(document.querySelector(`.clean-nav-button.active .${V197_STATE_STAR_SEAL_CLASS}`)).not.toBeNull();
 
     const nav = document.querySelectorAll<HTMLElement>(".clean-nav-button");
@@ -111,7 +142,23 @@ describe("V197 star seal", () => {
     `;
 
     expect(installV197StarSeals(document)).toBe(2);
-    expect(document.querySelector(".nur-adjunct-button.is-primary .nur-star-seal--control use")).not.toBeNull();
-    expect(document.querySelector(".nur-community-nav [aria-current='page'] .nur-star-seal--state use")).not.toBeNull();
+    expect(document.querySelector(".nur-adjunct-button.is-primary .nur-star-seal--control > .spark")).not.toBeNull();
+    expect(document.querySelector(".nur-community-nav [aria-current='page'] .nur-star-seal--state > .spark")).not.toBeNull();
+  });
+
+  it("survives locale hydration on Send controls without becoming label text", () => {
+    document.body.innerHTML = `
+      <main id="nur-front-v61">
+        <button class="thought-send-button" data-send="today"><span>Send</span></button>
+      </main>
+    `;
+
+    expect(installV197StarSeals(document)).toBe(1);
+    applyV197Locale(document, "en");
+
+    const seal = document.querySelector<HTMLElement>(".thought-send-button > i.nur-star-seal--control");
+    expect(seal?.textContent).toBe("");
+    expect(seal?.querySelectorAll(".ray")).toHaveLength(12);
+    expect(document.querySelector(".thought-send-button > span")?.textContent).toBe("Send");
   });
 });

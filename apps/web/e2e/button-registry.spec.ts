@@ -82,7 +82,7 @@ async function uncovered(frame: FrameLocator): Promise<string[]> {
 
 test("machine-readable Track A registry is internally complete", () => {
   expect(registry.architecture).toBe("track-a-v197-native-host");
-  expect(registry.source_sha256).toBe("252eee806ece31ef829a2dc5cd45aa8d8f8e855db1bde98b6f87193d786633c3");
+  expect(registry.source_sha256).toBe("d4f7f2d3e4c8e36dfc0c6edd51a028f28a04afbc2afa434a319009cb2f122bc6");
   expect(new Set(registry.controls.map(control => control.id)).size).toBe(registry.controls.length);
   for (const control of registry.controls) {
     expect(registry.statuses).toContain(control.status);

@@ -3,22 +3,27 @@ export const V197_RUNTIME_PROFILE_SCRIPT_ID = "nur-v197-runtime-performance-prof
 type Replacement = readonly [from: string, to: string];
 
 const ENTRY_REPLACEMENTS: readonly Replacement[] = [
-  ["DPR=Math.min(devicePixelRatio||1,1.65)", "DPR=Math.min(devicePixelRatio||1,1.2)"],
-  ["(mobile?680:1140)", "(mobile?120:150)"],
-  ["(mobile?460:720)", "(mobile?70:85)"],
-  ["(mobile?192:320)", "(mobile?22:26)"],
-  ["(mobile?44:76)", "(mobile?8:10)"],
-  [".slice(0,130)", ".slice(0,18)"],
+  ["DPR=Math.min(devicePixelRatio||1,1.65)", "DPR=Math.min(devicePixelRatio||1,1.15)"],
+  ["(mobile?680:1140)", "(mobile?390:680)"],
+  ["(mobile?460:720)", "(mobile?230:400)"],
+  ["(mobile?192:320)", "(mobile?64:110)"],
+  ["(mobile?44:76)", "(mobile?18:30)"],
+  [".slice(0,130)", ".slice(0,48)"],
+  [
+    "function frame(now){frameRAF=0;if(reduced||!shouldRenderGalaxy())return;if(!last)last=now-FRAME_MS;const rawDt=now-last;",
+    "function frame(now){frameRAF=0;if(reduced||!shouldRenderGalaxy())return;if(!last)last=now-FRAME_MS;const minFrameGap=innerWidth<700?82:96;if(now-last<minFrameGap){scheduleFrame();return}const rawDt=now-last;",
+  ],
 ] as const;
 
 const UNIVERSE_REPLACEMENTS: readonly Replacement[] = [
-  ["DPR=Math.min(devicePixelRatio||1,1.5)", "DPR=Math.min(devicePixelRatio||1,.82)"],
-  ["const PARTICLE_CAP=1880", "const PARTICLE_CAP=240"],
+  ["DPR=Math.min(devicePixelRatio||1,1.5)", "DPR=Math.min(devicePixelRatio||1,1)"],
+  ["const PARTICLE_CAP=1880", "const PARTICLE_CAP=980"],
   [
     "const density=mobile?{galaxy:620,far:430,dust:118,super:32}:{galaxy:900,far:585,dust:165,super:48}",
-    "const density=mobile?{galaxy:50,far:24,dust:8,super:4}:{galaxy:90,far:45,dust:12,super:6}",
+    "const density=mobile?{galaxy:280,far:170,dust:42,super:16}:{galaxy:470,far:280,dust:68,super:24}",
   ],
-  ["const nodeBudget=innerWidth<700?54:82", "const nodeBudget=innerWidth<700?12:18"],
+  ["const nodeBudget=innerWidth<700?54:82", "const nodeBudget=innerWidth<700?28:40"],
+  ["if(profile.nebula>.48)drawNebula(t);", "if(false)drawNebula(t);"],
   [
     "if(farAlpha>.095&&farR>.7)spike(q.x,q.y,farR*2.4,farCol,Math.min(.12,farAlpha*.24),phase);continue",
     "continue",
@@ -28,8 +33,8 @@ const UNIVERSE_REPLACEMENTS: readonly Replacement[] = [
     'if(!isS&&p.kind==="galaxy"){const simpleCol=p.prism?prismShift(p.col,p.prismPhase+t*p.prismSpeed+phase*.18,twinkle,false):p.col;const simpleR=Math.max(.52,rad*.82);c.fillStyle=`rgba(${simpleCol[0]},${simpleCol[1]},${simpleCol[2]},${Math.min(.92,alpha*2.35)})`;c.fillRect(q.x-simpleR*.5,q.y-simpleR*.5,simpleR,simpleR);if(alpha>.24&&rad>.82){c.strokeStyle=`rgba(${simpleCol[0]},${simpleCol[1]},${simpleCol[2]},${Math.min(.2,alpha*.42)})`;c.lineWidth=.42;c.beginPath();c.moveTo(q.x-simpleR*2.2,q.y);c.lineTo(q.x+simpleR*2.2,q.y);c.moveTo(q.x,q.y-simpleR*1.5);c.lineTo(q.x,q.y+simpleR*1.5);c.stroke()}continue}if(p.kind==="dust"){const dustR=Math.max(.5,rad*.9);c.fillStyle=`rgba(${p.col[0]},${p.col[1]},${p.col[2]},${Math.min(.36,alpha*1.7)})`;c.fillRect(q.x-dustR*.5,q.y-dustR*.5,dustR,dustR);continue}if(false&&p.kind==="dust"){const dr=',
   ],
   [
-    "function scheduleFrame(){if(reduced||frameRAF)return;frameRAF=requestAnimationFrame(frame)}",
-    'function scheduleFrame(){if(reduced||frameRAF)return;frameRAF=requestAnimationFrame(now=>{frameRAF=0;const active=document.documentElement.dataset.nurInteractionActive==="true",budget=active?16.7:__q<.45?33.3:__q<.7?25:20;if(now-last+1<budget){scheduleFrame();return}frame(now)})}',
+    "function frame(now){frameRAF=0;if(reduced||!shouldRenderGalaxy())return;if(!last)last=now-FRAME_MS;const rawDt=now-last;",
+    "function frame(now){frameRAF=0;if(reduced||!shouldRenderGalaxy())return;if(!last)last=now-FRAME_MS;const minFrameGap=innerWidth<700?82:96;if(now-last<minFrameGap){scheduleFrame();return}const rawDt=now-last;",
   ],
 ] as const;
 

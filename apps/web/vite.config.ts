@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
 import { defineConfig, type Plugin, type PreviewServer, type ViteDevServer } from "vite";
-import react from "@vitejs/plugin-react";
 import path from "node:path";
 
 import { buildV197PerformanceBootstrap } from "./src/bridge/v197PerformanceProfile";
@@ -57,7 +56,7 @@ function isNativeV197Route(value: string): boolean {
 function composedV197Document(sourcePath: string): string {
   const source = readFileSync(sourcePath, "utf8");
   const bridge = '<script type="module" src="/assets/v197-bridge.js"></script>';
-  const pwa = '<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#020103">';
+  const pwa = '<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#000000">';
   const performanceProfile = buildV197PerformanceBootstrap();
   if (!source.includes("</body>")) throw new Error("Canonical V197 source is missing its closing body tag.");
   // Preserve the canonical file byte-for-byte on disk and at /v197/. Native
@@ -105,12 +104,9 @@ function v197DirectHost(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [v197DirectHost(), react()],
+  plugins: [v197DirectHost()],
   define: {
     "import.meta.env.VITE_NUR_ENABLE_OMEGA_RESEARCH": JSON.stringify(omegaResearchFlag),
-  },
-  resolve: {
-    alias: { "@nur/shared-types": path.resolve(__dirname, "../../packages/shared-types/src/index.ts") },
   },
   server: {
     port: 5173,
@@ -141,7 +137,6 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
-    setupFiles: ["./src/test-setup.ts"],
     css: false,
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     exclude: ["e2e/**", "node_modules/**"],

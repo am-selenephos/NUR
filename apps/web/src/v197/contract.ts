@@ -1,5 +1,5 @@
 export const V197_SOURCE_SHA256 =
-  "252eee806ece31ef829a2dc5cd45aa8d8f8e855db1bde98b6f87193d786633c3";
+  "d4f7f2d3e4c8e36dfc0c6edd51a028f28a04afbc2afa434a319009cb2f122bc6";
 
 export const V197_NAV_ITEMS = [
   { page: "today", path: "/today", glyph: "◍", title: "Today", note: "land" },

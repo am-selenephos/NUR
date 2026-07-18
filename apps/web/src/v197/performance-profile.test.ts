@@ -16,10 +16,11 @@ describe("V197 deterministic runtime performance profile", () => {
     const result = applyV197PerformanceProfile(canonical, "entry");
 
     expect(result.applied).toBe(true);
-    expect(result.replacementCount).toBe(6);
-    expect(result.source).toContain("DPR=Math.min(devicePixelRatio||1,1.2)");
-    expect(result.source).toContain("(mobile?120:150)");
-    expect(result.source).toContain(".slice(0,18)");
+    expect(result.replacementCount).toBe(7);
+    expect(result.source).toContain("DPR=Math.min(devicePixelRatio||1,1.15)");
+    expect(result.source).toContain("(mobile?390:680)");
+    expect(result.source).toContain(".slice(0,48)");
+    expect(result.source).toContain("const minFrameGap=innerWidth<700?82:96");
     expect(canonical).toContain("(mobile?680:1140)");
   });
 
@@ -28,13 +29,16 @@ describe("V197 deterministic runtime performance profile", () => {
     const result = applyV197PerformanceProfile(canonical, "universe");
 
     expect(result.applied).toBe(true);
-    expect(result.replacementCount).toBe(7);
-    expect(result.source).toContain("const PARTICLE_CAP=240");
-    expect(result.source).toContain("DPR=Math.min(devicePixelRatio||1,.82)");
-    expect(result.source).toContain("galaxy:90,far:45,dust:12,super:6");
-    expect(result.source).toContain("const nodeBudget=innerWidth<700?12:18");
+    expect(result.replacementCount).toBe(8);
+    expect(result.source).toContain("const PARTICLE_CAP=980");
+    expect(result.source).toContain("DPR=Math.min(devicePixelRatio||1,1)");
+    expect(result.source).toContain("galaxy:470,far:280,dust:68,super:24");
+    expect(result.source).toContain("const nodeBudget=innerWidth<700?28:40");
+    expect(result.source).toContain("if(false)drawNebula(t);");
     expect(result.source).toContain('if(!isS&&p.kind==="galaxy")');
-    expect(result.source).toContain('budget=active?16.7:__q<.45?33.3:__q<.7?25:20');
+    expect(result.source).toContain("const minFrameGap=innerWidth<700?82:96");
+    expect(result.source).toContain("function scheduleFrame(){if(reduced||frameRAF)return;frameRAF=requestAnimationFrame(frame)}");
+    expect(result.source).not.toContain("__q");
     expect(result.source).not.toContain("setTimeout(()=>{frameRAF=requestAnimationFrame(frame)},delay)");
     expect(result.source).not.toContain('?72:25');
     expect(canonical).toContain("const PARTICLE_CAP=1880");

@@ -1,0 +1,328 @@
+/*
+ * Bridge-owned structure for DOM created after the canonical V197 document
+ * loads. Visual materials remain in v197-cosmic-skin.css. This file contains
+ * no legacy MasterStar, map-position, or whole-interface patch rules.
+ */
+
+.nur-v197-checkin {
+  display: grid;
+  gap: 12px;
+  margin-block: 16px 4px;
+  padding: 14px;
+  border: 1px solid var(--nur-line);
+  border-radius: var(--nur-radius-panel);
+  background: var(--nur-surface-1);
+}
+
+.nur-v197-checkin[hidden],
+.nur-v197-insight-controls[hidden],
+#nur-v197-owner-auth-menu[hidden],
+#nur-v197-auth-wait[hidden] {
+  display: none !important;
+}
+
+.nur-v197-checkin h3 {
+  margin: 0;
+  color: var(--nur-text);
+  font: 600 18px/1.15 "Crimson Pro", serif;
+}
+
+.nur-v197-checkin > p {
+  margin: 0;
+  color: var(--nur-text-soft);
+}
+
+.nur-v197-checkin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+}
+
+.nur-v197-checkin-field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 8px;
+  color: var(--nur-text-soft);
+}
+
+.nur-v197-checkin-field output {
+  color: var(--nur-gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.nur-v197-checkin-field input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 3px;
+  appearance: none;
+  border: 0;
+  border-radius: var(--nur-radius-round);
+  background: linear-gradient(90deg, var(--nur-gold-deep), var(--nur-cyan));
+}
+
+.nur-v197-checkin-field input[type="range"]::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  appearance: none;
+  border: 1px solid var(--nur-champagne);
+  border-radius: 50%;
+  background: var(--nur-gold);
+  box-shadow: 0 0 12px rgba(255, 211, 90, .34);
+}
+
+.nur-v197-checkin > input {
+  width: 100%;
+}
+
+.nur-v197-today-actions,
+.nur-v197-insight-actions,
+.nur-v197-community-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nur-v197-today-actions .soft-button:disabled,
+.nur-v197-community-controls > input:disabled,
+.nur-v197-community-controls button:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+}
+
+.nur-v197-language-open {
+  max-width: 146px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nur-v197-select-shell {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin-block: 5px 11px;
+  overflow: hidden;
+  border: 1px solid var(--nur-line);
+  border-radius: var(--nur-radius-control);
+  background: rgba(0, 0, 0, .48);
+  transition: border-color var(--nur-motion-fast) ease, box-shadow var(--nur-motion-fast) ease;
+}
+
+.nur-v197-select-shell::after {
+  content: "\\2304";
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: 13px;
+  color: var(--nur-gold);
+  font: 500 18px/1 "Crimson Pro", serif;
+  transform: translateY(-56%);
+  pointer-events: none;
+}
+
+.nur-v197-select-shell:hover {
+  border-color: var(--nur-line-strong);
+}
+
+.nur-v197-select-shell:focus-within {
+  border-color: rgba(33, 232, 255, .58);
+  box-shadow: var(--nur-focus);
+}
+
+#scope-modal .nur-v197-select {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 11px 42px 11px 13px !important;
+  appearance: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  color: var(--nur-text) !important;
+  font: 500 16px/1.25 "Crimson Pro", serif !important;
+  cursor: pointer;
+}
+
+#scope-modal .nur-v197-select option,
+#scope-modal .nur-v197-select optgroup {
+  background: var(--nur-ink) !important;
+  color: var(--nur-text) !important;
+}
+
+.nur-v197-provider-status,
+.nur-v197-insight-controls,
+.nur-v197-community-controls {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nur-v197-provider-status {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--nur-line-faint);
+  border-radius: var(--nur-radius-control);
+  background: rgba(0, 0, 0, .34);
+}
+
+.nur-v197-provider-status > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--nur-success);
+  box-shadow: 0 0 10px rgba(104, 232, 156, .38);
+}
+
+.nur-v197-provider-status > strong {
+  color: var(--nur-champagne);
+  font-weight: 500;
+}
+
+.nur-v197-provider-status > small,
+.nur-v197-insight-review-state,
+.nur-v197-community-state {
+  color: var(--nur-text-muted);
+  line-height: 1.35;
+}
+
+.nur-v197-insight-controls > input,
+.nur-v197-community-controls > input {
+  width: 100%;
+  min-width: 0;
+}
+
+#scope-modal .scope-modal {
+  max-height: min(86dvh, 780px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+body.universe-edition .nur-viewport {
+  scroll-behavior: auto !important;
+}
+
+#nur-v197-owner-auth-menu {
+  position: fixed;
+  inset-block-start: 58px;
+  inset-inline-end: 18px;
+  z-index: var(--nur-layer-popover);
+  width: min(260px, calc(100vw - 36px));
+  padding: 14px;
+  border: 1px solid var(--nur-line);
+  border-radius: var(--nur-radius-control);
+  background: rgba(3, 3, 7, .94);
+  box-shadow: var(--nur-panel-shadow);
+  color: var(--nur-text);
+  font: 16px/1.35 "Crimson Pro", serif;
+}
+
+#nur-v197-owner-auth-menu p {
+  margin: 0 0 10px;
+  color: var(--nur-text-soft);
+}
+
+#nur-v197-owner-auth-menu button {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--nur-line);
+  border-radius: var(--nur-radius-control);
+  background: rgba(0, 0, 0, .38);
+  color: var(--nur-text);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 211, 90, .18),
+    inset 1px 0 0 rgba(255, 58, 158, .09),
+    inset 0 -1px 0 rgba(33, 232, 255, .13),
+    var(--nur-control-shadow);
+  cursor: pointer;
+}
+
+#nur-v197-auth-wait {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  background: #000000;
+}
+
+#nur-v197-auth-wait .nur-v197-auth-wait-inner {
+  display: grid;
+  place-items: center;
+  gap: 14px;
+  width: min(420px, calc(100vw - 44px));
+  text-align: center;
+}
+
+#nur-v197-auth-wait .nur-v197-auth-wait-star {
+  display: grid;
+  place-items: center;
+  width: 132px;
+  height: 132px;
+}
+
+#nur-v197-auth-wait .nur-v197-auth-wait-star > .nur-star-seal--startup {
+  width: 100px;
+  height: 100px;
+  animation: nurV197AuthWaitBreathe 2.8s var(--nur-ease) infinite;
+}
+
+#nur-v197-auth-wait .nur-v197-auth-wait-word {
+  color: var(--nur-text);
+  font: 500 34px/.9 "Bodoni Moda", serif;
+  letter-spacing: .18em;
+  padding-inline-start: .18em;
+  text-shadow: 0 0 18px rgba(255, 211, 90, .32), 0 0 34px rgba(33, 232, 255, .11);
+}
+
+#nur-v197-auth-wait [data-nur-auth-wait-message] {
+  margin: 0;
+  color: var(--nur-text-soft);
+  font: italic 20px/1.25 "Crimson Pro", serif;
+}
+
+#nur-v197-auth-wait .nur-v197-auth-wait-note {
+  margin: 0;
+  color: var(--nur-text-muted);
+  font: 15px/1.3 "Crimson Pro", serif;
+}
+
+#f4-status.nur-v197-auth-error {
+  position: static !important;
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  margin-top: 10px;
+  padding: 10px 12px;
+  overflow: visible !important;
+  clip: auto !important;
+  clip-path: none !important;
+  white-space: normal !important;
+  border: 1px solid rgba(255, 82, 111, .46);
+  border-radius: var(--nur-radius-control);
+  background: rgba(255, 82, 111, .08);
+  color: #ffd9df;
+  font: 500 14px/1.45 "Crimson Pro", serif;
+  text-align: start;
+}
+
+@keyframes nurV197AuthWaitBreathe {
+  0%, 100% { opacity: .78; transform: scale(.96); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+
+@media (max-width: 640px) {
+  .nur-v197-checkin-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #nur-v197-auth-wait .nur-v197-auth-wait-star > .nur-star-seal--startup {
+    animation: none;
+  }
+}

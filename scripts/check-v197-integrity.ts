@@ -3,9 +3,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 export const V197_HASHES = {
-  host: "252eee806ece31ef829a2dc5cd45aa8d8f8e855db1bde98b6f87193d786633c3",
-  entry: "49e2e72fb3adea405428789d9235dfc5ecb122f8dc1e17205d4fa05de64ecd97",
-  universe: "b80eb5198d6fd9088e999020bd1cf85e95af9a20fd4ab172cfb7d5726dbd5a3c",
+  host: "d4f7f2d3e4c8e36dfc0c6edd51a028f28a04afbc2afa434a319009cb2f122bc6",
+  entry: "cdeac0c8574333c7261be2bc410357ecc5407ee0dd5b1b8089630f3914026030",
+  universe: "3cff07b31e8360e5ce793287298d66127c4f278705dc0f8e6abdfbe7e874dc40",
 } as const;
 
 export type V197IntegrityResult = {

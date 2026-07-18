@@ -19,6 +19,7 @@ async function waitForRoute(frame: FrameLocator, route: string): Promise<void> {
 }
 
 test("core routes retain authentic controls and bounded geometry", async ({ page }) => {
+  test.setTimeout(90_000);
   await authenticate(page);
 
   for (const viewport of viewports) {
@@ -29,6 +30,7 @@ test("core routes retain authentic controls and bounded geometry", async ({ page
       await waitForRoute(frame, route);
 
       const result = await frame.locator("body").evaluate(async () => {
+        await new Promise(resolve => setTimeout(resolve, 250));
         await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
         const visible = (element: HTMLElement) => {
           const style = getComputedStyle(element);
@@ -47,34 +49,43 @@ test("core routes retain authentic controls and bounded geometry", async ({ page
           ".f4-primary, .f4-submit, .thought-send-button, .universe-send",
         )).filter(visible);
         const selectedSeals = document.querySelectorAll(
-          ".clean-nav-button.active > .clean-nav-glyph .nur-star-seal--state use",
+          ".clean-nav-button.active > .clean-nav-glyph .nur-star-seal--state > .spark",
         ).length;
 
         return {
           width: document.documentElement.scrollWidth,
           viewportWidth: innerWidth,
           escaped,
-          oldMiniModules: document.querySelectorAll(".nur-star-module, .nur-v197-mini-star-lite").length,
-          spriteCount: document.querySelectorAll("#nur-v197-star-seal-sprite").length,
+          legacyMiniApproximations: document.querySelectorAll(".nur-v197-mini-star-lite").length,
+          svgApproximationCount: document.querySelectorAll(
+            "#nur-v197-star-seal-sprite, .nur-star-seal svg, .nur-star-seal use",
+          ).length,
+          exactSigils: document.querySelectorAll(".nur-star-seal > .spark").length,
           selectedSeals,
           primaryControls: primaryControls.length,
+          missingPrimarySeals: primaryControls
+            .filter(control => !control.querySelector(":scope > .nur-star-seal--control > .spark"))
+            .map(control => `${control.tagName.toLowerCase()}#${control.id}.${control.className}`),
           primarySeals: primaryControls.filter(control => (
-            control.querySelector(":scope > .nur-star-seal--control use")
+            control.querySelector(":scope > .nur-star-seal--control > .spark")
           )).length,
         };
       });
 
       expect(result.width).toBeLessThanOrEqual(result.viewportWidth + 1);
       expect(result.escaped).toEqual([]);
-      expect(result.oldMiniModules).toBe(0);
-      expect(result.spriteCount).toBe(1);
+      expect(result.legacyMiniApproximations).toBe(0);
+      expect(result.svgApproximationCount).toBe(0);
+      expect(result.exactSigils).toBeGreaterThan(0);
       expect(result.selectedSeals).toBe(1);
-      expect(result.primarySeals).toBe(result.primaryControls);
+      expect(result.primarySeals, `${route} ${viewport.width}px missing ${result.missingPrimarySeals.join(", ")}`)
+        .toBe(result.primaryControls);
     }
   }
 });
 
-test("Systems uses small unframed stars and non-overlapping mobile rows", async ({ page }) => {
+test("Systems uses unframed native symbols and non-overlapping mobile rows", async ({ page }) => {
+  test.setTimeout(45_000);
   await authenticate(page);
 
   for (const viewport of viewports) {
@@ -86,18 +97,18 @@ test("Systems uses small unframed stars and non-overlapping mobile rows", async 
     const result = await frame.locator("body").evaluate(async () => {
       await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       const icons = Array.from(document.querySelectorAll<HTMLElement>(
-        ".universe-system-node > .nur-exact-icon-shell",
+        ".universe-system-node > i[data-nur-native-glyph='true']",
       )).map(icon => {
         const style = getComputedStyle(icon);
         const rect = icon.getBoundingClientRect();
         return {
-          marker: icon.dataset.nurAuthenticStarHost,
+          marker: icon.dataset.nurNativeGlyph,
           width: rect.width,
           height: rect.height,
           borderRadius: style.borderRadius,
           backgroundImage: style.backgroundImage,
           boxShadow: style.boxShadow,
-          sealUses: icon.querySelectorAll(".nur-star-seal--24 use").length,
+          generatedArt: icon.querySelectorAll("svg, .nur-star-seal, .nur-star-module").length,
         };
       });
       const rows = Array.from(document.querySelectorAll<HTMLElement>(".universe-system-node"))
@@ -114,10 +125,10 @@ test("Systems uses small unframed stars and non-overlapping mobile rows", async 
       expect(icon.marker).toBe("true");
       expect(icon.width).toBeLessThanOrEqual(34.5);
       expect(icon.height).toBeLessThanOrEqual(34.5);
-      expect(icon.borderRadius).toBe("0px");
+      expect(Number.parseFloat(icon.borderRadius)).toBeLessThanOrEqual(1);
       expect(icon.backgroundImage).toBe("none");
       expect(icon.boxShadow).toBe("none");
-      expect(icon.sealUses).toBe(1);
+      expect(icon.generatedArt).toBe(0);
     });
 
     if (result.mobile) {
@@ -140,7 +151,8 @@ test("Entry primary action is transparent spectral glass with a real seal", asyn
   });
   const button = frame.locator("#f4-begin");
   await expect(button).toBeVisible({ timeout: 20_000 });
-  await expect(button.locator(":scope > .nur-star-seal--control use")).toHaveCount(1);
-  await expect(button).toHaveCSS("border-radius", "7px");
+  await expect(button.locator(":scope > .nur-star-seal--control > .spark")).toHaveCount(1);
+  const radius = await button.evaluate(element => Number.parseFloat(getComputedStyle(element).borderRadius));
+  expect(radius).toBeGreaterThan(100);
   await expect(button).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 });

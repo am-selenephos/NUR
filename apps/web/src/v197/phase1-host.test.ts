@@ -7,16 +7,28 @@ const repositoryRoot = resolve(process.cwd(), "../..");
 const source = (path: string) => readFileSync(resolve(repositoryRoot, path), "utf8");
 const hash = (path: string) => createHash("sha256").update(readFileSync(resolve(repositoryRoot, path))).digest("hex");
 
-describe("Phase 1 immutable V197 host", () => {
-  it("keeps the canonical host and decoded documents byte-checked", () => {
+describe("V197 cleaned canonical host", () => {
+  it("keeps the rebuilt host and decoded documents byte-checked", () => {
     expect(hash("apps/web/public/v197/NUR_V197_CHECKBOX_TICK_RESTORED.html"))
-      .toBe("252eee806ece31ef829a2dc5cd45aa8d8f8e855db1bde98b6f87193d786633c3");
+      .toBe("d4f7f2d3e4c8e36dfc0c6edd51a028f28a04afbc2afa434a319009cb2f122bc6");
     expect(hash("docs/reference/entry_decoded_v197.html"))
-      .toBe("49e2e72fb3adea405428789d9235dfc5ecb122f8dc1e17205d4fa05de64ecd97");
+      .toBe("cdeac0c8574333c7261be2bc410357ecc5407ee0dd5b1b8089630f3914026030");
     expect(hash("docs/reference/universe_decoded_v197.html"))
-      .toBe("b80eb5198d6fd9088e999020bd1cf85e95af9a20fd4ab172cfb7d5726dbd5a3c");
-    expect(hash("apps/web/src/bridge/v197StarBrainRuntime.js"))
-      .toBe("c5218640143855897592af7442a7a0b26a62232d68be912aadb97d6a7dc7c242");
+      .toBe("3cff07b31e8360e5ce793287298d66127c4f278705dc0f8e6abdfbe7e874dc40");
+    expect(hash("apps/web/src/bridge/v43StarBrainRuntime.js"))
+      .toBe("d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6");
+  });
+
+  it("physically removes obsolete visual patch and legacy star runtimes", () => {
+    const entry = source("docs/reference/entry_decoded_v197.html");
+    const universe = source("docs/reference/universe_decoded_v197.html");
+
+    expect(entry).toContain('id="nur-v61-neural-rewiring-front"');
+    expect(entry).toContain('id="nur-v61-neural-rewiring-runtime"');
+    expect(entry).not.toMatch(/nur-v(?:3-product|33-master|63-centered|68-unified|196-entry)/);
+    expect(universe).toContain('id="nur-v180-canonical-cleaned"');
+    expect(universe).toContain('id="nur-v181-runtime"');
+    expect(universe).not.toMatch(/nur-v(?:183-master|184-v90|186-exact|196-universe|201-master)/);
   });
 
   it("uses a zero-visual shell rather than a React presentation root", () => {

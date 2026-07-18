@@ -125,7 +125,7 @@ test("Phase 1 serves a byte-faithful V197 universe without a visible React root"
   const productResponse = await page.request.get("/systems");
   const productDocument = await productResponse.text();
   expect(createHash("sha256").update(canonical).digest("hex"))
-    .toBe("252eee806ece31ef829a2dc5cd45aa8d8f8e855db1bde98b6f87193d786633c3");
+    .toBe("d4f7f2d3e4c8e36dfc0c6edd51a028f28a04afbc2afa434a319009cb2f122bc6");
   expect(productDocument).toBe(
     canonical.replace("</body>", '<script type="module" src="/assets/v197-bridge.js"></script></body>'),
   );

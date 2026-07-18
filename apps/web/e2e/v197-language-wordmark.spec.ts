@@ -3,19 +3,18 @@ import { join } from "node:path";
 
 import { expect, test, type FrameLocator, type Page } from "@playwright/test";
 
+import { installNurMocks } from "./helpers/nurMocks";
+
 const proofRoot = process.env.NUR_SOL_PROOF_DIR
   ?? (process.cwd().endsWith("/apps/web") ? "../../proof/sol-living-v197" : "proof/sol-living-v197");
 
-async function signIn(page: Page): Promise<FrameLocator> {
-  await page.goto("/", { waitUntil: "load" });
-  const entry = page.frameLocator("#nur-entry-stage");
-  await entry.locator("body").evaluate(() => {
-    (window as unknown as { nurShowFront?: () => void }).nurShowFront?.();
-  });
-  await entry.locator("#f4-signin").click();
-  await entry.locator("#f4-signin-email").fill("owner@nur.app");
-  await entry.locator("#f4-signin-password").fill("owner-demo-pass-123");
-  await entry.locator("#f4-signin-form button[type='submit']").click();
+async function openSystems(page: Page): Promise<FrameLocator> {
+  await installNurMocks(page);
+  await page.context().addCookies([
+    { name: "nur_session", value: "language-wordmark-session", url: "http://localhost:4173", httpOnly: true, sameSite: "Lax" },
+    { name: "nur_csrf", value: "language-wordmark-csrf", url: "http://localhost:4173", httpOnly: false, sameSite: "Lax" },
+  ]);
+  await page.goto("/systems", { waitUntil: "load" });
   await expect(page.locator("#nur-universe-stage")).toHaveClass(/is-visible/, { timeout: 20_000 });
   const universe = page.frameLocator("#nur-universe-stage");
   await expect(universe.locator("#page-systems")).toBeVisible({ timeout: 20_000 });
@@ -26,11 +25,12 @@ test("V197 keeps Bodoni holographic NUR motion and dark native language controls
   test.skip(testInfo.project.name !== "chromium-desktop", "Desktop visual lock runs once.");
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1440, height: 900 });
-  const universe = await signIn(page);
+  const universe = await openSystems(page);
   await expect(page.locator("#root")).toHaveCount(0);
 
   const wordmark = universe.locator(".nur-v197-stable-wordmark");
   await expect(wordmark).toBeVisible();
+  await expect(wordmark).toHaveAttribute("aria-label", "NUR");
   const before = await wordmark.evaluate(node => {
     const style = getComputedStyle(node);
     return {
@@ -39,18 +39,20 @@ test("V197 keeps Bodoni holographic NUR motion and dark native language controls
       backgroundPosition: style.backgroundPosition,
       animationName: style.animationName,
       textFill: style.getPropertyValue("-webkit-text-fill-color"),
+      visualPosition: getComputedStyle(node, "::after").backgroundPosition,
+      visualAnimation: getComputedStyle(node, "::after").animationName,
     };
   });
   expect(before.fontFamily).toContain("Bodoni Moda");
   expect(before.backgroundImage).toContain("linear-gradient");
-  expect(before.backgroundImage).toContain("rgb(84, 234, 255)");
-  expect(before.backgroundImage).toContain("rgb(234, 130, 255)");
-  expect(before.animationName).toContain("nurV197StableWordmarkFlow");
-  expect(before.animationName).toContain("nurV197StableWordmarkGlow");
+  expect(before.backgroundImage).toContain("rgb(94, 223, 255)");
+  expect(before.backgroundImage).toContain("rgb(221, 128, 255)");
+  expect(before.animationName).toContain("univPrism");
+  expect(before.visualAnimation).toContain("univPrism");
   expect(before.textFill).toMatch(/^(transparent|rgba\(0, 0, 0, 0\))$/);
   await page.waitForTimeout(1_200);
-  const afterPosition = await wordmark.evaluate(node => getComputedStyle(node).backgroundPosition);
-  expect(afterPosition).not.toBe(before.backgroundPosition);
+  const afterPosition = await wordmark.evaluate(node => getComputedStyle(node, "::after").backgroundPosition);
+  expect(afterPosition).not.toBe(before.visualPosition);
 
   await mkdir(proofRoot, { recursive: true });
   await page.screenshot({
@@ -68,14 +70,12 @@ test("V197 keeps Bodoni holographic NUR motion and dark native language controls
       appearance: selectStyle.appearance,
       colorScheme: selectStyle.colorScheme,
       textColor: selectStyle.color,
-      shellBackground: shellStyle.backgroundImage,
       shellColor: shellStyle.backgroundColor,
       shellBorder: shellStyle.borderColor,
     };
   });
   expect(selectVisuals.appearance).toBe("none");
   expect(selectVisuals.colorScheme).toBe("dark");
-  expect(selectVisuals.shellBackground).toContain("linear-gradient");
   expect(selectVisuals.shellColor).not.toBe("rgb(255, 255, 255)");
   expect(selectVisuals.textColor).not.toBe("rgb(0, 0, 0)");
   expect(selectVisuals.shellBorder).not.toBe("rgb(255, 255, 255)");

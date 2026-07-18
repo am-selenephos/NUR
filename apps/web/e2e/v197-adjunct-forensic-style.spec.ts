@@ -22,6 +22,7 @@ async function authenticate(page: Page): Promise<void> {
 }
 
 test("adjunct routes use one bounded black-glass material system", async ({ page }) => {
+  test.setTimeout(120_000);
   await authenticate(page);
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }] as const) {
@@ -41,6 +42,8 @@ test("adjunct routes use one bounded black-glass material system", async ({ page
         const controls = Array.from(element.querySelectorAll<HTMLElement>(
           ".nur-adjunct-back, .nur-adjunct-button, .nur-adjunct-input, .nur-adjunct-select, .nur-adjunct-textarea",
         ));
+        const brand = element.querySelector<HTMLElement>(".nur-adjunct-brand")!;
+        const brandStyle = getComputedStyle(brand);
         return {
           zIndex: Number(rootStyle.zIndex),
           rootBackground: rootStyle.backgroundImage,
@@ -50,9 +53,12 @@ test("adjunct routes use one bounded black-glass material system", async ({ page
           panelRadii: panels.map(panel => Number.parseFloat(getComputedStyle(panel).borderTopLeftRadius)),
           controlRadii: controls.map(control => Number.parseFloat(getComputedStyle(control).borderTopLeftRadius)),
           oldBrown: controls.some(control => getComputedStyle(control).backgroundImage.includes("201, 105, 42")),
-          brandSeals: element.querySelectorAll(".nur-adjunct-brand > .nur-adjunct-brand-seal use").length,
+          brandSeals: element.querySelectorAll(".nur-adjunct-brand > .nur-adjunct-brand-seal > .spark").length,
+          brandContract: brand.dataset.nurHolographicWordmark,
+          brandAnimation: brandStyle.animationName,
+          brandBackground: brandStyle.backgroundImage,
           primaryCount: element.querySelectorAll(".nur-adjunct-button.is-primary").length,
-          primarySeals: element.querySelectorAll(".nur-adjunct-button.is-primary > .nur-star-seal--control use").length,
+          primarySeals: element.querySelectorAll(".nur-adjunct-button.is-primary > .nur-star-seal--control > .spark").length,
         };
       });
 
@@ -64,7 +70,19 @@ test("adjunct routes use one bounded black-glass material system", async ({ page
       expect(result.controlRadii.every(radius => radius <= 7.5)).toBe(true);
       expect(result.oldBrown).toBe(false);
       expect(result.brandSeals).toBe(1);
+      expect(result.brandContract).toBe("animated");
+      expect(result.brandAnimation).toContain("nurAdjunctWordmark");
+      expect(result.brandBackground).toContain("linear-gradient");
       expect(result.primarySeals).toBe(result.primaryCount);
     }
   }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/settings", { waitUntil: "load" });
+  const brand = page.frameLocator("#nur-universe-stage").locator(".nur-adjunct-brand");
+  await expect(brand).toBeVisible();
+  const before = await brand.evaluate(element => getComputedStyle(element).backgroundPosition);
+  await page.waitForTimeout(800);
+  await expect.poll(() => brand.evaluate(element => getComputedStyle(element).backgroundPosition))
+    .not.toBe(before);
 });
