@@ -4,7 +4,7 @@ import { ensureV197AccessibleViewport } from "./v197Accessibility";
 export const V197_STAR_BRAIN_CANVAS_ID = "nur-brain-canvas";
 export const V197_STAR_BRAIN_HOST_ID = "front-nur-star";
 const V197_STAR_BRAIN_SCRIPT_ID = "nur-v43-exact-star-brain-runtime";
-const V43_STAR_BRAIN_RUNTIME_HASH = "d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6";
+const V43_STAR_BRAIN_RUNTIME_HASH = "24a367425765e493600d3ea5e98510e433a973ecea24a8e884c98b14fc472903";
 
 type V197StarBrainSurface = "entry" | "today" | "universe" | "map";
 
@@ -138,10 +138,9 @@ export function ensureV197BlackGalaxy(document: Document): void {
 }
 
 /**
- * Mount the exact V43 V7 star-brain script supplied by the founder. Its source
- * remains byte-for-byte intact; the bridge only provides the canonical host,
- * removes any already-mounted legacy canvas, and supplies the circular CSS
- * dispersal boundary outside the renderer.
+ * Mount the founder-approved V43 V7 anatomy with the NUR sparkle-and-stem
+ * extension. The bridge only provides the canonical host, removes any already
+ * mounted legacy canvas, and supplies the circular CSS dispersal boundary.
  */
 export function ensureV197StarBrain(document: Document): HTMLCanvasElement | null {
   ensureV197AccessibleViewport(document);
@@ -149,8 +148,8 @@ export function ensureV197StarBrain(document: Document): HTMLCanvasElement | nul
   if (!frameWindow) return null;
   const brainHost = placeV197StarBrainHost(document);
   if (!brainHost) return null;
-  brainHost.dataset.nurModel = "v43-v7";
-  brainHost.dataset.nurPointCount = frameWindow.innerWidth < 700 ? "538" : "796";
+  brainHost.dataset.nurModel = "v43-v7-spark-stem";
+  brainHost.dataset.nurVariant = "galaxy-spark-brainstem-v1";
   observeV197StarBrainPlacement(document, frameWindow);
 
   if (!document.getElementById(V197_STAR_BRAIN_SCRIPT_ID)) {
@@ -168,6 +167,7 @@ export function ensureV197StarBrain(document: Document): HTMLCanvasElement | nul
     const script = document.createElement("script");
     script.id = V197_STAR_BRAIN_SCRIPT_ID;
     script.dataset.nurSource = "exact-v43-front-page-signup-v7-star-brain";
+    script.dataset.nurVariant = "galaxy-spark-brainstem-v1";
     script.dataset.nurRuntimeHash = V43_STAR_BRAIN_RUNTIME_HASH;
     script.textContent = V43_STAR_BRAIN_RUNTIME;
     (document.body ?? document.head).append(script);

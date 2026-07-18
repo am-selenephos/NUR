@@ -155,11 +155,15 @@ test("Entry replaces the center MasterStar with the exact interactive V43 brain"
   await expect(brain).toHaveAttribute("data-nur-dispersal", "radial-circle");
   await expect(brain).toHaveAttribute("title", /drag to spin the mind.+double-click: neural storm.+scroll to zoom/);
   await expect(entry.locator("#nur-v43-exact-star-brain-runtime"))
-    .toHaveAttribute("data-nur-runtime-hash", "d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6");
+    .toHaveAttribute("data-nur-runtime-hash", "24a367425765e493600d3ea5e98510e433a973ecea24a8e884c98b14fc472903");
   await expect(brain.locator("#nur-brain-canvas")).toBeVisible();
 
-  const expectedPoints = testInfo.project.name.includes("mobile") ? "538" : "796";
+  const expectedPoints = testInfo.project.name.includes("mobile") ? "576" : "854";
+  const expectedStemPoints = testInfo.project.name.includes("mobile") ? "56" : "84";
   await expect(brain).toHaveAttribute("data-nur-point-count", expectedPoints);
+  await expect(brain).toHaveAttribute("data-nur-stem-point-count", expectedStemPoints);
+  await expect(brain).toHaveAttribute("data-nur-sparkle-profile", "galaxy-starburst");
+  await expect(brain).toHaveAttribute("data-nur-anatomy", "cortex-cerebellum-brainstem");
   await expect.poll(() => entry.locator("body").evaluate(() => (
     typeof (window as unknown as { nurStarBrain?: { shatter?: unknown } }).nurStarBrain?.shatter
   ))).toBe("function");
@@ -350,10 +354,14 @@ test("Systems map mounts only the exact brain and keeps the NUR lockup on one ax
   await expect(brain).toHaveAttribute("data-nur-dispersal", "radial-circle");
   await expect(brain.locator("#nur-brain-canvas")).toBeVisible();
   await expect(universe.locator("#nur-v43-exact-star-brain-runtime"))
-    .toHaveAttribute("data-nur-runtime-hash", "d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6");
+    .toHaveAttribute("data-nur-runtime-hash", "24a367425765e493600d3ea5e98510e433a973ecea24a8e884c98b14fc472903");
 
-  const expectedPoints = testInfo.project.name.includes("mobile") ? "538" : "796";
+  const expectedPoints = testInfo.project.name.includes("mobile") ? "576" : "854";
+  const expectedStemPoints = testInfo.project.name.includes("mobile") ? "56" : "84";
   await expect(brain).toHaveAttribute("data-nur-point-count", expectedPoints);
+  await expect(brain).toHaveAttribute("data-nur-stem-point-count", expectedStemPoints);
+  await expect(brain).toHaveAttribute("data-nur-sparkle-profile", "galaxy-starburst");
+  await expect(brain).toHaveAttribute("data-nur-anatomy", "cortex-cerebellum-brainstem");
   await expect.poll(() => universe.locator("body").evaluate(() => (
     typeof (window as unknown as { nurStarBrain?: { storm?: unknown } }).nurStarBrain?.storm
   ))).toBe("function");

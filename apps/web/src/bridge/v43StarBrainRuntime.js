@@ -22,7 +22,7 @@
   const MOBILE = innerWidth < 700;
   const N_CORTEX = MOBILE ? 430 : 640;
   const N_CEREB  = MOBILE ? 90  : 130;
-  const N_STEM   = MOBILE ? 18  : 26;
+  const N_STEM   = MOBILE ? 56  : 84;
   const pts = [];
 
   function addPoint(x,y,z,group,foldDim){
@@ -30,9 +30,11 @@
     pts.push({
       x,y,z, group,
       ox:0, oy:0, oz:0, vx:0, vy:0, vz:0,        // jelly offset + velocity
-      r: rnd(.7,2.1) * (group==='stem' ? .8 : 1),
+      r: rnd(.7,2.1) * (group==='stem' ? .92 : 1),
       col: warm ? pick(WARM) : pick(PRISM),
       tw: rnd(0,Math.PI*2), tws: rnd(.010,.032), twa: rnd(.25,.55),
+      gl: rnd(0,Math.PI*2), gls: rnd(.014,.034), gla: rnd(.62,1.18),
+      flare: Math.random() < (group==='stem' ? .38 : .16),
       dim: foldDim||0
     });
   }
@@ -65,11 +67,22 @@
     const f = 1 + .045*Math.sin(inc*16);               // horizontal striations
     addPoint(x*.55*f, -.55 + y*.30*f, -.80 + z*.42*f, 'cereb', .1);
   }
-  // brainstem: short curved column
+  // brainstem: a curved, tapered star tube from midbrain through pons to medulla
+  const stemAngle=Math.PI*(3-Math.sqrt(5));
   for(let i=0;i<N_STEM;i++){
-    const t=i/N_STEM, a=rnd(0,Math.PI*2), rr=rnd(0,.11);
-    addPoint(Math.cos(a)*rr, -.44 - t*.42, -.42 + t*.18 + Math.sin(a)*rr, 'stem', .15);
+    const t=(i+.5)/N_STEM, a=i*stemAngle;
+    const pons=Math.exp(-Math.pow((t-.28)/.17,2));
+    const shell=Math.sqrt(((i%7)+.65)/7);
+    const rr=(.11-.045*t+.052*pons)*shell;
+    const centerX=.014*Math.sin(t*Math.PI*1.3);
+    const centerY=-.40-t*.62;
+    const centerZ=-.38+t*.22-.045*Math.sin(t*Math.PI);
+    addPoint(centerX+Math.cos(a)*rr, centerY, centerZ+Math.sin(a)*rr*.76, 'stem', .08);
   }
+  host.dataset.nurPointCount=String(pts.length);
+  host.dataset.nurStemPointCount=String(N_STEM);
+  host.dataset.nurSparkleProfile='galaxy-starburst';
+  host.dataset.nurAnatomy='cortex-cerebellum-brainstem';
 
   /* ---- synapse edges (k-nearest within same tissue) --------------------- */
   const edges=[]; const adj=pts.map(()=>[]);
@@ -145,14 +158,51 @@
     return { x:cx + x1*scale*zoom*sc*1.55, y:cy - y1*scale*zoom*sc*1.55, z:z2, sc };
   }
 
-  function star4(x,y,r,rot){
-    c.beginPath();
+  function starPath(context,x,y,r,rot){
+    context.beginPath();
     for(let i=0;i<8;i++){
       const rr=i%2===0?r:r*.32, a=rot+i*Math.PI/4;
       const px=x+Math.cos(a)*rr, py=y+Math.sin(a)*rr;
-      i===0?c.moveTo(px,py):c.lineTo(px,py);
+      i===0?context.moveTo(px,py):context.lineTo(px,py);
     }
-    c.closePath();
+    context.closePath();
+  }
+  function star4(x,y,r,rot){
+    starPath(c,x,y,r,rot);
+  }
+
+  // Cached crystalline sprites replace hundreds of per-frame gradients.
+  // The anatomy still consists of individual stars; only their paint is reused.
+  const starSprites=new Map();
+  function getStarSprite(col,flare){
+    const key=col.join(',')+(flare?'-flare':'-body');
+    if(starSprites.has(key)) return starSprites.get(key);
+    const sprite=document.createElement('canvas');
+    sprite.width=64; sprite.height=64;
+    const s=sprite.getContext('2d');
+    const [cr,cg,cb]=col, m=32;
+    if(flare){
+      const hx=s.createLinearGradient(5,m,59,m);
+      hx.addColorStop(0,'rgba(0,0,0,0)');
+      hx.addColorStop(.5,`rgba(${cr},${cg},${cb},.92)`);
+      hx.addColorStop(1,'rgba(0,0,0,0)');
+      s.strokeStyle=hx; s.lineWidth=.75; s.beginPath(); s.moveTo(5,m); s.lineTo(59,m); s.stroke();
+      const hy=s.createLinearGradient(m,12,m,52);
+      hy.addColorStop(0,'rgba(0,0,0,0)');
+      hy.addColorStop(.5,'rgba(255,250,228,.96)');
+      hy.addColorStop(1,'rgba(0,0,0,0)');
+      s.strokeStyle=hy; s.beginPath(); s.moveTo(m,12); s.lineTo(m,52); s.stroke();
+      s.fillStyle='rgba(255,253,239,.96)'; starPath(s,m,m,5.2,0); s.fill();
+    }else{
+      const halo=s.createRadialGradient(m,m,0,m,m,15);
+      halo.addColorStop(0,`rgba(${cr},${cg},${cb},.42)`);
+      halo.addColorStop(1,'rgba(0,0,0,0)');
+      s.fillStyle=halo; s.beginPath(); s.arc(m,m,15,0,Math.PI*2); s.fill();
+      s.fillStyle='rgba(255,250,228,.94)'; starPath(s,m,m,4,0); s.fill();
+      s.fillStyle=`rgba(${cr},${cg},${cb},.62)`; starPath(s,m,m,6.8,Math.PI/4); s.fill();
+    }
+    starSprites.set(key,sprite);
+    return sprite;
   }
 
   /* ---- storms / absorb / bloom ------------------------------------------ */
@@ -237,6 +287,7 @@
   function frame(now){
     requestAnimationFrame(frame);
     if(document.hidden) return;
+    if(!host.isConnected || host.getClientRects().length===0) return;
     const welcome=document.getElementById('welcome');
     if(welcome && getComputedStyle(welcome).display==='none') return;
     if(W<10){ resize(); if(W<10) return; }   // first visible frame after reveal
@@ -316,9 +367,11 @@
     const order=[...pts.keys()].sort((a,b)=>projected[a].z-projected[b].z);
     for(const i of order){
       const p=pts[i], q=projected[i];
-      p.tw+=p.tws;
-      const twinkle=1-p.twa+p.twa*(.5+.5*Math.sin(p.tw));
-      const flash=Math.random()>.998?1.9:1;
+      if(!REDUCED){ p.tw+=p.tws; p.gl+=p.gls; }
+      const shimmer=.5+.5*Math.sin(p.tw);
+      const glint=REDUCED?0:Math.pow(.5+.5*Math.sin(p.gl),18);
+      const twinkle=1-p.twa+p.twa*(.38+.62*shimmer);
+      const flash=1+glint*p.gla;
       const lit=.42+.58*Math.max(0,Math.min(1,(q.z+ .9)/1.7));   // front-facing glow
       let a=(.32+.68*lit)*twinkle*flash*(1-p.dim)*(1+energy*.55);
       // hover ripple: nearby stars brighten and get pushed
@@ -332,18 +385,21 @@
       a=Math.min(1,a);
       // as stardust: finer grains, quicker sparkle
       const r=Math.max(.55,p.r*q.sc*2.5*zoom*(.62+.38*cohesion));
+      const starR=r*(1+glint*.48);
       if(cohesion<1) p.tw+=p.tws*(1-cohesion)*1.6;
-      const [cr,cg,cb]=p.col;
-      // halo
-      const hg=c.createRadialGradient(q.x,q.y,0,q.x,q.y,r*3.4);
-      hg.addColorStop(0,`rgba(${cr},${cg},${cb},${a*.30})`);
-      hg.addColorStop(1,'rgba(0,0,0,0)');
-      c.fillStyle=hg; c.beginPath(); c.arc(q.x,q.y,r*3.4,0,Math.PI*2); c.fill();
-      // crystalline 4-point body
-      c.fillStyle=`rgba(255,250,228,${a*.92})`;
-      star4(q.x,q.y,r,p.tw*.25); c.fill();
-      c.fillStyle=`rgba(${cr},${cg},${cb},${a*.55})`;
-      star4(q.x,q.y,r*1.7,p.tw*.25+Math.PI/4); c.fill();
+      // cached crystalline body + halo
+      const spriteSize=16*starR;
+      c.globalAlpha=a;
+      c.drawImage(getStarSprite(p.col,false),q.x-spriteSize*.5,q.y-spriteSize*.5,spriteSize,spriteSize);
+      // sharp galaxy glint: only a subset flare, each on an independent phase
+      if(p.flare && glint>.12){
+        const flareSize=spriteSize*(1.02+p.gla*.11);
+        c.globalCompositeOperation='lighter';
+        c.globalAlpha=Math.min(.88,a*glint*.95);
+        c.drawImage(getStarSprite(p.col,true),q.x-flareSize*.5,q.y-flareSize*.5,flareSize,flareSize);
+        c.globalCompositeOperation='source-over';
+      }
+      c.globalAlpha=1;
     }
 
     // travelling neural pulses

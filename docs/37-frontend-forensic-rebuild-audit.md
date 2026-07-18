@@ -15,7 +15,7 @@ persistence, and backend code are outside the rebuild boundary.
 | `apps/web/public/v197/NUR_V197_CHECKBOX_TICK_RESTORED.html` | `d4f7f2d3e4c8e36dfc0c6edd51a028f28a04afbc2afa434a319009cb2f122bc6` | Preserve byte-for-byte |
 | `docs/reference/entry_decoded_v197.html` | `cdeac0c8574333c7261be2bc410357ecc5407ee0dd5b1b8089630f3914026030` | Reference only |
 | `docs/reference/universe_decoded_v197.html` | `3cff07b31e8360e5ce793287298d66127c4f278705dc0f8e6abdfbe7e874dc40` | Reference only |
-| `apps/web/src/bridge/v43StarBrainRuntime.js` | `d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6` | Byte-identical V43 V7 founder-supplied star-brain source; only host placement and circular CSS dispersal live outside it |
+| `apps/web/src/bridge/v43StarBrainRuntime.js` | `24a367425765e493600d3ea5e98510e433a973ecea24a8e884c98b14fc472903` | V43 V7 founder anatomy with the approved galaxy-sparkle and denser star-brainstem extension; host placement and circular CSS dispersal remain outside it |
 
 ## Runtime Ownership
 

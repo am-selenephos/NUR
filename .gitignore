@@ -28,6 +28,7 @@ celerybeat-schedule*
 proof/*.zip
 proof/*.tar
 proof/*.tar.gz
+proof/v5/performance/g04-acceptance/
 evidence/*.zip
 evidence/*.tar
 evidence/*.tar.gz

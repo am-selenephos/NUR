@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { installNurMocks } from "./helpers/nurMocks";
 
-test("exact V43 brain owns one untouched runtime with circular dispersal", async ({ page }, testInfo) => {
+test("V43 brain owns one extended runtime with circular dispersal", async ({ page }, testInfo) => {
   await installNurMocks(page);
   await page.context().addCookies([
     { name: "nur_session", value: "runtime-lifecycle-session", url: "http://localhost:4173", httpOnly: true, sameSite: "Lax" },
@@ -15,14 +15,20 @@ test("exact V43 brain owns one untouched runtime with circular dispersal", async
   const host = universe.locator("#front-nur-star");
   const canvas = host.locator("#nur-brain-canvas");
   await expect(canvas).toHaveCount(1);
-  await expect(host).toHaveAttribute("data-nur-model", "v43-v7");
+  await expect(host).toHaveAttribute("data-nur-model", "v43-v7-spark-stem");
+  await expect(host).toHaveAttribute("data-nur-variant", "galaxy-spark-brainstem-v1");
   await expect(host).toHaveAttribute("data-nur-dispersal", "radial-circle");
   await expect(host).toHaveAttribute(
     "data-nur-point-count",
-    testInfo.project.name.includes("mobile") ? "538" : "796",
+    testInfo.project.name.includes("mobile") ? "576" : "854",
   );
+  await expect(host).toHaveAttribute(
+    "data-nur-stem-point-count",
+    testInfo.project.name.includes("mobile") ? "56" : "84",
+  );
+  await expect(host).toHaveAttribute("data-nur-sparkle-profile", "galaxy-starburst");
   await expect(universe.locator("#nur-v43-exact-star-brain-runtime"))
-    .toHaveAttribute("data-nur-runtime-hash", "d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6");
+    .toHaveAttribute("data-nur-runtime-hash", "24a367425765e493600d3ea5e98510e433a973ecea24a8e884c98b14fc472903");
   await expect(universe.locator("#v197-sparkfield")).toHaveCount(0);
 
   const v43Contract = await canvas.evaluate(element => {

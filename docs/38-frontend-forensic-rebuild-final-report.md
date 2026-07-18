@@ -210,13 +210,15 @@ was not converted into decorative landing-page cards.
 
 ## 13. Brain Renderer Changes
 
-The current renderer is `v43StarBrainRuntime.js`, a byte-identical copy of the
-founder-supplied V43 V7 front-page star-brain source. Its 796 desktop-point and
-538 mobile-point anatomy, star geometry, synapses, neural pulses, rotation,
-shatter, reform and glitter behavior are not transformed at runtime.
+The current renderer is `v43StarBrainRuntime.js`, derived directly from the
+founder-supplied V43 V7 front-page star-brain source. Its cortex, cerebellum,
+synapses, neural pulses, rotation, shatter and reform behavior remain intact.
+The approved sparkle-and-stem extension raises the anatomy to 854 desktop
+points and 576 mobile points, including a curved 84/56-star brainstem and
+independent galaxy-style glints rendered from cached crystalline sprites.
 
 The old V197 enhanced runtime and its visual/lifecycle source transforms were
-removed. The bridge only gives the unmodified source the canonical host,
+removed. The bridge only gives the direct renderer the canonical host,
 clears an already-mounted legacy canvas, and preserves the host click/keyboard
 ritual. A radial CSS mask is intentionally external to the source: it fades
 stardust in a circular field so a square canvas boundary cannot be seen.
@@ -228,9 +230,10 @@ stardust in a circular field so a square canvas boundary cannot be seen.
 | Canonical V197 host | `d4f7f2d3e4c8e36dfc0c6edd51a028f28a04afbc2afa434a319009cb2f122bc6` | `d4f7f2d3e4c8e36dfc0c6edd51a028f28a04afbc2afa434a319009cb2f122bc6` | Identical |
 | Entry reference | `cdeac0c8574333c7261be2bc410357ecc5407ee0dd5b1b8089630f3914026030` | `cdeac0c8574333c7261be2bc410357ecc5407ee0dd5b1b8089630f3914026030` | Identical |
 | Universe reference | `3cff07b31e8360e5ce793287298d66127c4f278705dc0f8e6abdfbe7e874dc40` | `3cff07b31e8360e5ce793287298d66127c4f278705dc0f8e6abdfbe7e874dc40` | Identical |
-| Exact V43 V7 brain runtime | `d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6` | `d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6` | Identical |
+| V43 V7-derived brain runtime | `d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6` | `24a367425765e493600d3ea5e98510e433a973ecea24a8e884c98b14fc472903` | Intentional sparkle and anatomical stem extension |
 
-The current cleaned build was hashed. All four pairs match.
+The current cleaned build was hashed. The three protected V197/reference files
+remain identical; the brain runtime hash records the approved visual extension.
 
 ## 15. Performance Defects Found
 
