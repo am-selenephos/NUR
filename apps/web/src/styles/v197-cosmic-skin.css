@@ -359,7 +359,7 @@ body.front-v61-active #nur-front-v61 .f4-brand-copy > .f4-brand-sub {
   line-height: 1.12 !important;
   letter-spacing: .16em !important;
   text-transform: uppercase !important;
-  transform: translateX(.08em) !important;
+  transform: translateX(calc(.08em + 2px)) !important;
   white-space: nowrap !important;
 }
 
@@ -638,7 +638,7 @@ body.front-v61-active #nur-front-v61 .f4-sheet {
     display: block !important;
     font-size: 9px !important;
     letter-spacing: .1em !important;
-    transform: translateX(.05em) !important;
+    transform: translateX(calc(.05em + 2px)) !important;
   }
 
   body.front-v61-active #nur-front-v61 .f4-signin {
@@ -1653,6 +1653,7 @@ body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-title > .
   letter-spacing: .19em !important;
   text-align: center !important;
   text-transform: uppercase !important;
+  transform: translateX(2px) !important;
   white-space: nowrap !important;
   text-shadow: 0 1px 8px rgba(255, 213, 132, .12) !important;
   opacity: 1 !important;

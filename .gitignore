@@ -20,6 +20,10 @@ __pycache__
 *.pyc
 .venv
 **/.venv
+*.egg-info/
+
+.nur-runtime/
+celerybeat-schedule*
 
 proof/*.zip
 proof/*.tar

@@ -50,7 +50,7 @@ function expectEntryInkCompensation(geometry: LockupGeometry): void {
   expectSameUntranslatedCenter(geometry);
   const expectedNudge = geometry.word.fontSize <= 58 ? 2.3 : 2;
   expect(geometry.word.translateX - geometry.word.tracking / 2).toBeCloseTo(expectedNudge, 1);
-  expect(geometry.subtitle.translateX - geometry.subtitle.tracking / 2).toBeCloseTo(0, 1);
+  expect(geometry.subtitle.translateX - geometry.subtitle.tracking / 2).toBeCloseTo(2, 1);
 }
 
 function expectSystemsInkCompensation(geometry: LockupGeometry): void {
@@ -61,7 +61,7 @@ function expectSystemsInkCompensation(geometry: LockupGeometry): void {
       ? .0595
       : .058;
   expect(geometry.word.translateX / geometry.word.fontSize).toBeCloseTo(expectedNudge, 2);
-  expect(geometry.subtitle.translateX).toBeCloseTo(0, 1);
+  expect(geometry.subtitle.translateX).toBeCloseTo(2, 1);
 }
 
 test("login replays the exact V197 startup star before the Universe is revealed", async ({ page }, testInfo) => {
