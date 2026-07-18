@@ -49,6 +49,14 @@ function relocateSystemsMantra(document: Document): HTMLElement | null {
   return mantra;
 }
 
+export function removeV197TodayBrainAnnotations(document: Document): number {
+  const annotations = Array.from(document.querySelectorAll<HTMLElement>(
+    "#page-today .orbit-star-zone > .orbit-annotation",
+  ));
+  annotations.forEach(annotation => annotation.remove());
+  return annotations.length;
+}
+
 function labelCompactTopbarControls(document: Document): void {
   document.querySelectorAll<HTMLButtonElement>(".universe-nav-tabs button").forEach(button => {
     const label = button.querySelector("span")?.textContent?.trim();
@@ -129,6 +137,7 @@ export function ensureV197PremiumPolish(document: Document): HTMLStyleElement {
     "v197-native-universe-presentation",
   );
   compactV197MiniStars(document);
+  removeV197TodayBrainAnnotations(document);
   ensureStableMapWordmark(document);
   lockV197BrandIdentity(document);
   relocateSystemsMantra(document);

@@ -215,7 +215,7 @@ founder-supplied V43 V7 front-page star-brain source. Its cortex, cerebellum,
 synapses, neural pulses, rotation, shatter and reform behavior remain intact.
 The approved sparkle-and-stem extension raises the anatomy to 854 desktop
 points and 576 mobile points, including a curved 84/56-star brainstem and
-independent galaxy-style glints rendered from cached crystalline sprites.
+independent galaxy-style glints rendered with the same lightweight particle paint as both V197 sky rigs.
 
 The old V197 enhanced runtime and its visual/lifecycle source transforms were
 removed. The bridge only gives the direct renderer the canonical host,
@@ -230,7 +230,7 @@ stardust in a circular field so a square canvas boundary cannot be seen.
 | Canonical V197 host | `d4f7f2d3e4c8e36dfc0c6edd51a028f28a04afbc2afa434a319009cb2f122bc6` | `d4f7f2d3e4c8e36dfc0c6edd51a028f28a04afbc2afa434a319009cb2f122bc6` | Identical |
 | Entry reference | `cdeac0c8574333c7261be2bc410357ecc5407ee0dd5b1b8089630f3914026030` | `cdeac0c8574333c7261be2bc410357ecc5407ee0dd5b1b8089630f3914026030` | Identical |
 | Universe reference | `3cff07b31e8360e5ce793287298d66127c4f278705dc0f8e6abdfbe7e874dc40` | `3cff07b31e8360e5ce793287298d66127c4f278705dc0f8e6abdfbe7e874dc40` | Identical |
-| V43 V7-derived brain runtime | `d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6` | `24a367425765e493600d3ea5e98510e433a973ecea24a8e884c98b14fc472903` | Intentional sparkle and anatomical stem extension |
+| V43 V7-derived brain runtime | `d83705cc9cca27c42dd89fdea1f1b9fc057200351f67eda995d0ee2e4683c4e6` | `eb7948724ca0463db263d11c8e9991a877991d89bded06303adc524d9258b099` | Intentional exact-galaxy paint, sparkle, anatomical stem extension, lower-DPR raster work, cached camera transforms, and allocation-light frame pacing |
 
 The current cleaned build was hashed. The three protected V197/reference files
 remain identical; the brain runtime hash records the approved visual extension.

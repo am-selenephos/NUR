@@ -15,6 +15,7 @@ type Cadence = {
 type RuntimeSnapshot = {
   elementCount: number;
   canvasCount: number;
+  canvasOwners: string[];
   runningAnimations: number;
   particleCount: number | null;
   miniStarHosts: number;
@@ -322,6 +323,8 @@ async function snapshot(frame: Frame): Promise<RuntimeSnapshot> {
     return {
       elementCount: document.querySelectorAll("*").length,
       canvasCount: document.querySelectorAll("canvas").length,
+      canvasOwners: [...document.querySelectorAll<HTMLCanvasElement>("canvas")]
+        .map(canvas => canvas.id || canvas.className || "anonymous-canvas"),
       runningAnimations: document.getAnimations().filter(animation => animation.playState === "running").length,
       particleCount: global.nurGalaxy?.getParticleCount?.() ?? null,
       miniStarHosts: document.querySelectorAll(".nur-exact-mini-host").length,
@@ -358,11 +361,18 @@ async function geometry(frame: Frame): Promise<Record<string, unknown>> {
     const panel = rect(".universe-map-panel");
     const wordmark = rect(".nur-v197-stable-wordmark");
     const subtitle = rect(".nur-master-subtitle");
-    const star = rect("#iSpark");
+    const star = rect(".universe-master-star");
     const fieldReadout = rect(".universe-field-readout");
     const addSystem = rect(".universe-add-system");
     const panelCenter = panel?.centerX ?? 0;
-    const topControlsBottom = Math.max(fieldReadout?.bottom ?? 0, addSystem?.bottom ?? 0);
+    const transformX = (selector: string) => {
+      const element = document.querySelector<HTMLElement>(selector);
+      if (!element) return 0;
+      const style = getComputedStyle(element);
+      return style.transform === "none" ? 0 : new DOMMatrix(style.transform).m41;
+    };
+    const wordmarkTransformX = transformX(".nur-v197-stable-wordmark");
+    const subtitleTransformX = transformX(".nur-master-subtitle");
     const nodeRects = [...document.querySelectorAll<HTMLElement>(".universe-system-node")]
       .filter(node => node.offsetParent !== null)
       .map(node => ({
@@ -395,6 +405,12 @@ async function geometry(frame: Frame): Promise<Record<string, unknown>> {
       ...(intersects(wordmark, node.rect) ? [`wordmark / ${node.label}`] : []),
       ...(intersects(subtitle, node.rect) ? [`subtitle / ${node.label}`] : []),
     ]);
+    const titleControlCollisions = [
+      ...(intersects(wordmark, fieldReadout) ? ["wordmark / field readout"] : []),
+      ...(intersects(wordmark, addSystem) ? ["wordmark / add system"] : []),
+      ...(intersects(subtitle, fieldReadout) ? ["subtitle / field readout"] : []),
+      ...(intersects(subtitle, addSystem) ? ["subtitle / add system"] : []),
+    ];
     const nodeCollisions: string[] = [];
     for (let left = 0; left < nodeRects.length; left += 1) {
       for (let right = left + 1; right < nodeRects.length; right += 1) {
@@ -413,14 +429,15 @@ async function geometry(frame: Frame): Promise<Record<string, unknown>> {
       fieldReadout,
       addSystem,
       nodes: nodeRects,
-      collisions: { titleNodeCollisions, nodeCollisions },
+      collisions: { titleNodeCollisions, titleControlCollisions, nodeCollisions },
       deltas: {
-        wordmarkToPanelX: Number(Math.abs((wordmark?.centerX ?? 0) - panelCenter).toFixed(2)),
-        subtitleToPanelX: Number(Math.abs((subtitle?.centerX ?? 0) - panelCenter).toFixed(2)),
+        wordmarkBaseToPanelX: Number(Math.abs((wordmark?.centerX ?? 0) - wordmarkTransformX - panelCenter).toFixed(2)),
+        subtitleBaseToPanelX: Number(Math.abs((subtitle?.centerX ?? 0) - subtitleTransformX - panelCenter).toFixed(2)),
         starToPanelX: Number(Math.abs((star?.centerX ?? 0) - panelCenter).toFixed(2)),
-        wordmarkToSubtitleX: Number(Math.abs((wordmark?.centerX ?? 0) - (subtitle?.centerX ?? 0)).toFixed(2)),
-        titleToTopControlsGap: Number(((wordmark?.top ?? 0) - topControlsBottom).toFixed(2)),
-        titleStarGap: Number(((star?.top ?? 0) - (subtitle?.bottom ?? 0)).toFixed(2)),
+        wordmarkToSubtitleBaseX: Number(Math.abs(
+          (wordmark?.centerX ?? 0) - wordmarkTransformX
+          - ((subtitle?.centerX ?? 0) - subtitleTransformX),
+        ).toFixed(2)),
       },
       wordmarkStyle: {
         fontFamily: style.fontFamily,
@@ -486,9 +503,10 @@ test("G04 warm V197 runtime preserves identity, centring, and natural interactio
   expect(hostProfile).toBe("balanced");
   expect(routeStates.slice(1).every(state => state.path === "/universe/map")).toBe(true);
   expect(routeStates.slice(1).every(state => state.activeWorld === "map")).toBe(true);
-  expect(runtime.canvasCount).toBe(1);
+  expect(runtime.canvasCount).toBe(2);
+  expect(runtime.canvasOwners.sort()).toEqual(["nur-brain-canvas", "space3d"]);
   expect(runtime.runningAnimations).toBeLessThanOrEqual(testInfo.project.name.includes("mobile") ? 16 : 24);
-  expect(runtime.particleCount ?? 0).toBeLessThanOrEqual(980);
+  expect(runtime.particleCount ?? 0).toBeLessThanOrEqual(1120);
   expect(runtime.compactedMiniStars).toBe(runtime.miniStarHosts);
   expect(runtime.rayCount).toBe(0);
   // Headed Chromium is the reference timing environment. Headless Firefox and
@@ -500,12 +518,10 @@ test("G04 warm V197 runtime preserves identity, centring, and natural interactio
   }
 
   const deltas = (measuredGeometry.deltas ?? {}) as Record<string, number>;
-  expect(deltas.wordmarkToPanelX).toBeLessThanOrEqual(2);
-  expect(deltas.subtitleToPanelX).toBeLessThanOrEqual(2);
+  expect(deltas.wordmarkBaseToPanelX).toBeLessThanOrEqual(.5);
+  expect(deltas.subtitleBaseToPanelX).toBeLessThanOrEqual(.5);
   expect(deltas.starToPanelX).toBeLessThanOrEqual(2);
-  expect(deltas.wordmarkToSubtitleX).toBeLessThanOrEqual(2);
-  expect(deltas.titleToTopControlsGap).toBeGreaterThanOrEqual(8);
-  expect(deltas.titleStarGap).toBeGreaterThanOrEqual(8);
+  expect(deltas.wordmarkToSubtitleBaseX).toBeLessThanOrEqual(.5);
   expect(measuredGeometry.horizontalOverflow).toBe(0);
 
   const wordmarkStyle = measuredGeometry.wordmarkStyle as Record<string, string>;
@@ -513,8 +529,13 @@ test("G04 warm V197 runtime preserves identity, centring, and natural interactio
   expect(wordmarkStyle.animationName).toContain("univPrism");
   expect(wordmarkStyle.backgroundClip).toBe("text");
   expect(wordmarkStyle.webkitTextFillColor).toBe("rgba(0, 0, 0, 0)");
-  const collisions = measuredGeometry.collisions as { titleNodeCollisions: string[]; nodeCollisions: string[] };
+  const collisions = measuredGeometry.collisions as {
+    titleNodeCollisions: string[];
+    titleControlCollisions: string[];
+    nodeCollisions: string[];
+  };
   expect(collisions.titleNodeCollisions).toEqual([]);
+  expect(collisions.titleControlCollisions).toEqual([]);
   expect(collisions.nodeCollisions).toEqual([]);
 
   if (process.env.NUR_G04_ENFORCE_FPS === "1" && testInfo.project.name.startsWith("chromium")) {

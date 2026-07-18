@@ -50,6 +50,18 @@
   pointer-events: none !important;
 }
 
+.nur-star-seal:not(.nur-star-seal--startup) :is(
+  .spark-glow,
+  .spark-halo,
+  .spark-h2,
+  .spark-core,
+  .rayset,
+  .ray,
+  .ob
+) {
+  animation: none !important;
+}
+
 .nur-star-seal--startup {
   --nur-star-seal-size: 100px;
   --nur-star-seal-scale: 1;

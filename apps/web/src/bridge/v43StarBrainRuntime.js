@@ -11,11 +11,44 @@
   host.appendChild(canvas);
   const c = canvas.getContext('2d', { alpha:true });
 
-  /* ---- palette: warm-led with restrained prism accents ------------------ */
-  const WARM = [[255,216,122],[255,196,86],[255,236,186],[255,176,64],[255,246,214]];
-  const PRISM = [[120,225,255],[190,140,255],[255,140,200],[126,237,160]];
+  /* ---- exact V197 galaxy-rig palette ------------------------------------ */
+  const SPECTRA={
+    O:[[140,160,255],[158,178,255],[118,148,255]],
+    B:[[172,192,255],[192,208,255],[162,185,255]],
+    A:[[250,253,255],[255,255,255],[244,251,255]],
+    F:[[255,252,215],[252,248,200],[255,250,188]],
+    G:[[255,244,164],[255,238,138],[255,230,118]],
+    K:[[255,210,78],[255,195,62],[255,178,48]],
+    M:[[255,152,98],[255,130,68],[255,108,56]]
+  };
+  const SPECTRAL_DISTRIBUTION=[
+    {t:'M',w:.3},{t:'K',w:.2},{t:'G',w:.16},{t:'F',w:.12},
+    {t:'A',w:.1},{t:'B',w:.08},{t:'O',w:.04}
+  ];
+  const PRISM=[[255,108,128],[255,158,74],[255,222,92],[126,237,130],[99,224,255],[121,151,255],[194,138,255],[255,142,211]];
   const rnd=(a,b)=>a+Math.random()*(b-a);
   const pick=a=>a[(Math.random()*a.length)|0];
+  function galaxyColor(){
+    let r=Math.random(), cumulative=0;
+    for(const {t,w} of SPECTRAL_DISTRIBUTION){
+      cumulative+=w;
+      if(r<cumulative) return pick(SPECTRA[t]);
+    }
+    return SPECTRA.G[0];
+  }
+  function mixCol(a,b,t){
+    return [
+      Math.round(a[0]+(b[0]-a[0])*t),
+      Math.round(a[1]+(b[1]-a[1])*t),
+      Math.round(a[2]+(b[2]-a[2])*t)
+    ];
+  }
+  function prismShift(col,phase,twinkle=1){
+    const orbit=(phase%(Math.PI*2)+Math.PI*2)/(Math.PI*2)*PRISM.length;
+    const i0=Math.floor(orbit)%PRISM.length, i1=(i0+1)%PRISM.length;
+    const prism=mixCol(PRISM[i0],PRISM[i1],orbit-i0);
+    return mixCol(col,prism,Math.min(.58,.24+twinkle*.1));
+  }
 
   /* ---- 3D star-brain point cloud ---------------------------------------
      axes: x = left/right (hemispheres), y = up, z = front(+)/back(-) */
@@ -26,15 +59,15 @@
   const pts = [];
 
   function addPoint(x,y,z,group,foldDim){
-    const warm = Math.random() < .78;
+    const prism = Math.random() < .12;
     pts.push({
       x,y,z, group,
       ox:0, oy:0, oz:0, vx:0, vy:0, vz:0,        // jelly offset + velocity
       r: rnd(.7,2.1) * (group==='stem' ? .92 : 1),
-      col: warm ? pick(WARM) : pick(PRISM),
+      col: prism ? pick(PRISM) : galaxyColor(), prism,
+      prismPhase:rnd(0,Math.PI*2), prismSpeed:rnd(12e-5,42e-5),
       tw: rnd(0,Math.PI*2), tws: rnd(.010,.032), twa: rnd(.25,.55),
       gl: rnd(0,Math.PI*2), gls: rnd(.014,.034), gla: rnd(.62,1.18),
-      flare: Math.random() < (group==='stem' ? .38 : .16),
       dim: foldDim||0
     });
   }
@@ -81,7 +114,8 @@
   }
   host.dataset.nurPointCount=String(pts.length);
   host.dataset.nurStemPointCount=String(N_STEM);
-  host.dataset.nurSparkleProfile='galaxy-starburst';
+  host.dataset.nurSparkleProfile='exact-galaxy-rig-star';
+  host.dataset.nurGalaxyPaint='v197-simple-galaxy-particle-v1';
   host.dataset.nurAnatomy='cortex-cerebellum-brainstem';
 
   /* ---- synapse edges (k-nearest within same tissue) --------------------- */
@@ -114,18 +148,21 @@
       if(next==null) break;
       path.push(next); cur=next;
     }
-    if(path.length>1) pulses.push({path, t:0, speed:rnd(.028,.05), col:Math.random()<.6?pick(PRISM):pick(WARM)});
+    if(path.length>1) pulses.push({path, t:0, speed:rnd(.028,.05), col:Math.random()<.6?pick(PRISM):galaxyColor()});
   }
 
   /* ---- glitter motes drifting off the surface --------------------------- */
   const motes=[];
   function emitMote(p, px, py){
     if(motes.length>44) return;
-    motes.push({x:px, y:py, vx:rnd(-.22,.22), vy:rnd(-.5,-.14), life:rnd(38,80), max:80, col:p?p.col:pick(WARM), r:rnd(.6,1.6)});
+    motes.push({x:px, y:py, vx:rnd(-.22,.22), vy:rnd(-.5,-.14), life:rnd(38,80), max:80, col:p?p.col:galaxyColor(), r:rnd(.6,1.6)});
   }
 
   /* ---- camera / interaction state --------------------------------------- */
   let W=0,H=0,cx=0,cy=0,scale=1,DPR=1;
+  let onscreen=true,lastFrame=0;
+  const MIN_FRAME_GAP=MOBILE?40:30;
+  let cosYaw=1,sinYaw=0,cosPitch=1,sinPitch=0;
   let yaw=.85, pitch=-.14, vyaw=REDUCED?0:.0022, vpitch=0;
   let zoom=1, targetZoom=1;
   let dragging=false, dragDist=0, lx=0, ly=0;
@@ -135,27 +172,36 @@
   let breath=0;
 
   function resize(){
-    DPR=Math.min(devicePixelRatio||1,1.5);
+    DPR=Math.min(devicePixelRatio||1,1.1);
     const r=host.getBoundingClientRect();
     W=Math.max(2,r.width); H=Math.max(2,r.height);
     canvas.width=Math.round(W*DPR); canvas.height=Math.round(H*DPR);
     c.setTransform(DPR,0,0,DPR,0,0);
-    cx=W/2; cy=H/2; scale=Math.min(W,H)*.34;
+    cx=W/2; cy=H/2;
+    const systemsScale=host.dataset.nurSurface==='universe';
+    scale=Math.min(W,H)*(systemsScale ? .43 : .34);
+    host.dataset.nurScaleProfile=systemsScale?'systems-expanded':'entry-exact';
   }
   resize();
   addEventListener('resize',resize,{passive:true});
   // the host lives inside #welcome which starts display:none - the first real
   // measurement only exists once the front page reveals, so watch the box itself
   if(typeof ResizeObserver!=='undefined') new ResizeObserver(resize).observe(host);
+  if(typeof IntersectionObserver!=='undefined'){
+    new IntersectionObserver(entries=>{
+      onscreen=entries.some(entry=>entry.isIntersecting&&entry.intersectionRect.width>0&&entry.intersectionRect.height>0);
+    }).observe(host);
+  }
 
-  function project(p){
+  function project(p,out){
     const X=p.x+p.ox, Y=p.y+p.oy, Z=p.z+p.oz;
-    const cyw=Math.cos(yaw), syw=Math.sin(yaw);
-    const cp=Math.cos(pitch), sp=Math.sin(pitch);
-    const x1=X*cyw - Z*syw, z1=X*syw + Z*cyw;
-    const y1=Y*cp - z1*sp,  z2=Y*sp + z1*cp;
+    const x1=X*cosYaw - Z*sinYaw, z1=X*sinYaw + Z*cosYaw;
+    const y1=Y*cosPitch - z1*sinPitch,  z2=Y*sinPitch + z1*cosPitch;
     const sc=1/(2.7 - z2*.62);
-    return { x:cx + x1*scale*zoom*sc*1.55, y:cy - y1*scale*zoom*sc*1.55, z:z2, sc };
+    out.x=cx + x1*scale*zoom*sc*1.55;
+    out.y=cy - y1*scale*zoom*sc*1.55;
+    out.z=z2;
+    out.sc=sc;
   }
 
   function starPath(context,x,y,r,rot){
@@ -171,38 +217,17 @@
     starPath(c,x,y,r,rot);
   }
 
-  // Cached crystalline sprites replace hundreds of per-frame gradients.
-  // The anatomy still consists of individual stars; only their paint is reused.
-  const starSprites=new Map();
-  function getStarSprite(col,flare){
-    const key=col.join(',')+(flare?'-flare':'-body');
-    if(starSprites.has(key)) return starSprites.get(key);
-    const sprite=document.createElement('canvas');
-    sprite.width=64; sprite.height=64;
-    const s=sprite.getContext('2d');
-    const [cr,cg,cb]=col, m=32;
-    if(flare){
-      const hx=s.createLinearGradient(5,m,59,m);
-      hx.addColorStop(0,'rgba(0,0,0,0)');
-      hx.addColorStop(.5,`rgba(${cr},${cg},${cb},.92)`);
-      hx.addColorStop(1,'rgba(0,0,0,0)');
-      s.strokeStyle=hx; s.lineWidth=.75; s.beginPath(); s.moveTo(5,m); s.lineTo(59,m); s.stroke();
-      const hy=s.createLinearGradient(m,12,m,52);
-      hy.addColorStop(0,'rgba(0,0,0,0)');
-      hy.addColorStop(.5,'rgba(255,250,228,.96)');
-      hy.addColorStop(1,'rgba(0,0,0,0)');
-      s.strokeStyle=hy; s.beginPath(); s.moveTo(m,12); s.lineTo(m,52); s.stroke();
-      s.fillStyle='rgba(255,253,239,.96)'; starPath(s,m,m,5.2,0); s.fill();
-    }else{
-      const halo=s.createRadialGradient(m,m,0,m,m,15);
-      halo.addColorStop(0,`rgba(${cr},${cg},${cb},.42)`);
-      halo.addColorStop(1,'rgba(0,0,0,0)');
-      s.fillStyle=halo; s.beginPath(); s.arc(m,m,15,0,Math.PI*2); s.fill();
-      s.fillStyle='rgba(255,250,228,.94)'; starPath(s,m,m,4,0); s.fill();
-      s.fillStyle=`rgba(${cr},${cg},${cb},.62)`; starPath(s,m,m,6.8,Math.PI/4); s.fill();
+  // This is the same lightweight particle paint injected into both V197 sky
+  // rigs. Anatomy, background, and brainstem therefore share one star shape.
+  function paintGalaxyStar(x,y,rad,alpha,col){
+    const simpleR=Math.max(.52,rad*.82);
+    c.fillStyle=`rgba(${col[0]},${col[1]},${col[2]},${Math.min(.92,alpha*2.35)})`;
+    c.fillRect(x-simpleR*.5,y-simpleR*.5,simpleR,simpleR);
+    if(alpha>.24&&rad>.82){
+      c.fillStyle=`rgba(${col[0]},${col[1]},${col[2]},${Math.min(.2,alpha*.42)})`;
+      c.fillRect(x-simpleR*2.2,y-.21,simpleR*4.4,.42);
+      c.fillRect(x-.21,y-simpleR*1.5,.42,simpleR*3);
     }
-    starSprites.set(key,sprite);
-    return sprite;
   }
 
   /* ---- storms / absorb / bloom ------------------------------------------ */
@@ -283,13 +308,15 @@
   }
 
   /* ---- render loop -------------------------------------------------------- */
-  let projected = new Array(pts.length);
+  const projected=Array.from({length:pts.length},()=>({x:0,y:0,z:0,sc:0}));
+  const depthOrder=Array.from({length:pts.length},(_,index)=>index);
+  let depthSortFrame=0;
   function frame(now){
     requestAnimationFrame(frame);
     if(document.hidden) return;
-    if(!host.isConnected || host.getClientRects().length===0) return;
-    const welcome=document.getElementById('welcome');
-    if(welcome && getComputedStyle(welcome).display==='none') return;
+    if(!host.isConnected || !onscreen) return;
+    if(lastFrame&&now-lastFrame<MIN_FRAME_GAP) return;
+    lastFrame=now;
     if(W<10){ resize(); if(W<10) return; }   // first visible frame after reveal
 
     breath += .012;
@@ -332,13 +359,8 @@
     }
 
     c.clearRect(0,0,W,H);
-
-    // soft core glow behind the mind
-    const g=c.createRadialGradient(cx,cy,0,cx,cy,scale*1.5);
-    g.addColorStop(0,`rgba(255,196,86,${.075+energy*.06})`);
-    g.addColorStop(.45,`rgba(190,140,255,${.028+energy*.03})`);
-    g.addColorStop(1,'rgba(0,0,0,0)');
-    c.fillStyle=g; c.fillRect(0,0,W,H);
+    cosYaw=Math.cos(yaw); sinYaw=Math.sin(yaw);
+    cosPitch=Math.cos(pitch); sinPitch=Math.sin(pitch);
 
     // project all points (with squeeze + gentle float)
     const bob = REDUCED?0:Math.sin(breath*.7)*.02;
@@ -346,26 +368,31 @@
       const p=pts[i];
       const bx=p.x, by=p.y, bz=p.z;
       p.x*=squeeze; p.y=p.y*squeeze+bob; p.z*=squeeze;
-      projected[i]=project(p);
+      project(p,projected[i]);
       p.x=bx; p.y=by; p.z=bz;
     }
 
     // synapse web (depth-faded, warm; dissolves with the mind)
     if(cohesion>.06){
       c.lineWidth=.55;
-      for(const e of edges){
-        const A=projected[e.a], B=projected[e.b];
-        const depth=(A.z+B.z)*.5;
-        const al=(.055+Math.max(0,depth)*.075)*(1+energy*.8)*cohesion;
-        if(al<.03) continue;
-        c.strokeStyle=`rgba(255,214,140,${Math.min(.22,al)})`;
-        c.beginPath(); c.moveTo(A.x,A.y); c.lineTo(B.x,B.y); c.stroke();
+      const edgeEnergy=(1+energy*.8)*cohesion;
+      for(let layer=0;layer<2;layer++){
+        c.strokeStyle=`rgba(255,214,140,${Math.min(.2,(layer?.105:.052)*edgeEnergy)})`;
+        c.beginPath();
+        for(const e of edges){
+          const A=projected[e.a], B=projected[e.b];
+          const front=(A.z+B.z)>0;
+          if(front!==(layer===1)) continue;
+          c.moveTo(A.x,A.y); c.lineTo(B.x,B.y);
+        }
+        c.stroke();
       }
     }
 
     // stars, back-to-front
-    const order=[...pts.keys()].sort((a,b)=>projected[a].z-projected[b].z);
-    for(const i of order){
+    if(dragging||depthSortFrame===0) depthOrder.sort((a,b)=>projected[a].z-projected[b].z);
+    depthSortFrame=(depthSortFrame+1)%3;
+    for(const i of depthOrder){
       const p=pts[i], q=projected[i];
       if(!REDUCED){ p.tw+=p.tws; p.gl+=p.gls; }
       const shimmer=.5+.5*Math.sin(p.tw);
@@ -375,9 +402,10 @@
       const lit=.42+.58*Math.max(0,Math.min(1,(q.z+ .9)/1.7));   // front-facing glow
       let a=(.32+.68*lit)*twinkle*flash*(1-p.dim)*(1+energy*.55);
       // hover ripple: nearby stars brighten and get pushed
-      const hd=Math.hypot(q.x-hoverX,q.y-hoverY);
-      if(hd<58){
-        const k=1-hd/58;
+      const hoverDx=q.x-hoverX, hoverDy=q.y-hoverY;
+      const hoverDistance2=hoverDx*hoverDx+hoverDy*hoverDy;
+      if(hoverX>-1000&&hoverDistance2<3364){
+        const k=1-Math.sqrt(hoverDistance2)/58;
         a*=1+.9*k;
         p.vx+=(p.x)*.0016*k; p.vy+=(p.y)*.0016*k; p.vz+=(p.z)*.0016*k;
         if(Math.random()<.05*k) emitMote(p,q.x,q.y);
@@ -387,19 +415,10 @@
       const r=Math.max(.55,p.r*q.sc*2.5*zoom*(.62+.38*cohesion));
       const starR=r*(1+glint*.48);
       if(cohesion<1) p.tw+=p.tws*(1-cohesion)*1.6;
-      // cached crystalline body + halo
-      const spriteSize=16*starR;
-      c.globalAlpha=a;
-      c.drawImage(getStarSprite(p.col,false),q.x-spriteSize*.5,q.y-spriteSize*.5,spriteSize,spriteSize);
-      // sharp galaxy glint: only a subset flare, each on an independent phase
-      if(p.flare && glint>.12){
-        const flareSize=spriteSize*(1.02+p.gla*.11);
-        c.globalCompositeOperation='lighter';
-        c.globalAlpha=Math.min(.88,a*glint*.95);
-        c.drawImage(getStarSprite(p.col,true),q.x-flareSize*.5,q.y-flareSize*.5,flareSize,flareSize);
-        c.globalCompositeOperation='source-over';
-      }
-      c.globalAlpha=1;
+      const starCol=p.prism
+        ?prismShift(p.col,p.prismPhase+now*p.prismSpeed+p.gl*.18,twinkle)
+        :p.col;
+      paintGalaxyStar(q.x,q.y,starR,a,starCol);
     }
 
     // travelling neural pulses

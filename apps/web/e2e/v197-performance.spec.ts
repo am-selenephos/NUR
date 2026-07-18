@@ -204,6 +204,8 @@ async function counters(frame: Frame): Promise<FrameSnapshot> {
     return {
       ...(global.__nurPerf ?? {}),
       canvasElements: document.querySelectorAll("canvas").length,
+      canvasOwners: [...document.querySelectorAll<HTMLCanvasElement>("canvas")]
+        .map(canvas => canvas.id || canvas.className || "anonymous-canvas"),
       runningAnimations: animations.length,
       animationTargets: top(animationTargets),
       topClasses: top(classCounts),
@@ -357,7 +359,9 @@ test("measures canonical V197 runtime without changing presentation", async ({ p
   await page.screenshot({ path: join(proofRoot, "systems-map.png"), fullPage: false, animations: "allow" });
   await collectCdpTrace(cdp, join(proofRoot, "chromium-performance-trace.json"));
 
-  expect(universeStart.canvasElements).toBe(1);
-  expect(universeEnd.canvasElements).toBe(1);
+  expect(universeStart.canvasElements).toBe(2);
+  expect((universeStart.canvasOwners as string[]).sort()).toEqual(["nur-brain-canvas", "space3d"]);
+  expect(universeEnd.canvasElements).toBe(2);
+  expect((universeEnd.canvasOwners as string[]).sort()).toEqual(["nur-brain-canvas", "space3d"]);
   expect(Number(universeEnd.activeRaf ?? 0)).toBeLessThanOrEqual(4);
 });

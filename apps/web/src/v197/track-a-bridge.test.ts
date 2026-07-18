@@ -18,6 +18,7 @@ import {
   compactV197MiniStars,
   ensureV197EntryPolish,
   ensureV197PremiumPolish,
+  removeV197TodayBrainAnnotations,
 } from "../bridge/v197Polish";
 
 function fixture(): Document {
@@ -47,6 +48,11 @@ function fixture(): Document {
     <input id="talk-input" placeholder="Say it plainly...">
     <div class="universe-map-title"><b class="nur-holo-word">NUR</b><small>Neural Upgrade Rewiring</small></div>
     <section id="page-today">
+      <div class="orbit-star-zone">
+        <span class="orbit-annotation">mind</span>
+        <span class="orbit-annotation">intention</span>
+        <span class="orbit-annotation">one move</span>
+      </div>
       <div class="today-grid"><article></article><aside>
         <div class="panel-top"><div><h2 class="panel-title">Recent Glows</h2><p class="panel-sub"></p></div></div>
         <div class="glow-row"><div class="glow-item">fake local glow</div></div>
@@ -153,6 +159,14 @@ describe("Track A persisted Glow renderer", () => {
 });
 
 describe("Track A V197 premium polish", () => {
+  it("physically removes the rejected labels around the Today brain", () => {
+    const document = fixture();
+
+    expect(removeV197TodayBrainAnnotations(document)).toBe(3);
+    expect(removeV197TodayBrainAnnotations(document)).toBe(0);
+    expect(document.querySelectorAll("#page-today .orbit-annotation")).toHaveLength(0);
+  });
+
   it("mounts one bridge-scoped corrective layer without replacing canonical DOM", () => {
     const document = fixture();
     const originalMap = document.createElement("section");

@@ -16,7 +16,7 @@ describe("V197 cleaned canonical host", () => {
     expect(hash("docs/reference/universe_decoded_v197.html"))
       .toBe("3cff07b31e8360e5ce793287298d66127c4f278705dc0f8e6abdfbe7e874dc40");
     expect(hash("apps/web/src/bridge/v43StarBrainRuntime.js"))
-      .toBe("24a367425765e493600d3ea5e98510e433a973ecea24a8e884c98b14fc472903");
+      .toBe("eb7948724ca0463db263d11c8e9991a877991d89bded06303adc524d9258b099");
   });
 
   it("physically removes obsolete visual patch and legacy star runtimes", () => {

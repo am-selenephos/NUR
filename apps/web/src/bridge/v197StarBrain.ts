@@ -4,7 +4,7 @@ import { ensureV197AccessibleViewport } from "./v197Accessibility";
 export const V197_STAR_BRAIN_CANVAS_ID = "nur-brain-canvas";
 export const V197_STAR_BRAIN_HOST_ID = "front-nur-star";
 const V197_STAR_BRAIN_SCRIPT_ID = "nur-v43-exact-star-brain-runtime";
-const V43_STAR_BRAIN_RUNTIME_HASH = "24a367425765e493600d3ea5e98510e433a973ecea24a8e884c98b14fc472903";
+const V43_STAR_BRAIN_RUNTIME_HASH = "eb7948724ca0463db263d11c8e9991a877991d89bded06303adc524d9258b099";
 
 type V197StarBrainSurface = "entry" | "today" | "universe" | "map";
 
@@ -36,7 +36,7 @@ function resolveV197StarBrainHost(document: Document): {
   if (todayHost) return { host: todayHost, surface: "today" };
 
   const universeHost = document.querySelector<HTMLElement>(
-    "body.universe-edition .universe-map-panel > .universe-master-star",
+    "body.universe-edition #page-systems.active .universe-map-panel > .universe-master-star",
   );
   if (universeHost) return { host: universeHost, surface: "universe" };
 
@@ -59,6 +59,10 @@ function removeLegacyMasterStar(host: HTMLElement, surface: V197StarBrainSurface
 }
 
 export function placeV197StarBrainHost(document: Document): HTMLElement | null {
+  document.body?.classList.toggle(
+    "nur-v197-systems-active",
+    Boolean(document.querySelector("#page-systems.active")),
+  );
   const resolved = resolveV197StarBrainHost(document);
   if (!resolved) return null;
   const { host: canonicalHost, surface } = resolved;
@@ -77,6 +81,7 @@ export function placeV197StarBrainHost(document: Document): HTMLElement | null {
   if (brainHost.parentElement !== canonicalHost) canonicalHost.append(brainHost);
   brainHost.dataset.nurSurface = surface;
   brainHost.dataset.nurDispersal = "radial-circle";
+  brainHost.dataset.nurGalaxyPaint = "v197-simple-galaxy-particle-v1";
   brainHost.setAttribute("aria-label", surface === "today" ? "Wake the NUR mind" : "Wake the NUR star brain");
   brainHost.setAttribute("role", "button");
   brainHost.tabIndex = 0;
@@ -149,7 +154,7 @@ export function ensureV197StarBrain(document: Document): HTMLCanvasElement | nul
   const brainHost = placeV197StarBrainHost(document);
   if (!brainHost) return null;
   brainHost.dataset.nurModel = "v43-v7-spark-stem";
-  brainHost.dataset.nurVariant = "galaxy-spark-brainstem-v1";
+  brainHost.dataset.nurVariant = "galaxy-rig-brainstem-v2";
   observeV197StarBrainPlacement(document, frameWindow);
 
   if (!document.getElementById(V197_STAR_BRAIN_SCRIPT_ID)) {
@@ -167,7 +172,7 @@ export function ensureV197StarBrain(document: Document): HTMLCanvasElement | nul
     const script = document.createElement("script");
     script.id = V197_STAR_BRAIN_SCRIPT_ID;
     script.dataset.nurSource = "exact-v43-front-page-signup-v7-star-brain";
-    script.dataset.nurVariant = "galaxy-spark-brainstem-v1";
+    script.dataset.nurVariant = "galaxy-rig-brainstem-v2";
     script.dataset.nurRuntimeHash = V43_STAR_BRAIN_RUNTIME_HASH;
     script.textContent = V43_STAR_BRAIN_RUNTIME;
     (document.body ?? document.head).append(script);
