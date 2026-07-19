@@ -86,6 +86,7 @@
   --nur-radius-round: 999px;
   --nur-control-h: 38px;
   --nur-control-h-compact: 32px;
+  --nur-secondary-action-w: 112px;
   --nur-shell-gap: clamp(10px, 1vw, 16px);
   --nur-page-pad: clamp(16px, 2vw, 30px);
   --nur-left-rail: clamp(204px, 15.75vw, 232px);
@@ -1951,6 +1952,14 @@ body.universe-edition #nur-front-v61 .universe-add-system > small {
   line-height: 1.08 !important;
 }
 
+body.universe-edition #nur-front-v61 .universe-add-system > span {
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 0 1px !important;
+  line-height: 1 !important;
+  text-align: center !important;
+}
+
 body.universe-edition #nur-front-v61 .universe-field-readout {
   min-width: 0 !important;
   width: max-content !important;
@@ -2061,6 +2070,97 @@ body.universe-edition #nur-front-v61 .universe-lower-grid > .universe-card {
   min-width: 0 !important;
   min-height: 360px !important;
   height: auto !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-lower-grid .universe-card-head {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) var(--nur-secondary-action-w) !important;
+  align-items: start !important;
+  gap: 12px !important;
+}
+
+body.universe-edition #nur-front-v61 .universe-lower-grid .universe-card-head > :not(.tiny-link) {
+  min-width: 0 !important;
+}
+
+body.universe-edition #nur-front-v61 :is(
+  #page-today .today-grid .panel-top > .tiny-link,
+  #page-today .talk-mini .panel-top > .tiny-link,
+  .universe-lower-grid .universe-card-head > .tiny-link
+) {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: var(--nur-secondary-action-w) !important;
+  min-width: var(--nur-secondary-action-w) !important;
+  max-width: var(--nur-secondary-action-w) !important;
+  height: var(--nur-control-h) !important;
+  min-height: var(--nur-control-h) !important;
+  padding: 0 6px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+}
+
+body.universe-edition #nur-front-v61 #universe-consult .consultation-path {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  align-items: stretch !important;
+  gap: 0 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+body.universe-edition #nur-front-v61 #universe-consult .consultation-path .stage {
+  display: grid !important;
+  grid-template-rows: 36px 16px minmax(78px, 1fr) !important;
+  align-content: start !important;
+  align-items: start !important;
+  justify-items: center !important;
+  gap: 5px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 160px !important;
+  height: auto !important;
+  padding: 12px 2px 10px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+body.universe-edition #nur-front-v61 #universe-consult .consultation-path .stage > :is(b, span, small) {
+  position: static !important;
+  inset: auto !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+
+body.universe-edition #nur-front-v61 #universe-consult .consultation-path .stage > b {
+  align-self: start !important;
+  justify-self: center !important;
+}
+
+body.universe-edition #nur-front-v61 #universe-consult .consultation-path .stage > span {
+  align-self: start !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  font-size: 10px !important;
+  line-height: 16px !important;
+  letter-spacing: .02em !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+}
+
+body.universe-edition #nur-front-v61 #universe-consult .consultation-path .stage > small {
+  align-self: start !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  line-height: 1.22 !important;
+  overflow-wrap: anywhere !important;
+  text-align: center !important;
+  word-break: normal !important;
 }
 
 body.universe-edition #nur-front-v61 .universe-composer-shell {
@@ -2303,9 +2403,9 @@ body.universe-edition #nur-front-v61 :is(
     rgba(0, 0, 0, .52) !important;
 }
 
-/* Systems alone retires the V178 warm film and maroon wash. Other Universe
- * routes keep their established atmosphere. */
-body.universe-edition.nur-v197-systems-active .nur-v178-warmth-film {
+/* The shared shell is cool black on every route; spectral color stays in
+ * stars, rims, and glints instead of returning as a warm page wash. */
+body.universe-edition .nur-v178-warmth-film {
   display: none !important;
 }
 
@@ -2698,7 +2798,8 @@ body.universe-edition #nur-front-v61 :is(.toast, [role="status"][data-toast]) {
   body.universe-edition #nur-front-v61 #universe-consult .consultation-path .stage {
     width: 100% !important;
     min-width: 0 !important;
-    min-height: 92px !important;
+    min-height: 118px !important;
+    grid-template-rows: 36px 16px minmax(44px, 1fr) !important;
   }
 
   body.universe-edition #nur-front-v61 #universe-consult .consultation-path .stage:last-child {

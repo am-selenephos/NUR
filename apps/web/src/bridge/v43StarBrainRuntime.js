@@ -53,9 +53,9 @@
   /* ---- 3D star-brain point cloud ---------------------------------------
      axes: x = left/right (hemispheres), y = up, z = front(+)/back(-) */
   const MOBILE = innerWidth < 700;
-  const N_CORTEX = MOBILE ? 430 : 640;
-  const N_CEREB  = MOBILE ? 90  : 130;
-  const N_STEM   = MOBILE ? 56  : 84;
+  const N_CORTEX = MOBILE ? 529 : 794;
+  const N_CEREB  = MOBILE ? 110 : 161;
+  const N_STEM   = MOBILE ? 69  : 105;
   const pts = [];
 
   function addPoint(x,y,z,group,foldDim){

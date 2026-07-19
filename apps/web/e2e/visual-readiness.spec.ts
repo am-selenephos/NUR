@@ -271,6 +271,84 @@ async function assertMetricReadable(metric: Locator, label: string, expected: Re
   expect(fit.scrollHeight, `${label} does not clip vertically`).toBeLessThanOrEqual(fit.height + 3);
 }
 
+async function assertEqualControlGroup(locator: Locator, count: number, label: string) {
+  await expect(locator, `${label} count`).toHaveCount(count);
+  const metrics = await locator.evaluateAll(elements => elements.map(element => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      text: element.textContent?.trim() ?? "",
+      width: rect.width,
+      height: rect.height,
+      clientWidth: element.clientWidth,
+      clientHeight: element.clientHeight,
+      scrollWidth: element.scrollWidth,
+      scrollHeight: element.scrollHeight,
+      whiteSpace: style.whiteSpace,
+    };
+  }));
+  const widths = metrics.map(metric => metric.width);
+  const heights = metrics.map(metric => metric.height);
+  expect(Math.max(...widths) - Math.min(...widths), `${label} widths: ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(1);
+  expect(Math.max(...heights) - Math.min(...heights), `${label} heights: ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(1);
+  expect(widths[0], `${label} uses the balanced shared action width`).toBeCloseTo(112, 0);
+  expect(heights[0], `${label} uses the shared control height`).toBeCloseTo(38, 0);
+  for (const metric of metrics) {
+    expect(metric.whiteSpace, `${label} ${metric.text} stays on one line`).toBe("nowrap");
+    expect(metric.scrollWidth, `${label} ${metric.text} fits horizontally`).toBeLessThanOrEqual(metric.clientWidth + 1);
+    expect(metric.scrollHeight, `${label} ${metric.text} fits vertically`).toBeLessThanOrEqual(metric.clientHeight + 1);
+  }
+}
+
+async function assertCouncilStageGeometry(frame: FrameLocator, mobile: boolean) {
+  const stages = frame.locator("#universe-consult .consultation-path .stage");
+  await expect(stages).toHaveCount(5);
+  const metrics = await stages.evaluateAll(elements => elements.map(element => {
+    const rect = element.getBoundingClientRect();
+    const number = element.querySelector<HTMLElement>(":scope > b")!;
+    const label = element.querySelector<HTMLElement>(":scope > span")!;
+    const copy = element.querySelector<HTMLElement>(":scope > small")!;
+    const numberRect = number.getBoundingClientRect();
+    const labelRect = label.getBoundingClientRect();
+    return {
+      width: rect.width,
+      numberTop: numberRect.top - rect.top,
+      labelTop: labelRect.top - rect.top,
+      clientWidth: element.clientWidth,
+      clientHeight: element.clientHeight,
+      scrollWidth: element.scrollWidth,
+      scrollHeight: element.scrollHeight,
+      childFit: [number, label, copy].map(child => ({
+        clientWidth: child.clientWidth,
+        clientHeight: child.clientHeight,
+        scrollWidth: child.scrollWidth,
+        scrollHeight: child.scrollHeight,
+      })),
+    };
+  }));
+  const comparedWidths = mobile ? metrics.slice(0, 4) : metrics;
+  expect(
+    Math.max(...comparedWidths.map(metric => metric.width)) - Math.min(...comparedWidths.map(metric => metric.width)),
+    `Council cells have equal tracks: ${JSON.stringify(metrics)}`,
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.max(...metrics.map(metric => metric.numberTop)) - Math.min(...metrics.map(metric => metric.numberTop)),
+    `Council numbers share one baseline: ${JSON.stringify(metrics)}`,
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.max(...metrics.map(metric => metric.labelTop)) - Math.min(...metrics.map(metric => metric.labelTop)),
+    `Council labels share one baseline: ${JSON.stringify(metrics)}`,
+  ).toBeLessThanOrEqual(1);
+  for (const [index, metric] of metrics.entries()) {
+    expect(metric.scrollWidth, `Council stage ${index + 1} fits horizontally`).toBeLessThanOrEqual(metric.clientWidth + 1);
+    expect(metric.scrollHeight, `Council stage ${index + 1} fits vertically`).toBeLessThanOrEqual(metric.clientHeight + 1);
+    for (const child of metric.childFit) {
+      expect(child.scrollWidth, `Council stage ${index + 1} child fits horizontally`).toBeLessThanOrEqual(child.clientWidth + 1);
+      expect(child.scrollHeight, `Council stage ${index + 1} child fits vertically`).toBeLessThanOrEqual(child.clientHeight + 1);
+    }
+  }
+}
+
 async function assertBoundaryControlsStyled(frame: FrameLocator) {
   const modal = frame.locator("#scope-modal .scope-modal");
   await expect(modal).toBeVisible();
@@ -459,6 +537,111 @@ test("systems map keeps label breathing at secondary desktop and mobile breakpoi
   } else {
     await screenshot(page, "systems-overlap-proof-1280x720.png");
     await screenshot(page, "systems-1280-label-breathing.png");
+  }
+});
+
+test("Today and Systems controls keep one proportional geometry contract", async ({ page }, testInfo) => {
+  await installVisualMocks(page);
+  const mobile = testInfo.project.name.endsWith("-mobile");
+  await page.setViewportSize(mobile ? { width: 393, height: 852 } : { width: 1440, height: 900 });
+  const frame = universeFrame(page);
+
+  await page.goto("/systems");
+  await expect(frame.locator("#page-systems")).toBeVisible();
+  await assertEqualControlGroup(
+    frame.locator(".universe-lower-grid .universe-card-head > .tiny-link"),
+    4,
+    "Systems lower-card actions",
+  );
+  await assertCouncilStageGeometry(frame, mobile);
+  await expect(frame.locator("#page-systems #front-nur-star"))
+    .toHaveAttribute("data-nur-point-count", mobile ? "708" : "1060");
+
+  const activeGlyph = frame.locator('.clean-nav-button.active[data-page="systems"] > .clean-nav-glyph');
+  if (!mobile) {
+    await expect(activeGlyph).toBeVisible();
+    const activeState = await activeGlyph.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const seal = element.querySelector<HTMLElement>(":scope > .nur-star-seal--state")!;
+      const sealRect = seal.getBoundingClientRect();
+      const star = seal.querySelector<HTMLElement>(":scope > .nur-v197-sigil-star")!;
+      const style = getComputedStyle(element);
+      const starStyle = getComputedStyle(star);
+      return {
+        fontSize: style.fontSize,
+        color: style.color,
+        centerDeltaX: Math.abs((rect.left + rect.width / 2) - (sealRect.left + sealRect.width / 2)),
+        centerDeltaY: Math.abs((rect.top + rect.height / 2) - (sealRect.top + sealRect.height / 2)),
+        starDisplay: starStyle.display,
+        starVisibility: starStyle.visibility,
+        starOpacity: Number(starStyle.opacity),
+      };
+    });
+    expect(activeState.fontSize, "selected navigation removes the native glyph footprint").toBe("0px");
+    expect(activeState.color, "selected navigation hides the native glyph paint").toBe("rgba(0, 0, 0, 0)");
+    expect(activeState.centerDeltaX, "selected navigation seal is centered horizontally").toBeLessThanOrEqual(1);
+    expect(activeState.centerDeltaY, "selected navigation seal is centered vertically").toBeLessThanOrEqual(1);
+    expect(activeState.starDisplay).toBe("block");
+    expect(activeState.starVisibility).toBe("visible");
+    expect(activeState.starOpacity).toBe(1);
+
+    const addSystem = await frame.locator(".universe-add-system").evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const plus = element.querySelector<HTMLElement>(":scope > span")!;
+      const plusRect = plus.getBoundingClientRect();
+      const plusStyle = getComputedStyle(plus);
+      return {
+        centerDeltaY: Math.abs((rect.top + rect.height / 2) - (plusRect.top + plusRect.height / 2)),
+        display: plusStyle.display,
+        placeItems: plusStyle.placeItems,
+      };
+    });
+    expect(addSystem.centerDeltaY, "Add System plus circle is vertically centered").toBeLessThanOrEqual(1);
+    expect(addSystem.display).toBe("grid");
+    expect(addSystem.placeItems).toBe("center");
+  }
+
+  await page.goto("/today");
+  await expect(frame.locator("#page-today")).toBeVisible();
+  await assertEqualControlGroup(frame.locator("#page-today .tiny-link"), 3, "Today panel actions");
+  await expect(frame.locator("#page-today #front-nur-star"))
+    .toHaveAttribute("data-nur-point-count", mobile ? "708" : "1060");
+  const sendStar = frame.locator("#page-today .thought-send-button[data-send='today'] .nur-v197-sigil-star");
+  await expect(sendStar).toBeVisible();
+  await expect(sendStar).toHaveCSS("display", "block");
+  await expect(sendStar).toHaveCSS("visibility", "visible");
+  await expect(sendStar).toHaveCSS("opacity", "1");
+  await expect(frame.locator("#page-today .thought-send-button[data-send='today'] .ray").first())
+    .toHaveCSS("visibility", "visible");
+  await expect(frame.locator(".nur-v178-warmth-film")).toHaveCSS("display", "none");
+  await assertNoHorizontalOverflow(frame);
+
+  if (!mobile) {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto("/systems");
+    const selectedScope = frame.locator(".clean-right-rail :is(.audit-scope.selected, .clean-scope.selected, .scope-option[aria-selected='true'], .scope-option[aria-checked='true'])");
+    await expect(selectedScope).toBeVisible();
+    const selectedGeometry = await selectedScope.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const copy = element.querySelector<HTMLElement>(":scope > span")!;
+      const copyRect = copy.getBoundingClientRect();
+      const seal = element.querySelector<HTMLElement>(":scope > .nur-star-seal--state")!;
+      const sealRect = seal.getBoundingClientRect();
+      return {
+        copyDeltaX: Math.abs((rect.left + rect.width / 2) - (copyRect.left + copyRect.width / 2)),
+        copyDeltaY: Math.abs((rect.top + rect.height / 2) - (copyRect.top + copyRect.height / 2)),
+        sealDeltaY: Math.abs((rect.top + rect.height / 2) - (sealRect.top + sealRect.height / 2)),
+        clientWidth: element.clientWidth,
+        clientHeight: element.clientHeight,
+        scrollWidth: element.scrollWidth,
+        scrollHeight: element.scrollHeight,
+      };
+    });
+    expect(selectedGeometry.copyDeltaX, "selected scope copy stays horizontally centered").toBeLessThanOrEqual(1);
+    expect(selectedGeometry.copyDeltaY, "selected scope copy stays vertically centered").toBeLessThanOrEqual(1);
+    expect(selectedGeometry.sealDeltaY, "selected scope seal does not drop below its copy").toBeLessThanOrEqual(1);
+    expect(selectedGeometry.scrollWidth, "selected scope does not clip horizontally").toBeLessThanOrEqual(selectedGeometry.clientWidth + 1);
+    expect(selectedGeometry.scrollHeight, "selected scope does not clip vertically").toBeLessThanOrEqual(selectedGeometry.clientHeight + 1);
   }
 });
 

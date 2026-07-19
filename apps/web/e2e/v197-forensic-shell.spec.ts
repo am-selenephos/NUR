@@ -216,7 +216,7 @@ test("Today owns one visible exact V43 brain renderer", async ({ page }) => {
     await expect.poll(async () => (await readBrain()).paintedSamples, { timeout: 5_000 }).toBeGreaterThan(100);
     const brain = await readBrain();
 
-    const expectedPoints = viewport.width < 700 ? "576" : "854";
+    const expectedPoints = viewport.width < 700 ? "708" : "1060";
     expect(brain.hosts).toBe(1);
     expect(brain.canvases).toBe(1);
     expect(brain.surface).toBe("today");

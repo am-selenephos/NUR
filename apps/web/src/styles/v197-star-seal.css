@@ -50,6 +50,28 @@
   pointer-events: none !important;
 }
 
+/* Canonical Today styles intentionally retire the former master star. These
+ * seals reuse that exact V197 structure, so their local host must explicitly
+ * restore its paint without reviving the removed hero asset. */
+body #nur-front-v61 .nur-star-seal:not(.nur-star-seal--startup) > .nur-v197-sigil-star,
+body.universe-edition #nur-front-v61 #page-today .nur-star-seal:not(.nur-star-seal--startup) > .nur-v197-sigil-star.f4-master-star {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+body #nur-front-v61 .nur-star-seal:not(.nur-star-seal--startup) > .nur-v197-sigil-star :is(
+  .spark-glow,
+  .spark-halo,
+  .spark-h2,
+  .spark-core,
+  .rayset,
+  .ray,
+  .ob
+) {
+  visibility: visible !important;
+}
+
 .nur-star-seal:not(.nur-star-seal--startup) :is(
   .spark-glow,
   .spark-halo,
@@ -105,12 +127,64 @@
 
 .nur-has-state-star-seal {
   overflow: visible !important;
-  color: transparent !important;
-  font-size: 0 !important;
 }
 
 .nur-has-state-star-seal > .nur-star-seal--state {
   margin: 0 !important;
+}
+
+body.universe-edition #nur-front-v61 .clean-nav-button.active > .clean-nav-glyph.nur-has-state-star-seal {
+  display: grid !important;
+  place-items: center !important;
+  gap: 0 !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+
+body.universe-edition #nur-front-v61 .clean-nav-button.active > .clean-nav-glyph.nur-has-state-star-seal > .nur-star-seal--state {
+  grid-area: 1 / 1 !important;
+}
+
+body.universe-edition #nur-front-v61 :is(
+  .scope-option[aria-selected="true"],
+  .scope-option[aria-checked="true"],
+  .audit-scope.selected,
+  .clean-scope.selected
+).nur-has-state-star-seal {
+  position: relative !important;
+  display: grid !important;
+  place-items: center !important;
+  gap: 0 !important;
+  padding-inline: 38px !important;
+  overflow: hidden !important;
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
+  font-size: inherit !important;
+}
+
+body.universe-edition #nur-front-v61 :is(
+  .scope-option[aria-selected="true"],
+  .scope-option[aria-checked="true"],
+  .audit-scope.selected,
+  .clean-scope.selected
+).nur-has-state-star-seal > .nur-star-seal--state {
+  position: absolute !important;
+  left: 12px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+body.universe-edition #nur-front-v61 :is(
+  .scope-option[aria-selected="true"],
+  .scope-option[aria-checked="true"],
+  .audit-scope.selected,
+  .clean-scope.selected
+).nur-has-state-star-seal > span {
+  width: 100% !important;
+  min-width: 0 !important;
+  text-align: center !important;
 }
 
 .nur-star-seal:not(.nur-star-seal--startup)[data-nur-star-twinkle="true"] {

@@ -11,11 +11,11 @@ const bridge = readFileSync(bridgePath, "utf8");
 describe("V43-derived NUR star-brain source", () => {
   it("keeps the supplied V43 anatomy and adds the approved sparkle/stem extension", () => {
     expect(createHash("sha256").update(runtime).digest("hex"))
-      .toBe("eb7948724ca0463db263d11c8e9991a877991d89bded06303adc524d9258b099");
+      .toBe("ee34405b119b8f2d7b6a5b4b7fdedff2e6875f9bd7d472aff6ab5b8473b8d347");
     expect(runtime).toContain("canvas.id = 'nur-brain-canvas';");
-    expect(runtime).toContain("const N_CORTEX = MOBILE ? 430 : 640;");
-    expect(runtime).toContain("const N_CEREB  = MOBILE ? 90  : 130;");
-    expect(runtime).toContain("const N_STEM   = MOBILE ? 56  : 84;");
+    expect(runtime).toContain("const N_CORTEX = MOBILE ? 529 : 794;");
+    expect(runtime).toContain("const N_CEREB  = MOBILE ? 110 : 161;");
+    expect(runtime).toContain("const N_STEM   = MOBILE ? 69  : 105;");
     expect(runtime).toContain("host.dataset.nurSparkleProfile='exact-galaxy-rig-star';");
     expect(runtime).toContain("host.dataset.nurGalaxyPaint='v197-simple-galaxy-particle-v1';");
     expect(runtime).toContain("host.dataset.nurAnatomy='cortex-cerebellum-brainstem';");
