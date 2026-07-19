@@ -15,11 +15,23 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
       - run: npm run secret-scan
       - run: npm run web:typecheck
       - run: npm run web:test
       - run: npm run web:build
       - run: npm run web:e2e:mocked
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-${{ github.run_id }}
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
       - run: npm run mobile:typecheck
       - run: npm audit --audit-level=high
 

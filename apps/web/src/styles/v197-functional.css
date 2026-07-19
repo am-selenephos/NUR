@@ -16,6 +16,7 @@
 
 .nur-v197-checkin[hidden],
 .nur-v197-insight-controls[hidden],
+body.universe-edition #nur-front-v61 #nur-outcome-composer[hidden],
 #nur-v197-owner-auth-menu[hidden],
 #nur-v197-auth-wait[hidden] {
   display: none !important;

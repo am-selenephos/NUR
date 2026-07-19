@@ -33,14 +33,45 @@ async function json(route: Route, body: unknown, status = 200) {
   });
 }
 
+async function sse(route: Route, events: Array<{ id: number; event: string; data: unknown }>) {
+  await route.fulfill({
+    status: 200,
+    headers: {
+      "cache-control": "no-cache",
+      "content-type": "text/event-stream; charset=utf-8",
+    },
+    body: events.map(row => (
+      `id: ${row.id}\nevent: ${row.event}\ndata: ${JSON.stringify(row.data)}\n\n`
+    )).join(""),
+  });
+}
+
 async function installTalkMocks(page: Page, opts: { providerAvailable: boolean }) {
   const thread: ThreadRow[] = [];
   let lastTalkMode = "talk";
   let planCreated = false;
+  let planStepDone = false;
   let correctionSaved = false;
   let outcomePosts = 0;
 
+  await page.context().addCookies([{
+    name: "nur_csrf",
+    value: "readiness-talk-csrf",
+    url: "http://localhost:4173",
+    httpOnly: false,
+    sameSite: "Lax",
+  }]);
   await page.route("**/api/v1/auth/me", route => json(route, user));
+  await page.route("**/api/v1/profile/preferences", route => json(route, {
+    locale: "en",
+    sound_enabled: false,
+    reduced_effects: true,
+    default_boundary: "PRIVATE_ORBIT",
+    active_orbit_id: orbit.id,
+    omega_enabled: true,
+    writing_preference: "default",
+    timezone: "UTC",
+  }));
   await page.route("**/api/v1/orbits/current-state", route => json(route, {
     active_systems: 1, outcomes_returned: outcomePosts, insights_evolving: 0,
     open_questions: 0, research_staged: 0, plans_active: 0, live_status: "owner_ledger",
@@ -51,7 +82,19 @@ async function installTalkMocks(page: Page, opts: { providerAvailable: boolean }
   });
   await page.route("**/api/v1/journal", route => json(route, []));
   await page.route("**/api/v1/plans", async route => {
-    if (route.request().method() === "GET") return json(route, []);
+    if (route.request().method() === "GET") return json(route, [{
+      id: "plan-1",
+      title: "Use this move",
+      status: "ACTIVE",
+      steps: [{
+        id: "step-1",
+        title: "Record what changed from Talk",
+        body: null,
+        position: 0,
+        done: planStepDone,
+        done_at: planStepDone ? new Date().toISOString() : null,
+      }],
+    }]);
     planCreated = true;
     return json(route, {
       id: "plan-1",
@@ -60,16 +103,56 @@ async function installTalkMocks(page: Page, opts: { providerAvailable: boolean }
       steps: [{ id: "step-1", title: "Record what changed from Talk", body: null, position: 0, done: false, done_at: null }],
     }, 201);
   });
+  await page.route("**/api/v1/plan-steps/step-1", route => {
+    planStepDone = true;
+    return json(route, {
+      id: "step-1",
+      title: "Record what changed from Talk",
+      body: null,
+      position: 0,
+      done: true,
+      done_at: new Date().toISOString(),
+    });
+  });
   await page.route("**/api/v1/outcomes", async route => {
     outcomePosts += 1;
     return json(route, { id: `outcome-${outcomePosts}` }, 201);
   });
-  await page.route("**/api/v1/cognition/corrections", route => {
+  await page.route("**/api/v1/glow/rewards", route => json(route, {
+    awarded_points: 0,
+    balance: 0,
+    lifetime_points: 0,
+    idempotent_replay: true,
+    streak: null,
+    achievements_unlocked: [],
+  }));
+  await page.route("**/api/v1/universe/insights-summary", route => json(route, {
+    provenance_label: "omega_owner_ledger",
+    counts: {
+      claims: 1,
+      open_contradictions: 0,
+      predictions: 0,
+      review_queue: 1,
+      learning_proposals: 0,
+    },
+    claims: [{
+      id: "insight-1",
+      title: "Source-faithful movement",
+      claim_text: "The next move should stay grounded in owned evidence.",
+      truth_status: "CANDIDATE",
+      evidence: [],
+      what_nur_may_be_wrong_about: "The owner may choose a different pace.",
+    }],
+    contradictions: [],
+    predictions: [],
+    review_queue: [],
+  }));
+  await page.route("**/api/v1/insights/insight-1/correct", route => {
     correctionSaved = true;
     return json(route, { id: "correction-1" }, 201);
   });
   await page.route("**/api/v1/cognition/talk-thread**", route => json(route, thread));
-  await page.route("**/api/v1/cognition/talk", async route => {
+  await page.route("**/api/v1/cognition/talk/stream", async route => {
     const body = JSON.parse(route.request().postData() || "{}") as { message: string; mode?: string };
     lastTalkMode = body.mode ?? "talk";
     thread.push({
@@ -129,7 +212,12 @@ async function installTalkMocks(page: Page, opts: { providerAvailable: boolean }
       },
       created_at: new Date().toISOString(),
     });
-    return json(route, response);
+    return sse(route, [
+      { id: 1, event: "stream.open", data: { request_id: body.message } },
+      { id: 2, event: "talk.accepted", data: { model_run_id: response.model_run_id } },
+      { id: 3, event: "response.text.delta", data: { delta: output.direct_response } },
+      { id: 4, event: "talk.completed", data: { durable: true, result: response } },
+    ]);
   });
 
   return {
@@ -144,11 +232,12 @@ async function installTalkMocks(page: Page, opts: { providerAvailable: boolean }
 test("talk disabled provider is explicit and screenshotable", async ({ page }) => {
   await installTalkMocks(page, { providerAvailable: false });
   await page.goto("/talk");
-  await expect(page.locator("#page-talk")).toBeVisible();
-  await page.locator("#talk-input").fill("Hold this without fake AI.");
-  await page.getByRole("button", { name: "Send to NUR" }).click();
-  await expect(page.getByText("I saved this turn, but live AI is disabled on this server.")).toBeVisible();
-  await expect(page.getByText("AI provider is disabled.")).toBeVisible();
+  const universe = page.frameLocator("#nur-universe-stage");
+  await expect(universe.locator("#page-talk")).toBeVisible();
+  await universe.locator("#talk-input").fill("Hold this without fake AI.");
+  await universe.getByRole("button", { name: "Send to NUR" }).click();
+  await expect(universe.locator("#talk-stream")).toContainText("I saved this turn, but live AI is disabled on this server.");
+  await expect(universe.locator("#toast")).toContainText("AI provider is disabled.");
   await page.screenshot({
     path: process.cwd().endsWith("/apps/web")
       ? "../../proof/100/talk-disabled-provider-browser.png"
@@ -157,48 +246,65 @@ test("talk disabled provider is explicit and screenshotable", async ({ page }) =
   });
 });
 
-test("talk mocked provider shows structured labels and plan/correction actions", async ({ page }) => {
+test("talk mocked semantic stream preserves structured result and plan/correction actions", async ({ page }) => {
   const mocks = await installTalkMocks(page, { providerAvailable: true });
-  await page.goto("/talk");
-  await page.getByRole("button", { name: "Think deeper" }).click();
-  await page.locator("#talk-input").fill("Make this source faithful.");
-  await page.getByRole("button", { name: "Send to NUR" }).click();
-  await expect(page.getByText("Observed")).toBeVisible();
-  await expect(page.getByText("Inferred")).toBeVisible();
-  await expect(page.getByText("Hypotheses")).toBeVisible();
-  await expect(page.getByText("Uncertainty")).toBeVisible();
+  await page.goto("/systems");
+  const universe = page.frameLocator("#nur-universe-stage");
+  const reflect = universe.locator('.universe-prompt-row [data-action="reflect"]');
+  await reflect.click();
+  await expect(reflect).toHaveAttribute("aria-pressed", "true");
+  await universe.locator('[data-page="talk"]:visible').first().click();
+  await expect(universe.locator("#page-talk")).toBeVisible();
+  await universe.locator("#talk-input").fill("Make this source faithful.");
+  await universe.getByRole("button", { name: "Send to NUR" }).click();
+  await expect(universe.locator("#talk-stream")).toContainText("You are asking for source-faithful movement.");
+  expect(mocks.thread.at(-1)?.structured_payload).toMatchObject({
+    talk_output: {
+      observed: ["The current line asks for movement."],
+      inferred: ["The next move should stay small."],
+      hypotheses: ["If the move is visible, it will be easier to return to."],
+      uncertainty: ["This is based only on the mocked owned source."],
+    },
+  });
   expect(mocks.lastTalkMode()).toBe("reflect");
 
-  await page.getByTestId("use-next-move-plan").click();
+  await universe.locator('[data-thread-action="plan"]').click();
   await expect.poll(() => mocks.planCreated()).toBe(true);
 
-  await page.getByTestId("talk-correction").fill("Do not infer urgency without evidence.");
-  await page.getByTestId("submit-correction").click();
+  await universe.locator('[data-page="systems"]:visible').first().click();
+  await universe.locator('[data-world-tab="insights"]').click();
+  const correction = universe.locator("#nur-v197-insight-correction");
+  await expect(correction).toBeEnabled();
+  await correction.fill("Do not infer urgency without evidence.");
+  await universe.locator('[data-action="insight-correct"]').click();
   await expect.poll(() => mocks.correctionSaved()).toBe(true);
 });
 
 test("former glow action is outcome-gated before visible count changes", async ({ page }) => {
   const mocks = await installTalkMocks(page, { providerAvailable: true });
-  await page.goto("/today");
-  await expect(page.getByText("quietly held · 0")).toBeVisible();
+  const universe = page.frameLocator("#nur-universe-stage");
+  const outcomesReturned = universe.locator(".universe-hero-stats > span").nth(1);
+  await page.goto("/systems");
+  await expect(outcomesReturned).toContainText("00");
+  await expect(outcomesReturned).toContainText("outcomes returned");
 
-  await page.goto("/talk");
-  await expect(page.getByText("Mark a Personal Glow")).toHaveCount(0);
-  await page.getByTestId("talk-record-outcome").click();
-  await expect(page.getByTestId("talk-outcome-form")).toBeVisible();
+  await page.goto("/plan");
+  await expect(universe.getByText("Mark a Personal Glow")).toHaveCount(0);
+  await expect(universe.locator("#nur-outcome-composer")).toBeHidden();
+  await universe.locator(".plan-check[data-plan-step-id='step-1']").click();
+  await expect(universe.locator("#nur-outcome-composer")).toBeVisible();
   expect(mocks.outcomePosts()).toBe(0);
 
-  await page.goto("/today");
-  await expect(page.getByText("quietly held · 0")).toBeVisible();
+  await page.goto("/systems");
+  await expect(outcomesReturned).toContainText("00");
 
-  await page.goto("/talk");
-  await page.getByTestId("talk-record-outcome").click();
-  await page.getByTestId("talk-outcome-input").fill("The owner shipped the visible fix.");
-  await page.getByTestId("talk-submit-outcome").click();
+  await page.goto("/plan");
+  await universe.locator("#nur-outcome-input").fill("The owner shipped the visible fix.");
+  await universe.locator('[data-action="return-outcome"]').click();
   await expect.poll(() => mocks.outcomePosts()).toBe(1);
 
-  await page.goto("/today");
-  await expect(page.getByText("quietly held · 1")).toBeVisible();
+  await page.goto("/systems");
+  await expect(outcomesReturned).toContainText("01");
 });
 
 test("talk thread survives reload from persisted API state", async ({ page }) => {
@@ -233,8 +339,11 @@ test("talk thread survives reload from persisted API state", async ({ page }) =>
   );
 
   await page.goto("/talk");
-  await expect(page.getByText("This line was already persisted.")).toBeVisible();
+  const universe = page.frameLocator("#nur-universe-stage");
+  await expect(universe.getByText("This line was already persisted.", { exact: true })).toBeVisible();
+  const answer = universe.locator("#talk-stream .talk-message.nur[data-event-id='persisted-nur']");
+  await expect(answer).toContainText("Persisted answer.");
   await page.reload();
-  await expect(page.getByText("This line was already persisted.")).toBeVisible();
-  await expect(page.getByText("Persisted answer.")).toBeVisible();
+  await expect(universe.getByText("This line was already persisted.", { exact: true })).toBeVisible();
+  await expect(answer).toContainText("Persisted answer.");
 });

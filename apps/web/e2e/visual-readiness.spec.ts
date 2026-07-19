@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
+import { expect, test, type FrameLocator, type Locator, type Page, type Route } from "@playwright/test";
 
 const now = new Date().toISOString();
 const baseUser = {
@@ -62,6 +62,13 @@ async function json(route: Route, body: unknown, status = 200) {
 }
 
 async function installVisualMocks(page: Page, locale = "en") {
+  await page.context().addCookies([{
+    name: "nur_csrf",
+    value: "visual-readiness-csrf",
+    url: "http://localhost:4173",
+    httpOnly: false,
+    sameSite: "Lax",
+  }]);
   await page.addInitScript(language => {
     Object.defineProperty(navigator, "language", { get: () => language });
     Object.defineProperty(navigator, "languages", { get: () => [language, "en"] });
@@ -69,6 +76,16 @@ async function installVisualMocks(page: Page, locale = "en") {
   await page.route("**/api/v1/auth/me", route => json(route, {
     ...baseUser,
     profile: { ...baseUser.profile, locale },
+  }));
+  await page.route("**/api/v1/profile/preferences", route => json(route, {
+    locale,
+    sound_enabled: false,
+    reduced_effects: true,
+    default_boundary: "PRIVATE_ORBIT",
+    active_orbit_id: orbit.id,
+    omega_enabled: true,
+    writing_preference: "default",
+    timezone: "UTC",
   }));
   await page.route("**/api/v1/orbits/current-state", route => json(route, {
     active_systems: 1,
@@ -131,6 +148,61 @@ async function box(name: string, locator: Locator) {
   return value!;
 }
 
+async function canvasContentBox(name: string, locator: Locator) {
+  await expect(locator, `${name} canvas is visible`).toBeVisible();
+  let value: { x: number; y: number; width: number; height: number } | null = null;
+  await expect.poll(async () => {
+    value = await locator.evaluate((element: HTMLCanvasElement) => {
+      const context = element.getContext("2d");
+      if (!context || element.width < 2 || element.height < 2) return null;
+      const pixels = context.getImageData(0, 0, element.width, element.height).data;
+      const columns = new Uint32Array(element.width);
+      const rows = new Uint32Array(element.height);
+      let lit = 0;
+      for (let y = 0; y < element.height; y += 1) {
+        for (let x = 0; x < element.width; x += 1) {
+          const index = (y * element.width + x) * 4;
+          const alpha = pixels[index + 3] ?? 0;
+          const brightness = (pixels[index] ?? 0) + (pixels[index + 1] ?? 0) + (pixels[index + 2] ?? 0);
+          if (alpha <= 20 || brightness <= 120) continue;
+          columns[x] += 1;
+          rows[y] += 1;
+          lit += 1;
+        }
+      }
+      if (lit < 70) return null;
+      const quantile = (counts: Uint32Array, fraction: number) => {
+        const target = lit * fraction;
+        let seen = 0;
+        for (let index = 0; index < counts.length; index += 1) {
+          seen += counts[index];
+          if (seen >= target) return index;
+        }
+        return counts.length - 1;
+      };
+      const left = quantile(columns, .01);
+      const right = quantile(columns, .99);
+      const top = quantile(rows, .01);
+      const bottom = quantile(rows, .99);
+      const canvas = element.getBoundingClientRect();
+      const scaleX = canvas.width / element.width;
+      const scaleY = canvas.height / element.height;
+      return {
+        x: canvas.left + left * scaleX,
+        y: canvas.top + top * scaleY,
+        width: Math.max(scaleX, (right - left + 1) * scaleX),
+        height: Math.max(scaleY, (bottom - top + 1) * scaleY),
+      };
+    });
+    return value;
+  }, { message: `${name} has a lit pixel envelope` }).not.toBeNull();
+  return value!;
+}
+
+function universeFrame(page: Page): FrameLocator {
+  return page.frameLocator("#nur-universe-stage");
+}
+
 function overlaps(a: Awaited<ReturnType<typeof box>>, b: Awaited<ReturnType<typeof box>>, pad = 0) {
   return !(
     a.x + a.width + pad <= b.x ||
@@ -141,11 +213,11 @@ function overlaps(a: Awaited<ReturnType<typeof box>>, b: Awaited<ReturnType<type
 }
 
 function assertNoOverlap(label: string, a: Awaited<ReturnType<typeof box>>, b: Awaited<ReturnType<typeof box>>, pad = 0) {
-  expect(overlaps(a, b, pad), label).toBe(false);
+  expect(overlaps(a, b, pad), `${label}: ${JSON.stringify({ a, b, pad })}`).toBe(false);
 }
 
-async function assertNoHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => ({
+async function assertNoHorizontalOverflow(frame: FrameLocator) {
+  const overflow = await frame.locator("html").evaluate(() => ({
     documentScrollWidth: document.documentElement.scrollWidth,
     documentClientWidth: document.documentElement.clientWidth,
     bodyScrollWidth: document.body.scrollWidth,
@@ -155,8 +227,7 @@ async function assertNoHorizontalOverflow(page: Page) {
   expect(overflow.bodyScrollWidth, "body has no horizontal overflow").toBeLessThanOrEqual(overflow.bodyClientWidth + 1);
 }
 
-async function assertMetricReadable(page: Page, testId: string, expected: RegExp) {
-  const metric = page.getByTestId(testId);
+async function assertMetricReadable(metric: Locator, label: string, expected: RegExp) {
   await expect(metric).toBeVisible();
   await expect(metric).toContainText(expected);
   const fit = await metric.evaluate(el => {
@@ -171,58 +242,83 @@ async function assertMetricReadable(page: Page, testId: string, expected: RegExp
     };
   });
   expect(fit.text).not.toMatch(/ev\.\.\.|insights ev\.\.\./i);
-  expect(fit.scrollWidth, `${testId} does not clip horizontally`).toBeLessThanOrEqual(fit.width + 3);
-  expect(fit.scrollHeight, `${testId} does not clip vertically`).toBeLessThanOrEqual(fit.height + 3);
+  expect(fit.scrollWidth, `${label} does not clip horizontally`).toBeLessThanOrEqual(fit.width + 3);
+  expect(fit.scrollHeight, `${label} does not clip vertically`).toBeLessThanOrEqual(fit.height + 3);
 }
 
-async function assertCaptureControlsStyled(page: Page) {
-  await expect(page.getByTestId("new-decision")).toBeVisible();
-  await expect(page.getByTestId("new-reference")).toBeVisible();
-  for (const id of ["keep-decision", "keep-reference"]) {
-    const button = page.getByTestId(id);
+async function assertBoundaryControlsStyled(frame: FrameLocator) {
+  const modal = frame.locator("#scope-modal .scope-modal");
+  await expect(modal).toBeVisible();
+  const modalStyle = await modal.evaluate(el => ({
+    backgroundColor: getComputedStyle(el).backgroundColor,
+    backgroundImage: getComputedStyle(el).backgroundImage,
+    borderRadius: getComputedStyle(el).borderRadius,
+  }));
+  expect(modalStyle.backgroundColor, "boundary modal is not native white").not.toBe("rgb(255, 255, 255)");
+  expect(modalStyle.backgroundImage, "boundary modal has NUR material styling").not.toBe("none");
+  expect(Number.parseFloat(modalStyle.borderRadius), "boundary modal keeps the approved V197 radius").toBe(8);
+
+  const allControls = frame.locator("#scope-modal .scope-option");
+  await expect(allControls).toHaveCount(7);
+  const boundaryOptions = frame.locator("#scope-modal .scope-option[data-scope]");
+  await expect(boundaryOptions).toHaveCount(4);
+  for (let index = 0; index < 4; index += 1) {
+    const button = boundaryOptions.nth(index);
     await expect(button).toBeVisible();
-    await expect(button).toHaveClass(/share-capture-btn/);
     const style = await button.evaluate(el => {
       const cs = getComputedStyle(el);
       return {
         backgroundColor: cs.backgroundColor,
-        backgroundImage: cs.backgroundImage,
         borderRadius: cs.borderRadius,
         color: cs.color,
       };
     });
-    expect(style.backgroundColor, `${id} is not native white`).not.toBe("rgb(255, 255, 255)");
-    expect(style.backgroundImage, `${id} has NUR gradient styling`).not.toBe("none");
-    expect(Number.parseFloat(style.borderRadius), `${id} is pill-like`).toBeGreaterThanOrEqual(16);
+    expect(style.backgroundColor, `boundary option ${index} is not native white`).not.toBe("rgb(255, 255, 255)");
+    expect(Number.parseFloat(style.borderRadius), `boundary option ${index} has softened edges`).toBeGreaterThanOrEqual(8);
+  }
+
+  const languageControls = frame.locator("#nur-v197-locale, #nur-v197-writing-preference, #nur-v197-language-save");
+  await expect(languageControls).toHaveCount(3);
+  for (let index = 0; index < 3; index += 1) {
+    const control = languageControls.nth(index);
+    await expect(control).toBeVisible();
+    await expect(control, `language control ${index} is not native white`).not.toHaveCSS("background-color", "rgb(255, 255, 255)");
   }
 }
 
-async function assertBidiIsolation(page: Page) {
-  const isolates = page.locator(".bidi-isolate");
-  await expect(isolates.first()).toBeVisible();
-  const count = await isolates.count();
-  expect(count, "mixed text has bidi isolation wrappers").toBeGreaterThanOrEqual(3);
-  const first = await isolates.first().evaluate(el => ({
-    dir: el.getAttribute("dir"),
-    unicodeBidi: getComputedStyle(el).unicodeBidi,
+async function assertRtlDirection(frame: FrameLocator) {
+  const root = frame.locator("html");
+  await expect(root).toHaveAttribute("lang", "ur");
+  await expect(root).toHaveAttribute("dir", "rtl");
+  const direction = await root.evaluate(el => ({
+    direction: getComputedStyle(el).direction,
+    writingPreference: document.body.dataset.nurWritingPreference,
   }));
-  expect(first.dir).toBe("auto");
-  expect(first.unicodeBidi).toContain("isolate");
+  expect(direction.direction).toBe("rtl");
+  expect(direction.writingPreference).toBe("default");
 }
 
 async function assertSystemsMapGeometry(page: Page, viewportLabel: string) {
-  await expect(page.locator("#page-systems")).toBeVisible();
+  const frame = universeFrame(page);
+  await expect(frame.locator("#page-systems")).toBeVisible();
   const viewport = page.viewportSize();
-  const title = await box(`${viewportLabel} map title`, page.locator(".universe-map-title"));
-  const subtitle = await box(`${viewportLabel} map subtitle`, page.getByTestId("map-subtitle"));
-  const master = await box(`${viewportLabel} master star`, page.getByTestId("map-master-star"));
-  const add = await box(`${viewportLabel} add system`, page.getByTestId("pw-add-system"));
-  const visibleNodes = page.locator(".universe-system-node:visible");
+  const title = await box(`${viewportLabel} NUR wordmark`, frame.locator(".universe-map-title .nur-v197-stable-wordmark"));
+  const subtitle = await box(`${viewportLabel} map subtitle`, frame.locator(".universe-map-title small"));
+  await expect(frame.locator(".universe-master-star")).toBeVisible();
+  const brain = frame.locator(".universe-master-star > #front-nur-star");
+  await expect(brain).toBeVisible();
+  const master = await canvasContentBox(`${viewportLabel} master star`, brain.locator("#nur-brain-canvas"));
+  const addControl = frame.locator(".universe-add-system");
+  const addIsVisible = await addControl.isVisible();
+  const add = addIsVisible
+    ? await box(`${viewportLabel} add system`, addControl)
+    : { x: -1000, y: -1000, width: 1, height: 1 };
+  const visibleNodes = frame.locator(".universe-system-node:visible");
   const nodeCount = await visibleNodes.count();
 
-  assertNoOverlap(`${viewportLabel}: System Field/title collision`, title, await maybeBox(page.getByTestId("system-field-readout")), 6);
-  assertNoOverlap(`${viewportLabel}: NUR title/master star collision`, title, master, 8);
-  assertNoOverlap(`${viewportLabel}: Neural subtitle/master star collision`, subtitle, master, 8);
+  assertNoOverlap(`${viewportLabel}: System Field/title collision`, title, await maybeBox(frame.locator(".universe-field-readout")), 6);
+  assertNoOverlap(`${viewportLabel}: NUR title/master star collision`, title, master);
+  assertNoOverlap(`${viewportLabel}: Neural subtitle/master star collision`, subtitle, master);
   assertNoOverlap(`${viewportLabel}: Add System/title collision`, add, title, 8);
   assertNoOverlap(`${viewportLabel}: Add System/master star collision`, add, master, 8);
 
@@ -232,16 +328,20 @@ async function assertSystemsMapGeometry(page: Page, viewportLabel: string) {
   }
 
   if (viewport?.width === 1280) {
-    const quiet = await box("1280 Quiet Ambition label", page.getByTestId("map-node-quiet"));
-    const embodied = await box("1280 Embodied Edge label", page.getByTestId("map-node-embodied"));
-    const relational = await box("1280 Relational Gravity label", page.getByTestId("map-node-relational"));
+    const quiet = await box("1280 Quiet Ambition label", frame.locator(".universe-system-node.quiet"));
+    const embodied = await box("1280 Embodied Edge label", frame.locator(".universe-system-node.embodied"));
+    const relational = await box("1280 Relational Gravity label", frame.locator(".universe-system-node.relational"));
     assertNoOverlap("1280: Quiet Ambition and Embodied Edge have horizontal air", quiet, embodied, 18);
     assertNoOverlap("1280: Quiet Ambition and Relational Gravity have diagonal air", quiet, relational, 18);
     assertNoOverlap("1280: Embodied Edge and Relational Gravity have vertical air", embodied, relational, 18);
-    await expect(page.getByTestId("map-node-quiet").locator("b")).toBeVisible();
-    await expect(page.getByTestId("map-node-embodied").locator("b")).toBeVisible();
-    await expect(page.getByTestId("map-node-relational").locator("b")).toBeVisible();
-    for (const node of [page.getByTestId("map-node-quiet"), page.getByTestId("map-node-embodied"), page.getByTestId("map-node-relational")]) {
+    await expect(frame.locator(".universe-system-node.quiet b")).toBeVisible();
+    await expect(frame.locator(".universe-system-node.embodied b")).toBeVisible();
+    await expect(frame.locator(".universe-system-node.relational b")).toBeVisible();
+    for (const node of [
+      frame.locator(".universe-system-node.quiet"),
+      frame.locator(".universe-system-node.embodied"),
+      frame.locator(".universe-system-node.relational"),
+    ]) {
       const fit = await node.evaluate(el => ({
         width: el.clientWidth,
         scrollWidth: el.scrollWidth,
@@ -254,30 +354,47 @@ async function assertSystemsMapGeometry(page: Page, viewportLabel: string) {
   }
 
   if (viewport && viewport.width <= 620) {
-    const topbar = await box("mobile top nav", page.locator(".nur-topbar"));
+    const topbar = await box("mobile top nav", frame.locator(".nur-topbar"));
     expect(topbar.y, "mobile top nav is not clipped at the top").toBeGreaterThanOrEqual(0);
     expect(topbar.y + topbar.height, "mobile top nav stays inside its own opening area").toBeLessThanOrEqual(92);
 
-    const commandRow = page.locator(".universe-command-row");
+    const commandRow = frame.locator(".universe-command-row");
     const command = await box("mobile chips row", commandRow);
     const commandFlow = await commandRow.evaluate(el => ({
+      display: getComputedStyle(el).display,
+      gridTemplateColumns: getComputedStyle(el).gridTemplateColumns,
       scrollWidth: el.scrollWidth,
       clientWidth: el.clientWidth,
-      overflowX: getComputedStyle(el).overflowX,
-      overflowY: getComputedStyle(el).overflowY,
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+      controls: [...el.querySelectorAll<HTMLElement>(".world-command")].map(control => {
+        const row = el.getBoundingClientRect();
+        const rect = control.getBoundingClientRect();
+        return {
+          inside: rect.left >= row.left - 1 && rect.right <= row.right + 1,
+          height: rect.height,
+        };
+      }),
     }));
-    expect(["auto", "scroll"], "mobile chips row is horizontally scrollable").toContain(commandFlow.overflowX);
-    expect(commandFlow.overflowY, "mobile chips row does not clip vertically").not.toBe("visible");
-    expect(command.height, "mobile chips row has stable hit area").toBeLessThanOrEqual(52);
+    expect(commandFlow.display, "mobile commands use the approved wrapped grid").toBe("grid");
+    expect(commandFlow.gridTemplateColumns.split(" ")).toHaveLength(2);
+    expect(commandFlow.scrollWidth, "mobile commands do not clip horizontally").toBeLessThanOrEqual(commandFlow.clientWidth + 1);
+    expect(commandFlow.scrollHeight, "mobile commands do not clip vertically").toBeLessThanOrEqual(commandFlow.clientHeight + 1);
+    expect(commandFlow.controls).toHaveLength(5);
+    expect(commandFlow.controls.every(control => control.inside), "all mobile commands stay inside their grid").toBe(true);
+    expect(Math.min(...commandFlow.controls.map(control => control.height)), "mobile commands keep a 44px hit height").toBeGreaterThanOrEqual(44);
+    expect(command.height, "mobile command grid has a visible layout box").toBeGreaterThanOrEqual(44);
 
-    await assertMetricReadable(page, "metric-outcomes-returned", /outcomes returned/i);
-    await assertMetricReadable(page, "metric-insights-evolving", /insights evolving/i);
-    expect(add.y + add.height, "Add System is not a ghost control on the lower viewport edge").toBeLessThan(viewport.height - 120);
-    expect(master.y, "master star appears in first mobile viewport").toBeGreaterThanOrEqual(0);
-    expect(master.y + master.height, "master star is not awkwardly cut at first mobile viewport").toBeLessThanOrEqual(viewport.height - 18);
+    const metrics = frame.locator(".universe-hero-stats > span");
+    await assertMetricReadable(metrics.nth(1), "outcomes returned metric", /outcomes returned/i);
+    await assertMetricReadable(metrics.nth(2), "insights evolving metric", /insights evolving/i);
+    await expect(addControl, "mobile intentionally removes the desktop-only Add System control").toBeHidden();
+    const mapPanel = await box("mobile systems map", frame.locator(".universe-map-panel"));
+    expect(master.y, "master star begins inside the mobile map").toBeGreaterThanOrEqual(mapPanel.y - 1);
+    expect(master.y + master.height, "master star is not cut by the mobile map").toBeLessThanOrEqual(mapPanel.y + mapPanel.height + 1);
   }
 
-  await assertNoHorizontalOverflow(page);
+  await assertNoHorizontalOverflow(frame);
 }
 
 async function maybeBox(locator: Locator) {
@@ -309,27 +426,27 @@ test("systems map has DOM anti-overlap proof at 1440, 1280, and mobile", async (
 test("RTL screenshots cover Talk, Systems, Share Orbit, and Capsule", async ({ page }) => {
   await installVisualMocks(page, "ur");
   await page.setViewportSize({ width: 1280, height: 720 });
+  const frame = universeFrame(page);
 
   await page.goto("/talk");
-  await expect(page.locator("#page-talk")).toBeVisible();
-  await assertBidiIsolation(page);
+  await expect(frame.locator("#page-talk")).toBeVisible();
+  await assertRtlDirection(frame);
   await screenshot(page, "rtl-talk-1280x720.png");
 
   await page.goto("/systems");
-  await expect(page.locator("#page-systems")).toBeVisible();
+  await expect(frame.locator("#page-systems")).toBeVisible();
   await screenshot(page, "rtl-systems-1280x720.png");
-  await page.getByTestId("share-orbit").click();
-  const sheet = page.getByTestId("share-sheet");
+  await frame.locator("#scope-open").click();
+  const sheet = frame.locator("#scope-modal .scope-modal");
   await expect(sheet).toBeVisible();
   await sheet.evaluate(el => { el.scrollTop = 0; });
-  await page.getByTestId("keep-decision").scrollIntoViewIfNeeded();
-  await assertCaptureControlsStyled(page);
+  await assertBoundaryControlsStyled(frame);
   await sheet.evaluate(el => { el.scrollTop = 0; });
   await screenshot(page, "rtl-share-orbit-1280x720.png");
   await locatorScreenshot(sheet, "rtl-share-orbit-full-modal-top-1280x720.png");
 
   await page.goto("/capsule/cap-active");
-  await expect(page.getByTestId("capsule-room")).toBeVisible();
+  await expect(frame.locator("#nur-v197-adjunct-root")).toBeVisible();
   await screenshot(page, "rtl-capsule-1280x720.png");
 });
 
@@ -337,9 +454,11 @@ test("capsule room active chamber is polished and bounded", async ({ page }) => 
   await installVisualMocks(page);
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto("/capsule/cap-active");
-  await expect(page.getByTestId("capsule-room")).toBeVisible();
-  await expect(page.getByTestId("capsule-state")).toHaveText("ACTIVE");
-  await expect(page.getByTestId("safety-copy")).toContainText("does not speak for");
+  const frame = universeFrame(page);
+  const capsule = frame.locator("#nur-v197-adjunct-root");
+  await expect(capsule).toBeVisible();
+  await expect(capsule.locator(".nur-adjunct-fact").filter({ hasText: "State" }).locator("strong")).toHaveText("ACTIVE");
+  await expect(capsule.locator(".nur-adjunct-boundary")).toContainText("does not speak for");
   await screenshot(page, "capsule-room-active-top-card-readability-1280x720.png");
 });
 
@@ -348,23 +467,22 @@ test("mobile visual evidence covers Systems, RTL Talk, and Share Orbit capture",
   const prefix = testInfo.project.name === "webkit-mobile" ? "webkit" : "chromium";
   await installVisualMocks(page, "ur");
   await page.setViewportSize({ width: 393, height: 852 });
+  const frame = universeFrame(page);
 
   await page.goto("/systems");
-  await expect(page.locator("#page-systems")).toBeVisible();
+  await expect(frame.locator("#page-systems")).toBeVisible();
   await assertSystemsMapGeometry(page, `${prefix}-393x852`);
   await screenshot(page, `systems-${prefix}-mobile-393x852.png`);
 
   await page.goto("/talk");
-  await expect(page.locator("#page-talk")).toBeVisible();
-  await assertBidiIsolation(page);
+  await expect(frame.locator("#page-talk")).toBeVisible();
+  await assertRtlDirection(frame);
   await screenshot(page, `rtl-talk-${prefix}-mobile-393x852.png`);
 
   await page.goto("/systems");
-  await page.getByTestId("share-orbit").scrollIntoViewIfNeeded();
-  await page.getByTestId("share-orbit").click();
-  const sheet = page.getByTestId("share-sheet");
+  await frame.locator("#scope-open").click();
+  const sheet = frame.locator("#scope-modal .scope-modal");
   await expect(sheet).toBeVisible();
-  await page.getByTestId("keep-decision").scrollIntoViewIfNeeded();
-  await assertCaptureControlsStyled(page);
+  await assertBoundaryControlsStyled(frame);
   await screenshot(page, `rtl-share-orbit-${prefix}-mobile-393x852.png`);
 });

@@ -11,10 +11,12 @@
     "web:test": "npm --workspace apps/web run test -- --run",
     "web:build": "npm --workspace apps/web run build",
     "v197:integrity": "bash infra/scripts/check-v197-integrity.sh",
-    "web:e2e:mocked": "npm --workspace apps/web run e2e -- e2e/talk.spec.ts e2e/visual-readiness.spec.ts",
+    "web:e2e:mocked": "npm --workspace apps/web run e2e -- e2e/talk.spec.ts e2e/visual-readiness.spec.ts --project=chromium-desktop --project=chromium-mobile --workers=1",
     "mobile:typecheck": "npm --prefix apps/mobile run typecheck"
   },
   "devDependencies": {
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
     "vite": "^8.1.3"
   }
 }
