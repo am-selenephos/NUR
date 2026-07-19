@@ -429,27 +429,37 @@ async function maybeBox(locator: Locator) {
   return box("optional system field", locator.first());
 }
 
-test("systems map has DOM anti-overlap proof at 1440, 1280, and mobile", async ({ page }, testInfo) => {
+test("systems map has DOM anti-overlap proof at primary desktop and mobile breakpoints", async ({ page }, testInfo) => {
   await installVisualMocks(page);
-
-  if (testInfo.project.name.endsWith("-mobile")) {
-    await page.setViewportSize({ width: 393, height: 852 });
-    await page.goto("/systems");
-    await assertSystemsMapGeometry(page, "393x852");
+  const mobileProject = testInfo.project.name.endsWith("-mobile");
+  const viewport = mobileProject ? { width: 393, height: 852 } : { width: 1440, height: 900 };
+  const label = mobileProject ? "393x852" : "1440x900";
+  await page.setViewportSize(viewport);
+  await page.goto("/systems");
+  await assertSystemsMapGeometry(page, label);
+  if (mobileProject) {
     await screenshot(page, "systems-overlap-proof-393x852.png");
     await screenshot(page, "systems-mobile-clean-393x852.png");
-    return;
+  } else {
+    await screenshot(page, "systems-overlap-proof-1440x900.png");
   }
+});
 
-  await page.setViewportSize({ width: 1440, height: 900 });
+test("systems map keeps label breathing at secondary desktop and mobile breakpoints", async ({ page }, testInfo) => {
+  await installVisualMocks(page);
+  const mobileProject = testInfo.project.name.endsWith("-mobile");
+  const viewport = mobileProject ? { width: 430, height: 932 } : { width: 1280, height: 720 };
+  const label = mobileProject ? "430x932" : "1280x720";
+  await page.setViewportSize(viewport);
   await page.goto("/systems");
-  await assertSystemsMapGeometry(page, "1440x900");
-  await screenshot(page, "systems-overlap-proof-1440x900.png");
-
-  await page.setViewportSize({ width: 1280, height: 720 });
-  await assertSystemsMapGeometry(page, "1280x720");
-  await screenshot(page, "systems-overlap-proof-1280x720.png");
-  await screenshot(page, "systems-1280-label-breathing.png");
+  await assertSystemsMapGeometry(page, label);
+  if (mobileProject) {
+    await screenshot(page, "systems-overlap-proof-430x932.png");
+    await screenshot(page, "systems-mobile-clean-430x932.png");
+  } else {
+    await screenshot(page, "systems-overlap-proof-1280x720.png");
+    await screenshot(page, "systems-1280-label-breathing.png");
+  }
 });
 
 test("RTL screenshots cover Talk, Systems, Share Orbit, and Capsule", async ({ page }, testInfo) => {

@@ -9,7 +9,11 @@ export default defineConfig({
   timeout: 30_000,
   retries: process.env.CI ? 1 : 0,
   reporter: [["list"], ["html", { open: "never" }]],
-  use: { baseURL: "http://localhost:4173", trace: "retain-on-failure" },
+  use: {
+    baseURL: "http://localhost:4173",
+    serviceWorkers: "block",
+    trace: "retain-on-failure",
+  },
   projects: [
     { name: "chromium-desktop", use: { ...devices["Desktop Chrome"] } },
     { name: "chromium-mobile", use: { ...devices["Pixel 5"] } },
