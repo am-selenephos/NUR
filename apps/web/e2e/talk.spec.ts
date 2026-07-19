@@ -72,6 +72,30 @@ async function installTalkMocks(page: Page, opts: { providerAvailable: boolean }
     writing_preference: "default",
     timezone: "UTC",
   }));
+  await page.route("**/healthz", route => json(route, { status: "ok" }));
+  await page.route("**/api/v1/universe/live", route => json(route, null));
+  await page.route("**/api/v1/universe/map-summary", route => json(route, null));
+  await page.route("**/api/v1/universe/orbits-summary", route => json(route, null));
+  await page.route("**/api/v1/universe/timeline", route => json(route, null));
+  await page.route("**/api/v1/map", route => json(route, null));
+  await page.route("**/api/v1/glow/scoreboard", route => json(route, null));
+  await page.route("**/api/v1/glow/summary", route => json(route, {
+    balance: 0,
+    lifetime_points: 0,
+    today_points: 0,
+    weekly_points: 0,
+    level: 1,
+    rank: "Orbit Seed",
+    next_unlock: null,
+    recent_transactions: [],
+    streaks: [],
+    achievements: [],
+    daily_quest: {},
+    weekly_mission: {},
+  }));
+  await page.route("**/api/v1/research/briefs", route => json(route, []));
+  await page.route("**/api/v1/projects/summary", route => json(route, null));
+  await page.route("**/api/v1/community/rooms", route => json(route, []));
   await page.route("**/api/v1/orbits/current-state", route => json(route, {
     active_systems: 1, outcomes_returned: outcomePosts, insights_evolving: 0,
     open_questions: 0, research_staged: 0, plans_active: 0, live_status: "owner_ledger",

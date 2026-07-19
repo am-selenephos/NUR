@@ -48,7 +48,7 @@ function proofPath(name: string) {
 async function screenshot(page: Page, name: string) {
   const path = proofPath(name);
   await mkdir(dirname(path), { recursive: true });
-  await page.screenshot({ path, fullPage: false });
+  await page.screenshot({ path, fullPage: false, animations: "disabled" });
 }
 
 async function locatorScreenshot(locator: Locator, name: string) {
@@ -87,6 +87,31 @@ async function installVisualMocks(page: Page, locale = "en") {
     writing_preference: "default",
     timezone: "UTC",
   }));
+  await page.route("**/healthz", route => json(route, { status: "ok" }));
+  await page.route("**/api/v1/universe/live", route => json(route, null));
+  await page.route("**/api/v1/universe/map-summary", route => json(route, null));
+  await page.route("**/api/v1/universe/orbits-summary", route => json(route, null));
+  await page.route("**/api/v1/universe/timeline", route => json(route, null));
+  await page.route("**/api/v1/universe/insights-summary", route => json(route, null));
+  await page.route("**/api/v1/map", route => json(route, null));
+  await page.route("**/api/v1/glow/scoreboard", route => json(route, null));
+  await page.route("**/api/v1/glow/summary", route => json(route, {
+    balance: 0,
+    lifetime_points: 0,
+    today_points: 0,
+    weekly_points: 0,
+    level: 1,
+    rank: "Orbit Seed",
+    next_unlock: null,
+    recent_transactions: [],
+    streaks: [],
+    achievements: [],
+    daily_quest: {},
+    weekly_mission: {},
+  }));
+  await page.route("**/api/v1/research/briefs", route => json(route, []));
+  await page.route("**/api/v1/projects/summary", route => json(route, null));
+  await page.route("**/api/v1/community/rooms", route => json(route, []));
   await page.route("**/api/v1/orbits/current-state", route => json(route, {
     active_systems: 1,
     outcomes_returned: 2,
@@ -404,8 +429,17 @@ async function maybeBox(locator: Locator) {
   return box("optional system field", locator.first());
 }
 
-test("systems map has DOM anti-overlap proof at 1440, 1280, and mobile", async ({ page }) => {
+test("systems map has DOM anti-overlap proof at 1440, 1280, and mobile", async ({ page }, testInfo) => {
   await installVisualMocks(page);
+
+  if (testInfo.project.name.endsWith("-mobile")) {
+    await page.setViewportSize({ width: 393, height: 852 });
+    await page.goto("/systems");
+    await assertSystemsMapGeometry(page, "393x852");
+    await screenshot(page, "systems-overlap-proof-393x852.png");
+    await screenshot(page, "systems-mobile-clean-393x852.png");
+    return;
+  }
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/systems");
@@ -416,38 +450,36 @@ test("systems map has DOM anti-overlap proof at 1440, 1280, and mobile", async (
   await assertSystemsMapGeometry(page, "1280x720");
   await screenshot(page, "systems-overlap-proof-1280x720.png");
   await screenshot(page, "systems-1280-label-breathing.png");
-
-  await page.setViewportSize({ width: 393, height: 852 });
-  await assertSystemsMapGeometry(page, "393x852");
-  await screenshot(page, "systems-overlap-proof-393x852.png");
-  await screenshot(page, "systems-mobile-clean-393x852.png");
 });
 
-test("RTL screenshots cover Talk, Systems, Share Orbit, and Capsule", async ({ page }) => {
+test("RTL screenshots cover Talk, Systems, Share Orbit, and Capsule", async ({ page }, testInfo) => {
   await installVisualMocks(page, "ur");
-  await page.setViewportSize({ width: 1280, height: 720 });
+  const mobileProject = testInfo.project.name.endsWith("-mobile");
+  const viewport = mobileProject ? { width: 393, height: 852 } : { width: 1280, height: 720 };
+  const suffix = mobileProject ? "mobile-393x852" : "1280x720";
+  await page.setViewportSize(viewport);
   const frame = universeFrame(page);
 
   await page.goto("/talk");
   await expect(frame.locator("#page-talk")).toBeVisible();
   await assertRtlDirection(frame);
-  await screenshot(page, "rtl-talk-1280x720.png");
+  await screenshot(page, `rtl-talk-${suffix}.png`);
 
   await page.goto("/systems");
   await expect(frame.locator("#page-systems")).toBeVisible();
-  await screenshot(page, "rtl-systems-1280x720.png");
+  await screenshot(page, `rtl-systems-${suffix}.png`);
   await frame.locator("#scope-open").click();
   const sheet = frame.locator("#scope-modal .scope-modal");
   await expect(sheet).toBeVisible();
   await sheet.evaluate(el => { el.scrollTop = 0; });
   await assertBoundaryControlsStyled(frame);
   await sheet.evaluate(el => { el.scrollTop = 0; });
-  await screenshot(page, "rtl-share-orbit-1280x720.png");
-  await locatorScreenshot(sheet, "rtl-share-orbit-full-modal-top-1280x720.png");
+  await screenshot(page, `rtl-share-orbit-${suffix}.png`);
+  await locatorScreenshot(sheet, `rtl-share-orbit-full-modal-top-${suffix}.png`);
 
   await page.goto("/capsule/cap-active");
   await expect(frame.locator("#nur-v197-adjunct-root")).toBeVisible();
-  await screenshot(page, "rtl-capsule-1280x720.png");
+  await screenshot(page, `rtl-capsule-${suffix}.png`);
 });
 
 test("capsule room active chamber is polished and bounded", async ({ page }) => {
