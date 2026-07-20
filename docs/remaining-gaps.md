@@ -1,6 +1,7 @@
 # Remaining Gaps
 
-Date: 2026-07-13
+Date: 2026-07-13 · Updated: 2026-07-20 (Fable final-readiness pass on
+`build-week-submission` @ `c823512`)
 
 ## Honest gaps after the V197 adjunct, Consultation, Projects and notification gates
 
@@ -30,9 +31,23 @@ Date: 2026-07-13
 8. Real WebKit mobile proof runs in the official Playwright container; it is
    not relabelled Chromium. Fresh reruns remain part of the final gate after
    each visible-surface change.
-9. There is no Git metadata in this workspace. The Fable pre-recovery tar/SHA
-   checkpoint (`NUR_FABLE_CHECKPOINT_20260712_pre-recovery.tar.gz`,
-   SHA-256 `646c3117…5f73db`) is the exact changed-file baseline.
+9. (Superseded 2026-07-20: this workspace is a Git clone of
+   `am-selenephos/NUR` at submission SHA `c823512`; the 2026-07-12 tar/SHA
+   checkpoint note applied to the earlier non-Git recovery workspace only.)
+10. Capsule creation (source selection, representation choice, recipient
+   grant) is owner-API-level in this beta: the React share sheet was retired
+   with the frontend forensic rebuild and no V197-native creation surface
+   replaced it yet. The recipient room, owner lifecycle/audit/revoke room,
+   and the two-account browser lifecycle proof (`e2e/capsule.spec.ts`) all
+   run against the live V197 surface.
+11. A tail of pre-rebuild Playwright specs (auth, landing-auth partly,
+   full-interface, omega-research, talk-persistence, universe-lenses,
+   v197-host-parity) still targets the retired React routes or the
+   Phase 1 404-law and fails on the current shell. They are retained
+   unmodified pending a founder decision on retirement; the surfaces they
+   covered are proven by the current-generation specs instead.
+   `sol-live-new-surfaces` additionally requires a configured OpenAI
+   runtime and is only provable in openai mode.
 
 ## Verdict boundary
 

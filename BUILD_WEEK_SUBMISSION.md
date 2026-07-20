@@ -48,11 +48,15 @@ The submission deliberately demonstrates one complete vertical slice rather than
 5. Open the retrieved evidence and verification state.
 6. Convert the next move into a persisted Plan.
 7. Save one explicit Decision and one Reference.
-8. Open **Share Orbit**.
-9. Select only the Decision for inclusion.
-10. Leave the Reference excluded.
-11. Choose the representation: full, owner-approved summary, or metadata only.
-12. Create a named recipient grant with a capability and optional expiry.
+8. Approve only the Decision as a Capsule source, leave the Reference
+   withheld, choose the representation (full, owner-approved summary, or
+   metadata only), and create a named recipient grant with a capability and
+   optional expiry. In this beta the selection itself is owner-API-level
+   (the demo seed provides a ready capsule; the React share sheet was
+   retired with the frontend rebuild), and the browser lifecycle proof
+   (`apps/web/e2e/capsule.spec.ts`) exercises it end to end.
+9. Open the owner capsule room (`/capsule/<id>`) to show the lifecycle
+   state, the access audit, and the live **Revoke now** control.
 
 ### Recipient flow
 

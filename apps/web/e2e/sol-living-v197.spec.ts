@@ -87,6 +87,9 @@ test("SOL living backend hydrates and moves the exact V197 presentation", async 
 
   await expect(page.locator("#root")).toHaveCount(0);
   const universe = page.frameLocator("#nur-universe-stage");
+  // The authenticated universe lands on Today; open Systems deliberately.
+  await expect(universe.locator("#page-today")).toBeVisible({ timeout: 20_000 });
+  await universe.locator('[data-page="systems"]:visible').first().click();
   await expect(universe.locator("#page-systems")).toBeVisible();
   await expect(universe.locator(".universe-system-node:visible")).toHaveCount(7);
   await expect(universe.locator(".universe-system-node b")).toHaveText([
@@ -153,12 +156,14 @@ test("SOL living backend hydrates and moves the exact V197 presentation", async 
     if (!move || move.title.startsWith("Return to:")) break;
     const control = universe.locator('[data-action="today-missed-it"]');
     await control.click();
-    // Duplicate titles cannot signal progress; wait for the persisted next
-    // move to change and the control's refresh to finish before re-clicking.
+    // Duplicate titles cannot signal progress; wait until the persisted next
+    // move changes — or the SAME action legitimately returns as the
+    // "Return to:" target (missing the final open action re-surfaces it).
     await expect.poll(async () => page.evaluate(async () => {
       const response = await fetch("/api/v1/today");
-      const body = await response.json() as { next_move: { id: string } | null };
-      return body.next_move?.id ?? "none";
+      const body = await response.json() as { next_move: { id: string; title: string } | null };
+      const returned = body.next_move?.title.startsWith("Return to:") ?? false;
+      return returned ? "returned" : body.next_move?.id ?? "none";
     })).not.toBe(move.id);
     await expect(control).not.toHaveAttribute("aria-busy", "true");
   }
@@ -209,8 +214,12 @@ test("SOL living backend hydrates and moves the exact V197 presentation", async 
   await universe.locator('[data-world-tab="timeline"]').click();
   await expect(page).toHaveURL(/\/universe\/timeline$/);
   await expect(universe.locator(".universe-insight-panel")).toContainText(/completed|checkin|diagnostic/i);
+  // The demo owner's ledger legitimately accumulates across runs; the law is
+  // that the composed timeline SURFACES these kinds, so it is asserted over
+  // the endpoint's full documented window (limit caps at 200), not the
+  // default newest-80 slice that fresh recent events crowd out.
   const timelineKinds = await page.evaluate(async () => {
-    const response = await fetch("/api/v1/universe/timeline");
+    const response = await fetch("/api/v1/universe/timeline?limit=200");
     const body = await response.json() as { items: Array<{ kind: string }> };
     return body.items.map(row => row.kind);
   });
