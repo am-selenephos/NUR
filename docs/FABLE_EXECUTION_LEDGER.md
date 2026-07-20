@@ -277,6 +277,174 @@ openai mode.
 - **Final:** full serial chromium battery **16 passed / 0 failed** (disabled
   proof mode); typecheck clean; runtime restored to openai with gates green.
 
+## Entry 16 — Final-readiness verification on the exact submission SHA (2026-07-20)
+
+- **Workspace:** fresh single-branch clone of `build-week-submission` @
+  `c823512` in an isolated copy (`fable/final-readiness-20260720-155600`);
+  the original working repositories were not touched. Infra ran isolated
+  under `.nur-runtime/` (local PostgreSQL 18.4 on :5544, Valkey on :6390);
+  no system service or Docker container was created or modified.
+- **Baseline (before any edit):** ruff clean · backend pytest **82/82** on a
+  fresh `nur_test` migrated 0001→**0021** by the suite · web typecheck clean ·
+  vitest **63/63** · production build clean · mobile typecheck clean ·
+  `npm audit --audit-level=high` 0 findings · V197 integrity hashes PASS ·
+  secret scan PASS · runtime healthy in disabled mode with demo seed.
+- **First full browser acceptance of the rebuilt shell:** the frontend
+  forensic rebuild (docs/38) recorded that its sandbox could never bind
+  localhost, so its e2e batteries were "not claimed as passed". The full
+  31-spec chromium-desktop battery on this SHA: **48 passed / 27 failed**.
+  Every failure was diagnosed and classified below; none was left unread.
+
+## Entry 17 — Owner session star invisible (BROKEN in product → fixed)
+
+- **Issue:** the canonical file's final patch layer ships
+  `body.universe-edition .nur-user { display:none !important }`. The old
+  React lens layer that used to surface the owner control was deleted in the
+  consolidation (`f8ddd7a`), and no bridge layer re-opened the canonical
+  star — so the authenticated product had **no reachable owner session
+  chamber and no sign-out**. Three independent specs (button-registry,
+  presentation-auth-recovery, landing-auth) failed on exactly this.
+- **Repair:** bridge polish rule (no canonical byte edits, the entry-10
+  precedent): `body.universe-edition #nur-front-v61 .universe-top-tools >
+  .nur-user { display:grid !important }` — higher specificity re-opens the
+  control; canonical star artwork renders as designed. The canonical
+  placeholder identity ("Amina Rahman", an invented person announced to
+  screen readers) is now overwritten with the real session owner
+  (`v197Mutations.ts`, text-only contract preserved).
+- **Verified live:** star renders 38×38, `aria-label` = the session owner's
+  chosen name, click opens `#nur-v197-owner-auth-menu`, sign-out visible.
+- **Files:** `apps/web/src/styles/v197-cosmic-skin.css`,
+  `apps/web/src/bridge/v197Mutations.ts`, `apps/web/src/bridge/v197Selectors.ts`.
+
+## Entry 18 — Capsule two-account browser proof restored to the live surface
+
+- **Issue:** `e2e/capsule.spec.ts` — the proof named by the Build Week live
+  gate — still drove the retired React landing (`tab-register`) and share
+  sheet, so the documented gate could never run on this commit. Capsule
+  *creation* UI died with the React tree (now an honest gap, see
+  `docs/remaining-gaps.md` #10); the recipient room and the owner
+  lifecycle/audit/revoke room are live V197 adjunct surfaces.
+- **Repair:** rewrote the spec against the current product: two real browser
+  contexts (owner + recipient), owner mints Decision/Reference/sources/
+  capsule/grant through the live CSRF-protected owner API, owner room shows
+  ACTIVE + enabled revoke, recipient room proves included-source content,
+  the withheld reference (visible boundary row, body never leaks), a scoped
+  question with a persisted source-bound answer, owner revokes through the
+  exact V197 control, recipient reload shows the distinct REVOKED terminal
+  state with the question composer gone.
+- **Files:** `apps/web/e2e/capsule.spec.ts`. **Green** against the live
+  runtime.
+
+## Entry 19 — Proof drift vs. the consolidated shell (specs repaired, laws kept)
+
+- Post-login lands on **Today** (founder-updated law in button-registry);
+  `community-group-nur` and `sol-living-v197` still expected the old
+  Systems landing — aligned, with Systems opened deliberately.
+- The founder's deliberate wordmark/subtitle ink-nudge (`7216239`) was
+  encoded in `v197-star-brain.spec.ts` but not in `fresh-signup.spec.ts`;
+  its center assertion now measures untranslated centers (verified: raw
+  delta 6.78px is exactly the two approved nudges; untranslated delta
+  0.000001px).
+- The deterministic static starfield was superseded by the canonical
+  `space3d` galaxy rig (`815abe7`/`4bfdb87`); fresh-signup now asserts the
+  live sky contract (deep signal proof stays in
+  `v197-cool-black-galaxy-mandate.spec.ts`).
+- System rail rows and world tabs lead with canonical native glyphs
+  ("✦ Quiet Ambition", "◌ Map") per the rebuild's native-glyph restoration;
+  `track-a-sellable` now asserts the title spans / label tail.
+- `sol-living-v197`'s miss-loop poll rejected the legitimate same-id
+  "Return to:" transition when the ledger holds exactly one open action —
+  now accepts either progress signal without weakening the no-progress
+  failure.
+- **Product geometry fix:** `.universe-map-title` carried a fixed 560px box
+  that overlapped the field-readout and Add-system boxes at 1440 (the map
+  no-overlap law) while its centered glyphs needed ~237px — now
+  `width:fit-content` with the same centering (verified: 0.4px center
+  delta, zero overlaps).
+- The map-lens star-clearance law (`creation.top - star.bottom >= 16`)
+  predates the deliberate star-brain chamber enlargement (560×460 max,
+  `f8ddd7a`; nodes render above it at z-index 7 vs 3). The law now asserts
+  what it always protected — the Creation node must not be BURIED — via an
+  `elementFromPoint` hit-test on the node label (scroll-aware for short
+  viewports). The map wordmark/subtitle ≤1px center laws also gained the
+  same ink-compensation as the entry lockup (the map wordmark carries the
+  founder's `.0595em` nudge ≈ 3.7px at 62px).
+
+## Entry 20 — Superseded spec tail classified (not chased)
+
+19 of the 27 baseline failures target retired surfaces: `auth`,
+`full-interface` (2), `omega-research` (3), `talk-persistence` (2),
+`universe-lenses` (4), `v197-host-parity` (6 — Phase 1 laws such as
+"/settings must 404" that later adjunct phases legitimately superseded),
+and `sol-live-new-surfaces` (1 — requires a configured OpenAI runtime,
+unprovable in this keyless workspace). Retained unmodified pending a
+founder decision (the entry-14 precedent); their surfaces are covered by
+the current-generation specs. `landing-auth` and
+`presentation-auth-recovery` healed fully once the owner star was repaired.
+
+## Entry 21 — Environment honesty (2026-07-20 host)
+
+- This host's shared pip/uv caches contain instrumented wheels from
+  unrelated tooling (injected `logging.basicConfig` lines and orphan
+  `*.patched.py` files that break `from __future__` ordering — httpx,
+  httpcore, websockets, pygments and others). The backend venv was rebuilt
+  with `--no-cache` downloads and verified clean; nothing of this touches
+  the repository itself, but any future venv built on this host from the
+  shared cache will inherit the corruption.
+- The live OpenAI gate (`build-week-gate.sh live`, `openai-smoke-local.sh`)
+  requires the ignored `.env.local` key, which this isolated workspace
+  deliberately does not contain. OpenAI-mode claims in this ledger remain
+  those of the earlier runs; nothing new is claimed for openai mode.
+
+## Entry 22 — Full-matrix rerun caught one regression in this pass's own fix
+
+- **Rerun (all gates, post-repair tree):** ruff clean · backend pytest
+  **82/82** (fresh DB 0001→0021, real role split, test Redis on db 1 so the
+  live runtime's db 0 stays untouched) · web typecheck clean · vitest
+  **63/63** · production build clean · mobile typecheck clean (direct `tsc`;
+  `apps/mobile` is deliberately not an npm workspace) · `npm audit
+  --audit-level=high` 0 findings · V197 integrity PASS · secret scan PASS.
+- **Regression caught (entry-19's own map-title fix):** `width: fit-content`
+  on `.universe-map-title` broke star-centering at phone-portrait widths
+  (360/390/430: deltas 40.8–46.8px) — at and below the canonical 720px
+  breakpoint the title flows in-document (`position: relative`, no
+  translate) and needs the full-width box. The fit-content overlap fix is
+  now scoped to `@media (min-width: 721px)`; browser probe shows **0.0px
+  delta at all 11 measured widths** (360→2560) with the 1440 no-overlap law
+  still holding. `v197-responsive-accessibility` (which passed on pristine
+  c823512 and had silently regressed) is green again — the full-battery
+  rerun is what surfaced it.
+- **Spec instrumentation defect (entry-19 repair):** `masterStarClearance`'s
+  creation hit-test called `scrollIntoView` and restored only
+  `.nur-viewport`, but the browser scrolls the map panel itself; later
+  probes reused pre-scroll coordinates and elementFromPoint hit the
+  star-brain canvas. Every scrolled ancestor (plus the document scroller) is
+  now saved and restored. Both track-a-sellable journeys green, including
+  the 1440 persistence test that had never executed (it sat behind the
+  first failure in serial mode).
+- **Accumulated-state repair:** the demo owner's composed timeline
+  legitimately outgrew the newest-80 default window across battery reruns,
+  crowding out the boot-seeded FEASIBILITY_CREATED / PREDICTION_MADE items;
+  `sol-living-v197` now asserts the surfacing law over the endpoint's full
+  documented window (`?limit=200`). No assertion was weakened.
+- **Files:** `apps/web/src/styles/v197-cosmic-skin.css`,
+  `apps/web/e2e/track-a-sellable.spec.ts`, `apps/web/e2e/sol-living-v197.spec.ts`.
+- **Flake note:** `v197-adjuncts` Consultation (fully mocked) timed out once
+  on a 5s write-poll mid-battery, then passed in isolation and in the
+  confirming battery; recorded as an intermittent timing flake, not chased
+  with a product edit.
+- **Definitive batteries (full 31-spec chromium-desktop, serial, disabled
+  provider):** two consecutive runs each ended **57 passed / 16 failed / 8
+  skipped**. Every current-generation spec was green simultaneously in the
+  confirming run; every failure sat inside the classified pre-rebuild tail
+  (entry 20: auth, full-interface ×2, talk-persistence ×2, universe-lenses
+  ×4, v197-host-parity, and keyless sol-live-new-surfaces). The host-parity
+  Phase-1 geometry test (`:180`) flickers pass/fail between runs — it
+  compares the superseded Phase-1 canonical against the current shell and
+  is part of that same retained-pending-founder-decision tail either way.
+  Skips are structural: 3 omega-research flag-gated specs, the explicit
+  `NUR_G04_SOAK=1` release soak, and project-scoped mobile/WebKit journeys.
+
 ## Remaining risks / honest notes
 
 - Glow idempotency is key-based; a caller inventing new keys against the same

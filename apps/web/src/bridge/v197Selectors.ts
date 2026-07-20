@@ -9,6 +9,7 @@ export const V197_SELECTORS = {
   contextTitle: "[data-context-title]",
   boundaryName: ".v172-boundary-current b",
   liveFeed: ".page-kicker",
+  ownerStar: ".universe-top-tools > .nur-user",
   mapNodes: ".universe-system-node",
 } as const;
 

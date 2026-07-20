@@ -1758,6 +1758,19 @@ body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-title {
   text-align: center !important;
 }
 
+/* Fit the lockup itself: a fixed 560px box overlapped the field readout
+   and Add-system boxes at 1440 (the no-overlap map law), while the
+   centered glyphs never needed the width. Desktop only: at and below the
+   canonical 720px breakpoint the title flows in-document (`position:
+   relative`, no translate) and needs the full-width box to stay
+   star-centered. */
+@media (min-width: 721px) {
+  body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-title {
+    width: fit-content !important;
+    max-width: min(560px, 72%) !important;
+  }
+}
+
 body.universe-edition #nur-front-v61 .universe-map-panel .universe-map-title > .nur-master-subtitle {
   display: block !important;
   grid-column: 1 !important;
@@ -2550,6 +2563,14 @@ body.universe-edition #nur-front-v61 .universe-top-tools {
 
 body.universe-edition #nur-front-v61 .universe-top-tools > :is(button, .nur-user, label) {
   min-height: 36px !important;
+}
+
+/* The final canonical patch layer hides .nur-user entirely
+   (`body.universe-edition .nur-user { display:none !important }`), but the
+   bridge owns the owner session chamber behind this control — without it the
+   owner menu and sign-out are unreachable. Higher specificity re-opens it. */
+body.universe-edition #nur-front-v61 .universe-top-tools > .nur-user {
+  display: grid !important;
 }
 
 @media (min-width: 601px) {
