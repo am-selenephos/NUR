@@ -356,10 +356,10 @@ def upgrade() -> None:
     op.execute("GRANT SELECT ON level_definitions TO nur_app")
     op.execute("""
         INSERT INTO level_definitions(level, level_key, title, threshold, unlock_metadata) VALUES
-          (1, 'signal', 'Signal', 0, '{"constellation_stage":"seed"}'),
-          (2, 'spark', 'Spark', 50, '{"constellation_stage":"spark"}'),
-          (3, 'pathway', 'Pathway', 150, '{"constellation_stage":"pathway"}'),
-          (4, 'orbit', 'Orbit', 350, '{"constellation_stage":"orbit"}'),
+          (1, 'signal', 'Orbit Seed', 0, '{"constellation_stage":"seed"}'),
+          (2, 'spark', 'Ember', 50, '{"constellation_stage":"spark"}'),
+          (3, 'pathway', 'Star Builder', 150, '{"constellation_stage":"pathway"}'),
+          (4, 'orbit', 'Orbit Keeper', 350, '{"constellation_stage":"orbit"}'),
           (5, 'constellation', 'Constellation', 700, '{"constellation_stage":"constellation"}'),
           (6, 'system', 'System', 1200, '{"constellation_stage":"system"}'),
           (7, 'living_intelligence', 'Living Intelligence', 2000, '{"constellation_stage":"living_intelligence"}')

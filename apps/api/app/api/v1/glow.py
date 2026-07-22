@@ -23,6 +23,7 @@ from app.models import (
     Profile,
 )
 from app.services.glow_service import (
+    award_glow,
     calendar_window,
     claim_quest,
     redeem_reward,
@@ -37,6 +38,35 @@ router = APIRouter(tags=["glow"])
 
 class IdempotencyIn(BaseModel):
     idempotency_key: str = Field(min_length=8, max_length=240)
+
+
+class GlowRewardIn(BaseModel):
+    event_type: str = Field(min_length=1, max_length=80)
+    source_kind: str = Field(min_length=1, max_length=80)
+    source_id: uuid.UUID
+    orbit_id: uuid.UUID | None = None
+    idempotency_key: str = Field(min_length=8, max_length=240)
+
+
+class GlowAwardStreakOut(BaseModel):
+    streak_key: str
+    current_count: int
+    best_count: int
+    last_event_date: dt.date | None
+    repairs_remaining: int
+
+    model_config = {"from_attributes": True}
+
+
+class GlowRewardOut(BaseModel):
+    transaction_id: uuid.UUID
+    event_type: str
+    awarded_points: int
+    balance: int
+    lifetime_points: int
+    idempotent_replay: bool
+    streak: GlowAwardStreakOut | None
+    achievements_unlocked: list[str]
 
 
 class GlowTransactionOut(BaseModel):
@@ -243,6 +273,45 @@ def _quest_out(quest: GlowQuest, definition: GlowQuestDefinition) -> dict:
         "timezone": quest.timezone,
         "rule_version": definition.rule_version,
     }
+
+
+@router.post(
+    "/glow/rewards",
+    response_model=GlowRewardOut,
+    status_code=201,
+    dependencies=[Depends(require_csrf)],
+)
+async def award_reward(
+    payload: GlowRewardIn,
+    db: Scoped,
+    identity: Identity,
+) -> GlowRewardOut:
+    """Backward-compatible award endpoint backed by the hardened G09 ledger."""
+    owner_user_id, _ = identity
+    result = await award_glow(
+        db,
+        owner_user_id=owner_user_id,
+        event_type=payload.event_type,
+        source_kind=payload.source_kind,
+        source_id=payload.source_id,
+        orbit_id=payload.orbit_id,
+        idempotency_key=payload.idempotency_key,
+    )
+    await db.commit()
+    return GlowRewardOut(
+        transaction_id=result.transaction.id,
+        event_type=result.transaction.event_type,
+        awarded_points=result.transaction.final_points,
+        balance=result.balance.balance,
+        lifetime_points=result.balance.lifetime_points,
+        idempotent_replay=result.idempotent_replay,
+        streak=(
+  GlowAwardStreakOut.model_validate(result.streak)
+  if result.streak
+  else None
+        ),
+        achievements_unlocked=[row.achievement_key for row in result.achievements],
+    )
 
 
 @router.get("/glow/summary", response_model=GlowSummaryOut)
