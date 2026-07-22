@@ -1,136 +1,133 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type BrowserContext, type FrameLocator, type Page } from "@playwright/test";
 
-test.use({ viewport: { width: 1280, height: 720 } });
+/** Amendment §8 against the live V197 surface: the owner mints a Capsule that
+ * includes ONLY an approved Decision (a Reference stays withheld), the named
+ * recipient works inside the boundary and receives a source-bound answer, the
+ * owner revokes, and the room closes with a distinct terminal state. Two real
+ * accounts, real API, no force clicks.
+ *
+ * The React share sheet was retired with the frontend forensic rebuild; the
+ * owner's source selection is exercised through the same owner-scoped API the
+ * product uses, and every visible step runs through exact V197 controls. */
 
-// Amendment §8, in the browser: owner builds an Orbit, captures a decision,
-// mints a Capsule for a named recipient, the recipient works inside the
-// boundary, the owner revokes, the room closes. No force clicks anywhere.
-test("capsule lifecycle across two accounts: share, scoped answer, revoke", async ({ page }) => {
+async function signIn(page: Page, email: string, password: string): Promise<FrameLocator> {
+  await page.goto("/", { waitUntil: "load" });
+  const entry = page.frameLocator("#nur-entry-stage");
+  await entry.locator("body").evaluate(() => {
+    (window as unknown as { nurShowFront?: () => void }).nurShowFront?.();
+  });
+  await entry.locator("#f4-signin").click();
+  await entry.locator("#f4-signin-email").fill(email);
+  await entry.locator("#f4-signin-password").fill(password);
+  await entry.locator("#f4-signin-form button[type='submit']").click();
+  await expect(page.locator("#nur-universe-stage")).toHaveClass(/is-visible/, { timeout: 20_000 });
+  const universe = page.frameLocator("#nur-universe-stage");
+  await expect(universe.locator("#page-today")).toBeVisible({ timeout: 20_000 });
+  return universe;
+}
+
+test("capsule lifecycle across two accounts: share, scoped answer, revoke", async ({ browser }) => {
   test.setTimeout(180_000);
   const stamp = Date.now();
-  const ownerEmail = `owner-${stamp}@nurapp.dev`;
-  const recipientEmail = `maddy-${stamp}@nurapp.dev`;
-  const pw = "orbit-pass-2025";
 
-  async function register(name: string, email: string) {
-    await page.goto("/");
-    await page.getByTestId("tab-register").click();
-    await page.locator("#f4-name").fill(name);
-    await page.locator("#f4-email").fill(email);
-    await page.locator("#f4-password").fill(pw);
-    await page.getByTestId("consent").check();
-    await page.getByTestId("auth-submit").first().click();
-    await expect(page.getByRole("heading", { name: "One honest direction." })).toBeVisible();
-    await page.getByTestId("direction-my-mind").click();
-    await page.getByTestId("auth-sketch-orbit").click();
-    await page.getByTestId("auth-return-sky").click();
-    await expect(page.locator("#page-today")).toBeVisible();
-  }
-  async function logout() {
-    await page.getByTestId("user-star").click();
-    await page.getByTestId("logout").click();
-    await expect(page.getByTestId("tab-register")).toBeVisible();
-  }
-  async function login(email: string) {
-    await page.goto("/");
-    await page.getByTestId("tab-login").click();
-    await page.locator("#f4-signin-email").fill(email);
-    await page.locator("#f4-signin-password").fill(pw);
-    await page.locator('[data-mode="signin"] [data-testid="auth-submit"]').click();
-    await expect(page.locator("#page-today")).toBeVisible();
-  }
+  const ownerContext: BrowserContext = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const recipientContext: BrowserContext = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const ownerPage = await ownerContext.newPage();
+  const recipientPage = await recipientContext.newPage();
 
-  // ── owner: real orbit from a suggested sky ──
-  await register("Selene", ownerEmail);
-  await page.getByTestId("pw-rail-sys-quiet-ambition").click();
-  await expect(page.locator("#page-systems")).toBeVisible();
-  await expect(page.getByTestId("share-orbit")).toBeVisible();
+  // ── owner: real session through the exact V197 entry ──
+  await signIn(ownerPage, "owner@nur.app", "owner-demo-pass-123");
 
-  // ── share sheet: capture sources, include ONLY the decision ──
-  await page.getByTestId("share-orbit").click();
-  await expect(page.getByTestId("share-sheet")).toBeVisible();
-  await expect(page.getByTestId("keep-decision")).toBeVisible();
-  const captureStyles = await page.getByTestId("keep-decision").evaluate((el) => {
-    const styles = getComputedStyle(el);
-    return {
-      backgroundColor: styles.backgroundColor,
-      backgroundImage: styles.backgroundImage,
-      borderColor: styles.borderColor,
-      color: styles.color,
-      fontFamily: styles.fontFamily,
+  // ── owner: approve one Decision, withhold one Reference, mint the grant ──
+  // (the persisted-source boundary itself — driven through the same
+  // owner-scoped, CSRF-protected API the product uses)
+  const minted = await ownerPage.evaluate(async (nonce) => {
+    const csrf = decodeURIComponent(
+      document.cookie.split("; ").find(row => row.startsWith("nur_csrf="))?.split("=")[1] ?? "");
+    const call = async (path: string, body: Record<string, unknown>) => {
+      const response = await fetch(`/api/v1${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) throw new Error(`${path} -> ${response.status}: ${await response.text()}`);
+      return response.json();
     };
-  });
-  expect(captureStyles.backgroundColor).not.toBe("rgb(255, 255, 255)");
-  expect(captureStyles.backgroundImage).toContain("linear-gradient");
-  expect(captureStyles.borderColor).not.toBe("rgb(0, 0, 0)");
-  expect(captureStyles.color).not.toBe("rgb(0, 0, 0)");
-  expect(captureStyles.fontFamily.toLowerCase()).toContain("crimson");
+    const me = await (await fetch("/api/v1/auth/me", { credentials: "include" })).json();
+    const orbitId = me.orbit?.id ?? me.profile?.active_orbit_id;
+    if (!orbitId) throw new Error("Owner session has no orbit.");
 
-  await page.getByTestId("new-decision").fill("Postgres RLS is the trust boundary");
-  await page.getByTestId("new-decision").press("Enter");
-  await expect(page.getByTestId("src-DECISION")).toBeVisible();
-  await page.getByTestId("new-reference").fill("Capsule spectrum palette");
-  await page.getByTestId("new-reference").press("Enter");
-  await expect(page.getByTestId("src-REFERENCE")).toBeVisible();
-  const sourceCheckStyles = await page.getByTestId("src-DECISION").evaluate((el) => {
-    const styles = getComputedStyle(el);
-    return {
-      appearance: styles.appearance,
-      backgroundColor: styles.backgroundColor,
-      backgroundImage: styles.backgroundImage,
-      borderColor: styles.borderColor,
-    };
-  });
-  expect(sourceCheckStyles.appearance).not.toBe("auto");
-  expect(sourceCheckStyles.backgroundColor).not.toBe("rgb(255, 255, 255)");
-  expect(sourceCheckStyles.backgroundImage).toContain("linear-gradient");
-  expect(sourceCheckStyles.borderColor).not.toBe("rgb(0, 0, 0)");
-  await page.screenshot({
-    path: process.cwd().endsWith("/apps/web")
-      ? "../../proof/g5-share-sheet-repaired-v2-no-white-controls.png"
-      : "proof/g5-share-sheet-repaired-v2-no-white-controls.png",
-    fullPage: false,
-  });
-  await page.getByTestId("src-DECISION").check(); // reference stays EXCLUDED
+    const decision = await call(`/orbits/${orbitId}/decisions`, {
+      statement: `Postgres RLS is the trust boundary (${nonce}).`,
+      rationale: "Browser lifecycle proof decision.",
+    });
+    const reference = await call(`/orbits/${orbitId}/references`, {
+      title: `Withheld palette reference ${nonce}`,
+      body: "Capsule spectrum palette. This reference must never reach the recipient.",
+      kind: "REFERENCE",
+    });
+    const decisionSource = await call(`/orbits/${orbitId}/sources`, {
+      source_kind: "DECISION", source_id: decision.id,
+    });
+    await call(`/orbits/${orbitId}/sources`, {
+      source_kind: "REFERENCE", source_id: reference.id,
+    });
+    const capsule = await call(`/orbits/${orbitId}/capsules`, {
+      title: `Lifecycle proof capsule ${nonce}`,
+      purpose: "Show the recipient sees approved context only.",
+      capability: "ASK_SCOPED_QUESTIONS",
+      orbit_source_ids: [decisionSource.id],
+      representations: { [decisionSource.id]: "FULL" },
+    });
+    await call(`/capsules/${capsule.id}/grants`, {
+      recipient_email: "recipient@nur.app",
+      capability: "ASK_SCOPED_QUESTIONS",
+    });
+    return { capsuleId: capsule.id as string };
+  }, stamp);
 
-  await page.getByTestId("cap-purpose").fill("Get a designer useful in 20 minutes");
-  await page.getByTestId("cap-email").fill(recipientEmail);
-  await page.getByTestId("create-capsule").click();
-  const card = page.getByTestId("capsule-created");
-  await expect(card).toBeVisible();
-  const capsuleId = (await card.innerText()).match(/capsule\/([0-9a-f-]{36})/)![1];
-  await page.keyboard.press("Escape");
-  await logout();
+  // ── owner: the lifecycle room shows ACTIVE state and a live revoke control ──
+  const ownerUniverse = ownerPage.frameLocator("#nur-universe-stage");
+  await ownerPage.goto(`/capsule/${minted.capsuleId}`, { waitUntil: "load" });
+  const ownerRoot = ownerUniverse.locator("#nur-v197-adjunct-root");
+  await expect(ownerRoot).toContainText("Owner capsule", { timeout: 20_000 });
+  await expect(ownerRoot).toContainText("ACTIVE");
+  await expect(ownerRoot.locator('[data-adjunct-action="capsule-revoke"]')).toBeEnabled();
 
   // ── recipient: the room, the boundary, the scoped answer ──
-  await register("Maddy", recipientEmail);
-  await page.goto(`/capsule/${capsuleId}`);
-  await expect(page.getByTestId("capsule-room")).toBeVisible();
-  await expect(page.getByTestId("capsule-state")).toHaveText("ACTIVE");
-  await expect(page.getByTestId("safety-copy")).toContainText("does not speak for");
-  await expect(page.getByTestId("excluded-row")).toContainText("reference"); // withheld, visible as a boundary
-  await page.getByTestId("capsule-question").fill("What did you decide about Postgres RLS as the trust boundary?");
-  await page.getByTestId("capsule-ask").click();
-  await expect(page.getByTestId("capsule-answer").first()).toContainText("trust boundary");
-  await expect(page.getByTestId("answer-mode").first()).toContainText("Direct statement");
-  await page.goto("/today");
-  await expect(page.locator("#page-today")).toBeVisible();
-  await logout();
+  await signIn(recipientPage, "recipient@nur.app", "recipient-demo-pass-123");
+  const recipientUniverse = recipientPage.frameLocator("#nur-universe-stage");
+  await recipientPage.goto(`/capsule/${minted.capsuleId}`, { waitUntil: "load" });
+  const room = recipientUniverse.locator("#nur-v197-adjunct-root");
+  await expect(room).toContainText("ACTIVE", { timeout: 20_000 });
+  await expect(room).toContainText("Show the recipient sees approved context only.");
+  await expect(room).toContainText(`Postgres RLS is the trust boundary (${stamp}).`); // included, FULL
+  await expect(room).toContainText(/withheld/i); // the excluded reference stays a visible boundary
+  await expect(room).not.toContainText("Capsule spectrum palette"); // withheld body never leaks
 
-  // ── owner revokes ──
-  await login(ownerEmail);
-  await page.getByTestId("pw-rail-sys-quiet-ambition").click();
-  await expect(page.getByTestId("share-orbit")).toBeVisible();
-  await page.getByTestId("share-orbit").click();
-  await page.getByTestId(`revoke-${capsuleId}`).click();
-  await expect(page.getByTestId(`revoke-${capsuleId}`)).toHaveCount(0); // revoked rows lose the button
-  await page.keyboard.press("Escape");
-  await logout();
+  const answered = recipientPage.waitForResponse(response =>
+    response.url().includes("/questions") && response.status() === 201);
+  await room.locator('[data-adjunct-control="capsule-question"]').fill("What did you decide about the trust boundary?");
+  await room.locator('[data-adjunct-action="capsule-ask"]').click();
+  await answered;
+  await expect(room.locator(".nur-adjunct-answer blockquote")).toContainText(/trust boundary/i);
+  await expect(room.locator(".nur-adjunct-answer .nur-adjunct-eyebrow")).toContainText("source-bound");
 
-  // ── recipient refresh: the distinct closed state ──
-  await login(recipientEmail);
-  await page.goto(`/capsule/${capsuleId}`);
-  await expect(page.getByTestId("capsule-state")).toHaveText("REVOKED");
-  await expect(page.getByTestId("inactive-note")).toBeVisible();
-  await expect(page.getByTestId("capsule-question")).toHaveCount(0);
+  // ── owner revokes through the exact V197 control ──
+  const revoked = ownerPage.waitForResponse(response =>
+    response.url().includes("/revoke") && response.status() < 300);
+  await ownerRoot.locator('[data-adjunct-action="capsule-revoke"]').click();
+  await revoked;
+  await expect(ownerRoot).toContainText("Revoked. Recipient reads and asks are blocked immediately.");
+
+  // ── recipient refresh: the distinct closed state, no question interface ──
+  await recipientPage.reload({ waitUntil: "load" });
+  const closedRoom = recipientPage.frameLocator("#nur-universe-stage").locator("#nur-v197-adjunct-root");
+  await expect(closedRoom).toContainText("REVOKED", { timeout: 20_000 });
+  await expect(closedRoom).toContainText("Access is closed");
+  await expect(closedRoom.locator('[data-adjunct-control="capsule-question"]')).toHaveCount(0);
+
+  await ownerContext.close();
+  await recipientContext.close();
 });

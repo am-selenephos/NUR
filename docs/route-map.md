@@ -37,3 +37,12 @@ These routes serve the same canonical V197 host. The nonvisual bridge mounts a s
 | `/universe/omega/why-changed/:claimId` | why-changed/evidence APIs | live provenance explanation |
 
 The automated source of control truth is `docs/interaction-registry.json`; `button-registry.spec.ts` and `v197-adjuncts.spec.ts` check canonical, modal, mobile and adjunct controls.
+
+## Revenue backend routes
+
+The owner-scoped revenue spine is available at `/api/v1/billing/plans`,
+`/api/v1/billing/checkout`, `/api/v1/billing/webhooks/{provider}`,
+`/api/v1/billing/subscription`, and `/api/v1/billing/portal`. Checkout,
+subscription, cancellation, refund, and entitlement state are live backend
+contracts. They are not a claim that a paid V197 surface or provider test-mode
+E2E has passed.

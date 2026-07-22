@@ -30,13 +30,15 @@ class NURTalkOutput(BaseModel):
     hypotheses: list[str] = Field(default_factory=list)
     uncertainty: list[str] = Field(default_factory=list)
     next_move: str | None = None
-    memory_candidates: list[str] = Field(default_factory=list)
+    memory_candidates: list[str] = Field(default_factory=list, max_length=5)
     source_refs: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _bounded(self) -> "NURTalkOutput":
         if self.next_move and len(self.next_move) > 260:
             raise ValueError("next_move must be one concise move.")
+        if any(not candidate.strip() or len(candidate) > 8000 for candidate in self.memory_candidates):
+            raise ValueError("memory_candidates must be non-blank and at most 8000 characters each.")
         for ref in self.source_refs:
             if not ref or ":" not in ref:
                 raise ValueError("source_refs must be concrete kind:id strings.")

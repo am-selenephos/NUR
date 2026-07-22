@@ -12,9 +12,7 @@ open_nur() {
 }
 
 configured_openai() {
-  [[ -f "$ROOT/.env.local" ]] \
-    && grep -qE '^OPENAI_API_KEY=.+$' "$ROOT/.env.local" \
-    && grep -qE '^NUR_OPENAI_MODEL=.+$' "$ROOT/.env.local"
+  bash "$ROOT/infra/scripts/validate-openai-local.sh" >/dev/null 2>&1
 }
 
 running_provider() {
@@ -57,6 +55,10 @@ fi
 
 case "$MODE" in
   openai|disabled)
+    if [[ "$MODE" == "openai" ]] && ! configured_openai; then
+      printf 'OpenAI mode requires a valid mode-600 .env.local. Run: bash START_NUR.sh setup\n' >&2
+      exit 1
+    fi
     current="$(running_provider)"
     if [[ "$current" == "$MODE" ]] && curl -fsS --max-time 2 "$WEB_URL" >/dev/null 2>&1; then
       printf 'NUR is already running in %s mode. Opening %s\n' "$MODE" "$WEB_URL"

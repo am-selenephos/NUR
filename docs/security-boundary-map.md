@@ -36,3 +36,17 @@ Date: 2026-07-09
 - No `VITE_OPENAI_API_KEY` or public key path.
 - Visible primary controls are registered in `docs/interaction-registry.md` and enforced by Playwright.
 - Honest disabled states are required for future/destructive controls.
+
+## Billing Boundary
+
+- Billing is disabled by default and provider secrets remain server-only.
+- Checkout requires authenticated CSRF plus an idempotency key; checkout
+  completion alone grants nothing.
+- Webhooks verify HMAC over raw bytes, an owner/session/plan binding, provider
+  mode, checkout existence, and variant before transactionally projecting
+  subscription and entitlement state.
+- Raw webhook bodies and customer email are excluded from receipts and domain
+  events. Billing owner tables use forced RLS; receipt and entitlement history
+  are append-only to the runtime role.
+- Live charges require a separate explicit enable switch. The deterministic
+  test adapter is rejected in production.

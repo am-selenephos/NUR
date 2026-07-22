@@ -143,7 +143,9 @@ async def test_visible_glow_evidence_requires_persisted_outcome(client):
     assert after_outcome["outcomes_returned"] == 1
 
 
-async def test_persistent_talk_writes_model_run_and_thread(client):
+async def test_disabled_talk_persists_error_run_without_fake_assistant_response(client, super_engine):
+    from sqlalchemy import text
+
     await register_user(client)
     orbit_id = (await client.get("/api/v1/orbits")).json()[0]["id"]
     r = await client.post(
@@ -151,15 +153,23 @@ async def test_persistent_talk_writes_model_run_and_thread(client):
         headers=H(client),
         json={"message": "Keep this as one private line.", "orbit_id": orbit_id, "locale": "en"},
     )
-    assert r.status_code == 200
-    body = r.json()
-    assert body["provider"] == "disabled"
-    assert body["provider_available"] is False
-    assert body["verification"]["verdict"] == "WARN"
-    assert body["output"]["direct_response"]
-    assert body["model_run_id"]
+    assert r.status_code == 503
+    detail = r.json()["detail"]
+    assert detail == {
+        "code": "provider_disabled",
+        "message": "Live AI is not enabled on this server.",
+        "model_run_id": detail["model_run_id"],
+        "retryable": False,
+    }
     thread = (await client.get(f"/api/v1/cognition/talk-thread?orbit_id={orbit_id}")).json()
-    assert [row["who"] for row in thread][-2:] == ["user", "nur"]
-    response = thread[-1]
-    assert response["structured_payload"]["model_run_id"] == body["model_run_id"]
-    assert response["structured_payload"]["provider_available"] is False
+    assert [row["who"] for row in thread][-1:] == ["user"]
+    async with super_engine.connect() as conn:
+        run = (
+            await conn.execute(
+                text("SELECT status, output_event_id, error FROM model_runs WHERE id=:id"),
+                {"id": detail["model_run_id"]},
+            )
+        ).one()
+    assert run.status == "ERROR"
+    assert run.output_event_id is None
+    assert run.error["code"] == "provider_disabled"

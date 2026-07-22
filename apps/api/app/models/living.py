@@ -208,6 +208,8 @@ class GlowAchievement(Base):
         JSONB, default=dict, server_default=text("'{}'::jsonb"), nullable=False
     )
     unlocked_at = _created()
+    revoked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    revocation_reason: Mapped[str | None] = mapped_column(String(500))
 
 
 class FeasibilityAssessment(Base):
