@@ -485,9 +485,9 @@ def upgrade() -> None:
             'meaningful_action_week',
             '["notification_opt_out","sleep_complaint","distress_report"]',
             '["immediate_verified","next_surface_verified"]',
-            '{"age_gate":"18+","crisis_excluded":true}',
-            '{"minimum_exposures":500,"maximum_days":21}',
-            '{"stop_on_guardrail_regression":true}',
+            jsonb_build_object('age_gate', '18+', 'crisis_excluded', true),
+            jsonb_build_object('minimum_exposures', 500, 'maximum_days', 21),
+            jsonb_build_object('stop_on_guardrail_regression', true),
             'DRAFT', 1
         )
     """)
