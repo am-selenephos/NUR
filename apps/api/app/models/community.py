@@ -3,7 +3,7 @@
 import datetime as dt
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, String, Text, text
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import DateTime
@@ -48,6 +48,9 @@ class CommunityRoom(Base):
     room_metadata: Mapped[dict] = mapped_column(
         JSONB, default=dict, server_default=text("'{}'::jsonb"), nullable=False
     )
+    next_message_sequence: Mapped[int] = mapped_column(
+        Integer, default=1, server_default=text("1"), nullable=False
+    )
     created_at = _created()
     updated_at = _created()
 
@@ -79,8 +82,16 @@ class CommunityMessage(Base):
     provenance_label: Mapped[str] = mapped_column(
         String(48), default="MEMBER_WRITTEN", server_default="MEMBER_WRITTEN", nullable=False
     )
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    revision_number: Mapped[int] = mapped_column(
+        Integer, default=1, server_default=text("1"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(24), default="ACTIVE", server_default="ACTIVE", nullable=False
+    )
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     created_at = _created()
+    edited_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class CommunityPost(Base):
@@ -97,6 +108,12 @@ class CommunityPost(Base):
     language_tag: Mapped[str] = mapped_column(String(20), default="en", server_default="en", nullable=False)
     provenance_label: Mapped[str] = mapped_column(
         String(48), default="MEMBER_WRITTEN", server_default="MEMBER_WRITTEN", nullable=False
+    )
+    revision_number: Mapped[int] = mapped_column(
+        Integer, default=1, server_default=text("1"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(24), default="ACTIVE", server_default="ACTIVE", nullable=False
     )
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     created_at = _created()
@@ -120,8 +137,15 @@ class CommunityComment(Base):
     )
     body: Mapped[str] = mapped_column(Text, nullable=False)
     language_tag: Mapped[str] = mapped_column(String(20), default="en", server_default="en", nullable=False)
+    revision_number: Mapped[int] = mapped_column(
+        Integer, default=1, server_default=text("1"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(24), default="ACTIVE", server_default="ACTIVE", nullable=False
+    )
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     created_at = _created()
+    edited_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class CommunityReaction(Base):

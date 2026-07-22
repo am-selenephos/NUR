@@ -84,3 +84,8 @@ from app.models.community import (  # noqa: F401
     CommunityReaction, CommunityRoom, Consultation, ConsultationContribution,
     ConsultationStageRecord, CouncilDecision, CouncilPosition,
 )
+from app.models.community_social import (  # noqa: F401
+    CommunityAppeal, CommunityContentRevision, CommunityModerationAction,
+    CommunityModerationEvent, CommunityRelationship, CommunityReport,
+    CommunityRoomSanction, CommunitySave,
+)
