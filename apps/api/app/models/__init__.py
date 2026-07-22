@@ -46,3 +46,14 @@ from app.models.community import (  # noqa: F401
     CommunityReaction, CommunityRoom, Consultation, ConsultationContribution,
     ConsultationStageRecord, CouncilDecision, CouncilPosition,
 )
+from app.models.community_social import (  # noqa: F401
+    CommunityAppeal, CommunityContentRevision, CommunityModerationAction,
+    CommunityModerationEvent, CommunityRelationship, CommunityReport,
+    CommunityRoomSanction, CommunitySave,
+)
+from app.models.group_research import (  # noqa: F401
+    ExpertContribution, ExpertProfile, ExpertVerification, GroupNURSynthesis,
+    ResearchCitation, ResearchClaim, ResearchClaimRevision, ResearchJob,
+    ResearchSource, TenderInsight, WebSignalAlert, WebSignalSnapshot,
+    WebWatchlist,
+)

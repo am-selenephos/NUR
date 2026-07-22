@@ -72,7 +72,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=s.cors_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["content-type", "x-csrf-token", "x-request-id"],
     )
 
@@ -80,6 +80,8 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/api/v1")
     from app.api.v1.cognition import content as content_router, router as cognition_router
     from app.api.v1.community import router as community_router
+    from app.api.v1.community_moderation import router as community_moderation_router
+    from app.api.v1.community_social import router as community_social_router
     from app.api.v1.consultations import router as consultations_router
     from app.api.v1.hypotheses import router as hypotheses_router
     from app.api.v1.insights import router as insights_router
@@ -88,6 +90,7 @@ def create_app() -> FastAPI:
     from app.api.v1.profile import router as profile_router
     from app.api.v1.product_surfaces import router as product_surfaces_router
     from app.api.v1.glow import router as glow_router
+    from app.api.v1.group_research import router as group_research_router
     from app.api.v1.feasibility import router as feasibility_router
     from app.api.v1.living import router as living_router
     from app.api.v1.map import router as map_router
@@ -99,6 +102,8 @@ def create_app() -> FastAPI:
     from app.omega.routes import router as omega_router
     app.include_router(cognition_router, prefix="/api/v1")
     app.include_router(community_router, prefix="/api/v1")
+    app.include_router(community_social_router, prefix="/api/v1")
+    app.include_router(community_moderation_router, prefix="/api/v1")
     app.include_router(consultations_router, prefix="/api/v1")
     app.include_router(content_router, prefix="/api/v1")
     app.include_router(hypotheses_router, prefix="/api/v1")
@@ -108,6 +113,7 @@ def create_app() -> FastAPI:
     app.include_router(profile_router, prefix="/api/v1")
     app.include_router(product_surfaces_router, prefix="/api/v1")
     app.include_router(glow_router, prefix="/api/v1")
+    app.include_router(group_research_router, prefix="/api/v1")
     app.include_router(feasibility_router, prefix="/api/v1")
     app.include_router(living_router, prefix="/api/v1")
     app.include_router(map_router, prefix="/api/v1")

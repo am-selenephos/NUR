@@ -1,61 +1,146 @@
 # NUR
 
-NUR is a local-first scoped beta for private project orbit work: Talk, Systems,
-Project Orbit, Context Capsules, and the hidden NUR-Omega research layer.
+**Private AI reasoning with inspectable evidence, owner-controlled memory, and revocable Context Capsules.**
 
-This repository is bootable in local development mode. `START_NUR.sh` is the
-human-facing launcher: on first interactive use it securely configures real
-server-side OpenAI, then starts the complete system. `RUN_NUR.sh` remains the
-operator runner and defaults to honest disabled mode when no mode is supplied.
-OpenAI configuration writes only an ignored, mode-600 `.env.local`.
-Do not place API keys in source, screenshots, logs, or zip artifacts.
+NUR is a local-first scoped beta for private project-orbit work. It combines an OpenAI-backed Talk workspace with persisted decisions, references, journals, plans, corrections, outcomes, owner-scoped retrieval, verification, and explicit context sharing.
 
-## Quick Boot
+The Build Week submission focuses on one complete vertical slice:
+
+> private evidence-bound Talk → structured next move → persisted Plan → owner-approved Context Capsule → recipient-scoped answer → immediate revocation
+
+Read [`BUILD_WEEK_SUBMISSION.md`](BUILD_WEEK_SUBMISSION.md) for the truth-locked submission scope and [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) for the exact recording flow.
+
+## Why NUR
+
+Ordinary AI products often blur four separate operations:
+
+1. reasoning over sensitive context;
+2. deciding what becomes durable memory;
+3. choosing what another person may see;
+4. revoking that access later.
+
+NUR keeps those operations separate and inspectable.
+
+- **Talk** returns a structured response: observed facts, inference, hypotheses, uncertainty, and one next move.
+- **Evidence and verification** record what owner-scoped material was retrieved and reject unavailable source references.
+- **Persistence** stores Talk turns, model runs, decisions, references, journals, plans, corrections, and outcomes.
+- **Context Capsules** snapshot only explicitly selected Orbit sources.
+- **Representations** support full content, owner-approved summaries, or metadata only.
+- **Recipient rooms** show included context, withheld-source counts, answer modes, and source references.
+- **Revocation and expiry** close access through distinct audited states.
+
+## Architecture
+
+```text
+React / Vite interface
+        |
+        v
+FastAPI API + HTTP-only session + CSRF
+        |
+        +--> Postgres with forced owner RLS
+        +--> Redis + Celery worker / scheduler
+        +--> owner-scoped lexical retrieval
+        +--> OpenAI Responses API
+        +--> structured-output validation and verifier
+        +--> persisted evidence and model-run ledger
+        |
+        v
+Versioned Context Capsule + recipient grant + audit + revoke
+```
+
+## Quick boot
+
+Requirements include Docker Engine/Desktop, Node.js, npm, Python 3, and standard PostgreSQL client tools.
 
 ```bash
 bash START_NUR.sh
 ```
 
-Linux users can double-click `START_NUR.desktop`. The first launch asks for an
-OpenAI key with hidden input; later launches are one click. The distributable
-ZIP never includes that key.
+The first interactive launch securely asks for the local OpenAI API configuration. The key is written only to ignored, mode-600 `.env.local`; it never belongs in browser code, screenshots, logs, commits, or distributable archives.
 
-Open `http://localhost:5173`.
+Later launches are one command. Open:
 
-The root runner starts Postgres, Redis, FastAPI, the worker, Omega scheduler,
-Vite, demo seed, health checks, and browser open as one local system. Use
-`bash RUN_NUR.sh status`, `logs`, `seed`, `stop`, `doctor`, `reset-demo`, or
-`package` for follow-up operations.
+```text
+http://localhost:5173
+```
 
-## Main Surfaces
+The launcher starts Postgres, Redis, FastAPI, the worker, Omega scheduler, Vite, demo seed, health checks, and the browser.
+
+Useful commands:
+
+```bash
+bash RUN_NUR.sh status
+bash RUN_NUR.sh logs
+bash RUN_NUR.sh doctor
+bash RUN_NUR.sh seed
+bash RUN_NUR.sh stop
+bash RUN_NUR.sh package
+```
+
+## Build Week verification
+
+Competition work is isolated on `build-week-submission` until it passes the gates.
+
+Static acceptance:
+
+```bash
+bash infra/scripts/build-week-gate.sh static
+```
+
+Start real OpenAI mode and run the live acceptance path:
+
+```bash
+bash START_NUR.sh openai
+bash infra/scripts/build-week-gate.sh live
+```
+
+Run both against the exact candidate commit:
+
+```bash
+bash infra/scripts/build-week-gate.sh all
+```
+
+The gate fails closed on V197 integrity, secret scan, API tests, web typecheck, unit tests, production build, mocked Talk/visual readiness, OpenAI structured-output persistence smoke, or the two-account Context Capsule lifecycle.
+
+A PASS from another commit is not proof for the current commit.
+
+## Main surfaces
 
 - Web app: `apps/web`
 - API: `apps/api`
 - Shared TypeScript package: `packages/shared-types`
 - Postgres/Redis compose: `docker-compose.yml`, `docker-compose.dev.yml`
-- Boot scripts: `infra/scripts`
+- Boot and verification scripts: `infra/scripts`
 - Alembic migrations: `apps/api/alembic/versions`
+
+## OpenAI boundary
+
+- OpenAI calls are server-side only.
+- Responses must match the NUR structured schema.
+- Authentication and provider errors fail closed.
+- Disabled-provider mode is explicit and does not fabricate model text.
+- External web research remains disabled for this readiness gate.
+- The current recipient Capsule answer path is deliberately constrained to approved source representations; do not claim broader private-memory access.
 
 ## Omega v1
 
-Omega is a research layer, not a consciousness, AGI, sentience, soul, or
-autonomous real-world actor. It stores owner-scoped experiences, claims,
-evidence edges, contradictions, predictions, learning proposals, review queue
-items, and consolidation runs under forced Postgres RLS.
+Omega is an owner-only governed research layer, not a consciousness, AGI, sentience, soul, or autonomous real-world actor. It stores owner-scoped experiences, claims, evidence edges, contradictions, predictions, learning proposals, review-queue items, and consolidation runs under forced Postgres RLS.
 
 The hidden UI is available only when `VITE_NUR_ENABLE_OMEGA_RESEARCH=true`:
-
 - `/universe/omega`
 - `/universe/omega/review`
 
-## Tests
+Omega is not required for the Build Week vertical-slice demo.
+
+## Manual test commands
 
 ```bash
 python -m pytest apps/api/app/tests -q
 npm --workspace apps/web run typecheck
 npm --workspace apps/web test -- --run
-VITE_NUR_ENABLE_OMEGA_RESEARCH=true npm --workspace apps/web run e2e -- e2e/omega-research.spec.ts --project=chromium-desktop
+npm --workspace apps/web run build
+npm --workspace apps/web run e2e -- e2e/talk.spec.ts e2e/visual-readiness.spec.ts --project=chromium-desktop --workers=1
+npm --workspace apps/web run e2e -- e2e/capsule.spec.ts --project=chromium-desktop --workers=1
 ```
 
-See `QUICKSTART_BOOT.md`, `RUNBOOK.md`, `DEMO_SCRIPT.md`, and
-`SECURITY_NOTES.md` for the full local flow.
+See [`QUICKSTART_BOOT.md`](QUICKSTART_BOOT.md), [`RUNBOOK.md`](RUNBOOK.md), [`SECURITY_NOTES.md`](SECURITY_NOTES.md), and [`BUILD_WEEK_SUBMISSION.md`](BUILD_WEEK_SUBMISSION.md) for the complete local and submission flow.
