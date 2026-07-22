@@ -1,0 +1,64 @@
+name: Diagnose G09 final
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  api-diagnostic:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/api/pyproject.toml
+      - run: python -m pip install -e ".[dev]"
+        working-directory: apps/api
+      - name: Ruff
+        run: python -m ruff check app
+        working-directory: apps/api
+      - name: Capture pytest output
+        shell: bash
+        working-directory: apps/api
+        env:
+          NUR_TEST_SUPERUSER_DSN: postgresql://postgres:postgres@localhost:5432/postgres
+        run: |
+          set +e
+          python -m pytest -q 2>&1 | tee "$GITHUB_WORKSPACE/g09-final-pytest.txt"
+          code=${PIPESTATUS[0]}
+          exit "$code"
+      - name: Upload pytest output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g09-final-pytest-${{ github.run_id }}
+          path: g09-final-pytest.txt
+          retention-days: 7
