@@ -12,6 +12,7 @@ from app.api.deps import Identity, Scoped, require_csrf
 from app.cognition.provenance import prediction_error, revise_hypothesis_from_outcome
 from app.models import CognitiveEvent, Experiment, Hypothesis, Outcome, PlanStep
 from app.observability.metrics import record_counter
+from app.services.glow_service import award_glow_if_eligible
 
 router = APIRouter(tags=["hypotheses"])
 
@@ -158,6 +159,15 @@ async def report_outcome(exp_id: uuid.UUID, payload: OutcomeIn, request: Request
                           content_text=payload.observed_result[:400], source_ref=f"outcome:{o.id}",
                           structured_payload={"experiment_id": str(e.id), "difference_from_prediction": diff}))
     e.status = "COMPLETED"
+    await award_glow_if_eligible(
+        db,
+        owner_user_id=user_id,
+        event_type="outcome_returned",
+        source_kind="OUTCOME",
+        source_id=o.id,
+        orbit_id=None,
+        idempotency_key=f"outcome:{o.id}:returned",
+    )
     record_counter(request, "nur_outcomes_total", (("source", "experiment"),))
     await db.commit()
     out = OutcomeOut.model_validate(o)
@@ -181,6 +191,16 @@ async def report_step_outcome(payload: OutcomeIn, request: Request, db: Scoped, 
     db.add(o)
     db.add(CognitiveEvent(owner_user_id=user_id, event_kind="OUTCOME_REPORTED",
                           content_text=payload.observed_result[:400], source_ref=f"outcome_step:{step.id}"))
+    await db.flush()
+    await award_glow_if_eligible(
+        db,
+        owner_user_id=user_id,
+        event_type="outcome_returned",
+        source_kind="OUTCOME",
+        source_id=o.id,
+        orbit_id=None,
+        idempotency_key=f"outcome:{o.id}:returned",
+    )
     record_counter(request, "nur_outcomes_total", (("source", "plan_step"),))
     await db.commit()
     return OutcomeOut.model_validate(o)

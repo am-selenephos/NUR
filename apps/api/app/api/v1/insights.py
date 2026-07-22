@@ -353,7 +353,18 @@ async def save_insight_to_memory(insight_id: uuid.UUID, db: Scoped, identity: Id
         owner_user_id=owner_user_id,
         orbit_id=row.orbit_id,
         candidate_text=row.claim,
+        original_text=row.claim,
         scope="LEARNING_CANDIDATE",
+        memory_type="SEMANTIC",
+        provenance_label="MODEL_GENERATED",
+        confidence=row.confidence,
+        sensitivity="PRIVATE",
+        created_by="MODEL",
+        source_object_ids={
+            "insight_id": str(row.id),
+            "source_event_ids": row.source_event_ids,
+            "originating_system": "INSIGHTS",
+        },
         status="CANDIDATE",
     )
     db.add(memory)

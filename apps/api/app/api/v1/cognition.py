@@ -3,22 +3,38 @@ journal/plans/research content routes the F-slice pages persist through."""
 import datetime as dt
 import json
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 from app.api.deps import Identity, Scoped, require_csrf
 from app.ai.schemas import NURTalkOutput
 from app.cognition.cycle import CycleResult, run_cognitive_cycle
 from app.cognition.correction_service import persist_user_correction
-from app.cognition.intelligence_kernel import TalkRunConflict, run_talk_kernel
+from app.ai.errors import AIRequestBudgetExceeded
+from app.cognition.intelligence_kernel import TalkProviderFailure, TalkRunConflict, run_talk_kernel
 from app.cognition.schemas import EvidencePacket, VerificationResult
 from app.cognition.streaming import TalkStreamEnvelope, TalkStreamSpec, talk_stream_coordinator
-from app.models import CognitiveEvent, Decision, JournalEntry, ModelRun, Orbit, OrbitReference, OrbitSource, Plan, PlanStep, ResearchDraft
+from app.models import (
+    CognitiveEvent,
+    Decision,
+    JournalEntry,
+    ModelEvaluation,
+    ModelRun,
+    ModelRunSource,
+    Orbit,
+    OrbitReference,
+    OrbitSource,
+    Plan,
+    PlanStep,
+    ResearchDraft,
+)
 from app.observability.metrics import record_counter
 from app.omega.schemas import OmegaTalkSummary
+from app.services.glow_service import award_glow_if_eligible, reverse_source_glow
 
 router = APIRouter(prefix="/cognition", tags=["cognition"])
 content = APIRouter(tags=["cognition-content"])
@@ -57,6 +73,7 @@ class TalkIn(BaseModel):
     locale: str = "en"
     writing_preference: str = "default"
     mode: str | None = None
+    memory_mode: Literal["EPHEMERAL", "REVIEW"] = "EPHEMERAL"
 
 
 class TalkStreamIn(TalkIn):
@@ -103,10 +120,27 @@ async def talk(payload: TalkIn, request: Request, db: Scoped, identity: Identity
             orbit_id=payload.orbit_id,
             locale=payload.locale,
             writing_preference=payload.writing_preference,
+            memory_mode=payload.memory_mode,
             requested_mode=payload.mode,
         )
     except PermissionError as exc:
         raise HTTPException(404, str(exc)) from exc
+    except AIRequestBudgetExceeded as exc:
+        record_counter(request, "nur_ai_budget_rejections_total")
+        raise HTTPException(exc.http_status, {"code": exc.code, "message": exc.public_message}) from exc
+    except TalkProviderFailure as exc:
+        await db.commit()
+        record_counter(request, "nur_model_runs_total", (("provider", exc.provider), ("status", "error")))
+        record_counter(request, "nur_provider_errors_total", (("provider", exc.provider), ("code", exc.code)))
+        raise HTTPException(
+            exc.http_status,
+            {
+                "code": exc.code,
+                "message": exc.public_message,
+                "model_run_id": str(exc.model_run_id),
+                "retryable": exc.retryable,
+            },
+        ) from exc
     mode = payload.mode or "talk"
     record_counter(request, "nur_talk_turns_total", (("mode", mode),))
     record_counter(request, "nur_model_runs_total", (("provider", result.provider), ("status", "available" if result.provider_available else "unavailable")))
@@ -133,6 +167,7 @@ async def talk_stream(payload: TalkStreamIn, request: Request, identity: Identit
         orbit_id=payload.orbit_id,
         locale=payload.locale,
         writing_preference=payload.writing_preference,
+        memory_mode=payload.memory_mode,
         mode=payload.mode,
     )
     try:
@@ -182,6 +217,25 @@ async def talk_run_status(request_id: uuid.UUID, db: Scoped, identity: Identity)
     ).scalar_one_or_none()
     if row is None:
         raise HTTPException(404, "Talk run not found.")
+    source_count = (
+        await db.execute(
+            select(func.count(ModelRunSource.id)).where(
+                ModelRunSource.owner_user_id == user_id,
+                ModelRunSource.model_run_id == row.id,
+            )
+        )
+    ).scalar_one()
+    evaluation = (
+        await db.execute(
+            select(ModelEvaluation)
+            .where(
+                ModelEvaluation.owner_user_id == user_id,
+                ModelEvaluation.model_run_id == row.id,
+            )
+            .order_by(ModelEvaluation.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
     return {
         "request_id": str(request_id),
         "model_run_id": str(row.id),
@@ -189,7 +243,16 @@ async def talk_run_status(request_id: uuid.UUID, db: Scoped, identity: Identity)
         "input_event_id": str(row.input_event_id) if row.input_event_id else None,
         "response_event_id": str(row.output_event_id) if row.output_event_id else None,
         "provider": row.provider,
+        "model": row.model,
         "available": bool((row.response_metadata or {}).get("available")),
+        "provider_response_id_present": bool((row.response_metadata or {}).get("raw_response_id")),
+        "usage_recorded": bool(row.usage),
+        "failure_code": (row.error or {}).get("code"),
+        "retryable": bool((row.error or {}).get("retryable")),
+        "evidence_digest": (row.run_metadata or {}).get("evidence_digest"),
+        "evidence_source_count": source_count,
+        "verification_verdict": evaluation.verdict if evaluation else None,
+        "schema_valid": row.status == "COMPLETED" and row.output_event_id is not None and evaluation is not None,
     }
 
 
@@ -316,6 +379,16 @@ async def keep_entry(payload: JournalIn, db: Scoped, identity: Identity) -> Jour
     await db.flush()
     row = JournalEntry(owner_user_id=user_id, orbit_id=payload.orbit_id, body=payload.body, event_id=ev.id)
     db.add(row)
+    await db.flush()
+    await award_glow_if_eligible(
+        db,
+        owner_user_id=user_id,
+        event_type="journal_saved",
+        source_kind="JOURNAL_ENTRY",
+        source_id=row.id,
+        orbit_id=payload.orbit_id,
+        idempotency_key=f"journal:{row.id}:saved",
+    )
     await db.commit()
     return JournalOut.model_validate(row)
 
@@ -466,6 +539,15 @@ async def create_plan(payload: PlanIn, db: Scoped, identity: Identity) -> PlanOu
     db.add(CognitiveEvent(owner_user_id=user_id, orbit_id=payload.orbit_id, event_kind="PLAN_CREATED",
                           content_text=payload.title, source_ref=f"plan:{plan.id}"))
     await db.flush()
+    await award_glow_if_eligible(
+        db,
+        owner_user_id=user_id,
+        event_type="plan_created",
+        source_kind="PLAN",
+        source_id=plan.id,
+        orbit_id=payload.orbit_id,
+        idempotency_key=f"plan:{plan.id}:created",
+    )
     out = await _plan_out(db, plan)   # read inside the armed transaction
     await db.commit()
     return out
@@ -501,6 +583,7 @@ async def patch_step(step_id: uuid.UUID, payload: StepPatch, db: Scoped, identit
     step = (await db.execute(select(PlanStep).where(PlanStep.id == step_id, PlanStep.owner_user_id == user_id))).scalar_one_or_none()
     if not step:
         raise HTTPException(404, "Step not found.")
+    was_done = step.done
     if payload.title is not None:
         step.title = payload.title
     if payload.done is not None:
@@ -509,6 +592,26 @@ async def patch_step(step_id: uuid.UUID, payload: StepPatch, db: Scoped, identit
         db.add(CognitiveEvent(owner_user_id=user_id, event_kind="PLAN_STEP",
                               content_text=("done: " if payload.done else "reopened: ") + step.title,
                               source_ref=f"plan_step:{step.id}"))
+        await db.flush()
+        if payload.done:
+            await award_glow_if_eligible(
+                db,
+                owner_user_id=user_id,
+                event_type="plan_step_completed",
+                source_kind="PLAN_STEP",
+                source_id=step.id,
+                orbit_id=None,
+                idempotency_key=f"plan-step:{step.id}:completed",
+            )
+        elif was_done:
+            await reverse_source_glow(
+                db,
+                owner_user_id=user_id,
+                event_type="plan_step_completed",
+                source_kind="PLAN_STEP",
+                source_id=step.id,
+                reason="The owner reopened the completed Plan step.",
+            )
     await db.commit()
     return StepOut.model_validate(step)
 

@@ -57,21 +57,14 @@ load_env() {
 }
 
 require_openai_local_secret() {
-  if [[ ! -f .env.local ]]; then
+  if ! bash infra/scripts/validate-openai-local.sh >/dev/null; then
     cat >&2 <<'TXT'
-ERROR: OpenAI mode requires a local .env.local created by:
+ERROR: OpenAI mode requires a valid mode-600 local .env.local created by:
   bash infra/scripts/configure-openai-local.sh
 No API key was read from chat, source, logs, or artifacts.
 TXT
     exit 1
   fi
-  if ! grep -qE '^OPENAI_API_KEY=.+$' .env.local; then
-    die "OpenAI mode requires non-empty OPENAI_API_KEY in ignored .env.local. Run bash infra/scripts/configure-openai-local.sh."
-  fi
-  if ! grep -qE '^NUR_OPENAI_MODEL=.+$' .env.local; then
-    die "OpenAI mode requires non-empty NUR_OPENAI_MODEL in ignored .env.local. Run bash infra/scripts/configure-openai-local.sh."
-  fi
-  chmod 600 .env.local
 }
 
 set_env_value() {
@@ -289,9 +282,11 @@ PY
 start_all() {
   local ai_mode="$1"
   banner
-  doctor
   if [[ "$ai_mode" == "openai" ]]; then
     require_openai_local_secret
+  fi
+  doctor
+  if [[ "$ai_mode" == "openai" ]]; then
     set_env_value "NUR_AI_PROVIDER" "openai"
   else
     set_env_value "NUR_AI_PROVIDER" "disabled"

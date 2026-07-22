@@ -35,6 +35,12 @@ export function hydrateReadOnlyV197(document: Document, snapshot: V197BridgeSnap
 
   const name = snapshot.session.profile.chosen_name?.trim();
   if (name) text(document.querySelector(V197_SELECTORS.contextTitle), `${name}'s Orbit, held gently.`);
+  // The canonical owner star ships a placeholder identity; announce the real
+  // session owner instead of a person who does not exist.
+  if (name) {
+    document.querySelector(V197_SELECTORS.ownerStar)
+      ?.setAttribute("aria-label", `${name} — owner session`);
+  }
 
   const boundary = humanBoundary(snapshot.preferences?.default_boundary ?? snapshot.session.profile.default_boundary);
   if (boundary) text(document.querySelector(V197_SELECTORS.boundaryName), boundary);

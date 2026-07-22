@@ -5,8 +5,40 @@ from app.models.session import Session
 from app.models.orbit import Orbit
 from app.models.consent import ConsentRecord
 from app.models.audit import AuditEvent
+from app.models.password_recovery import PasswordResetChallenge
+from app.models.events import DomainEvent
+from app.models.memory import MemoryAccessEvent, MemoryEdge, MemoryVersion, PersonalMemory
+from app.models.learning import (
+    TeachNURCandidate,
+    TeachNURConsentEvent,
+    TeachNURContribution,
+    TeachNUREvaluationRun,
+    TeachNURKnowledgeAccessEvent,
+    TeachNURKnowledgeVersion,
+    TeachNURReview,
+)
+from app.models.billing import (
+    BillingCheckoutSession,
+    BillingCustomer,
+    BillingEntitlement,
+    BillingEntitlementEvent,
+    BillingPlan,
+    BillingRefundEvent,
+    BillingSubscription,
+    BillingWebhookReceipt,
+)
 
-__all__ = ["Base", "User", "Profile", "Session", "Orbit", "ConsentRecord", "AuditEvent"]
+__all__ = [
+    "Base", "User", "Profile", "Session", "Orbit", "ConsentRecord",
+    "AuditEvent", "PasswordResetChallenge", "DomainEvent", "PersonalMemory",
+    "MemoryVersion", "MemoryEdge", "MemoryAccessEvent",
+    "TeachNURContribution", "TeachNURCandidate", "TeachNURKnowledgeVersion",
+    "TeachNURConsentEvent", "TeachNURReview", "TeachNUREvaluationRun",
+    "TeachNURKnowledgeAccessEvent",
+    "BillingPlan", "BillingCheckoutSession", "BillingCustomer",
+    "BillingSubscription", "BillingEntitlement", "BillingEntitlementEvent",
+    "BillingWebhookReceipt", "BillingRefundEvent",
+]
 from app.models.cognition import (  # noqa: F401
     ClaimEvidence, CognitiveEvent, Decision, Experiment, Hypothesis,
     JournalEntry, OrbitReference, Outcome, Plan, PlanStep, ResearchDraft,
@@ -27,8 +59,14 @@ from app.models.product import (  # noqa: F401
     ResearchSourceNote, WebSignalNote, WebSignalQuestion,
 )
 from app.models.engagement import (  # noqa: F401
-    GlowBalance, GlowRewardEvent, GlowRule, GlowStreak, GlowTransaction,
-    Notification, NotificationPreference, Translation,
+    EngagementExperimentAssignment, EngagementExperimentDefinition,
+    EngagementExperimentExposure, GlowAchievementDefinition,
+    GlowAchievementEvent, GlowBalance, GlowFraudFlag,
+    GlowLevelDefinition, GlowLevelEvent, GlowQuest, GlowQuestDefinition,
+    GlowReversal, GlowRewardDefinition, GlowRewardEvent, GlowRewardRedemption,
+    GlowRule, GlowSourceClaim, GlowStreak, GlowStreakDefinition, GlowStreakEvent,
+    GlowStreakRepair, GlowTransaction, GlowUserLevel, Notification,
+    NotificationDelivery, NotificationPreference, Translation,
 )
 from app.models.living import (  # noqa: F401
     FeasibilityAssessment, GlowAchievement, Goal, Objective, ScheduledAction,

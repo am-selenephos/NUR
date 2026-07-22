@@ -16,7 +16,8 @@ async function signIn(page: Page): Promise<FrameLocator> {
   await entry.locator("#f4-signin-form button[type='submit']").click();
   await expect(page.locator("#nur-universe-stage")).toHaveClass(/is-visible/, { timeout: 20_000 });
   const universe = page.frameLocator("#nur-universe-stage");
-  await expect(universe.locator("#page-systems")).toBeVisible({ timeout: 20_000 });
+  // The authenticated universe lands on Today in the rebuilt shell.
+  await expect(universe.locator("#page-today")).toBeVisible({ timeout: 20_000 });
   return universe;
 }
 

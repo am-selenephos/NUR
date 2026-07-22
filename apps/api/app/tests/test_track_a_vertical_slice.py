@@ -42,11 +42,16 @@ async def test_glow_reward_is_persisted_idempotent_and_owner_scoped(client, supe
         "orbit_id": orbit_id,
         "idempotency_key": f"journal:{journal.json()['id']}:saved",
     }
+    auto_summary = await client.get("/api/v1/glow/summary")
+    assert auto_summary.status_code == 200
+    assert auto_summary.json()["balance"] == 4
+    assert auto_summary.json()["lifetime_points"] == 4
+
     first = await client.post("/api/v1/glow/rewards", headers=H(client), json=payload)
     assert first.status_code == 201
     assert first.json()["awarded_points"] == 4
     assert first.json()["balance"] == 4
-    assert first.json()["idempotent_replay"] is False
+    assert first.json()["idempotent_replay"] is True
 
     replay = await client.post("/api/v1/glow/rewards", headers=H(client), json=payload)
     assert replay.status_code == 201

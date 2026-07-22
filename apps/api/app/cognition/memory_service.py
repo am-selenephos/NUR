@@ -3,11 +3,14 @@ search over the owner's own traces — events, journal, decisions, references,
 research drafts. RLS already walls the rows; queries additionally scope by
 owner and optional orbit. No embeddings are consulted until the gateway phase
 (the vector columns stay NULL and unused)."""
+import hashlib
 import uuid
 from dataclasses import dataclass
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import MemoryAccessEvent, TeachNURKnowledgeAccessEvent
 
 
 @dataclass
@@ -56,6 +59,27 @@ SELECT * FROM (
   WHERE rd.owner_user_id = :owner
     AND (CAST(:orbit AS uuid) IS NULL OR rd.orbit_id = CAST(:orbit AS uuid))
     AND to_tsvector('english', rd.question || ' ' || coalesce(rd.notes,'')) @@ q.tsq
+  UNION ALL
+  SELECT 'MEMORY', m.id::text, left(m.canonical_text, 240),
+         ts_rank(to_tsvector('english', m.canonical_text), q.tsq)
+  FROM memories m, q
+  WHERE m.owner_user_id = :owner
+    AND m.status = 'APPROVED'
+    AND m.deleted_at IS NULL
+    AND (m.expires_at IS NULL OR m.expires_at > now())
+    AND (CAST(:orbit AS uuid) IS NULL OR m.orbit_id IS NULL OR m.orbit_id = CAST(:orbit AS uuid))
+    AND to_tsvector('english', m.canonical_text) @@ q.tsq
+  UNION ALL
+  SELECT 'TEACH_NUR_KNOWLEDGE', kv.id::text, left(kv.canonical_text, 240),
+         ts_rank(to_tsvector('english', kv.canonical_text), q.tsq)
+  FROM teach_nur_candidates tc
+  JOIN teach_nur_knowledge_versions kv
+    ON kv.id = tc.current_knowledge_version_id, q
+  WHERE tc.owner_user_id = :owner
+    AND kv.owner_user_id = :owner
+    AND tc.status = 'ACTIVE'
+    AND kv.status = 'ACTIVE'
+    AND to_tsvector('english', kv.canonical_text) @@ q.tsq
 ) hits
 ORDER BY rank DESC
 LIMIT :limit
@@ -93,4 +117,27 @@ async def retrieve_relevant(
             {"owner": str(owner_user_id), "query": q, "orbit": str(orbit_id) if orbit_id else None, "limit": limit},
         )
     ).all()
-    return [RetrievedRef(kind=r.kind, id=r.id, excerpt=r.excerpt, rank=float(r.rank)) for r in rows]
+    refs = [RetrievedRef(kind=r.kind, id=r.id, excerpt=r.excerpt, rank=float(r.rank)) for r in rows]
+    query_digest = hashlib.sha256((query or "").encode()).hexdigest()[:16]
+    for ref in refs:
+        if ref.kind == "MEMORY":
+            db.add(
+                MemoryAccessEvent(
+                    owner_user_id=owner_user_id,
+                    memory_id=uuid.UUID(ref.id),
+                    access_kind="RETRIEVED",
+                    purpose="COGNITION_RETRIEVAL",
+                    context_ref=f"query-sha256:{query_digest}",
+                )
+            )
+        elif ref.kind == "TEACH_NUR_KNOWLEDGE":
+            db.add(
+                TeachNURKnowledgeAccessEvent(
+                    owner_user_id=owner_user_id,
+                    knowledge_version_id=uuid.UUID(ref.id),
+                    access_kind="RETRIEVED",
+                    purpose="COGNITION_RETRIEVAL",
+                    context_ref=f"query-sha256:{query_digest}",
+                )
+            )
+    return refs
