@@ -703,6 +703,7 @@ async def award_glow(
     orbit_id: uuid.UUID | None,
     idempotency_key: str,
     occurred_at: dt.datetime | None = None,
+    system_slug_override: str | None = None,
 ) -> AwardResult:
     event_time = _aware(occurred_at)
     await _lock_owner(db, owner_user_id)
@@ -856,11 +857,19 @@ async def award_glow(
         if awarded_week + final_points > rule.weekly_cap:
             raise HTTPException(409, "Weekly Glow cap reached for this action.")
 
-    system_slug = await _resolve_system_slug(
-        db,
-        owner_user_id=owner_user_id,
-        source=source,
-        rule=rule,
+    # G10: an explicit System context (e.g. an outcome Return completed from a
+    # System surface) takes precedence; otherwise derive from the source. This
+    # sets system_slug at INSERT, honoring G09's append-only glow_transactions
+    # (UPDATE is revoked) instead of patching the row after the fact.
+    system_slug = (
+        system_slug_override
+        if system_slug_override is not None
+        else await _resolve_system_slug(
+            db,
+            owner_user_id=owner_user_id,
+            source=source,
+            rule=rule,
+        )
     )
     source_event = await _source_domain_event(
         db,
