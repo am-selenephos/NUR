@@ -90,6 +90,7 @@ def create_app() -> FastAPI:
     from app.api.v1.profile import router as profile_router
     from app.api.v1.product_surfaces import router as product_surfaces_router
     from app.api.v1.glow import router as glow_router
+    from app.api.v1.group_research import router as group_research_router
     from app.api.v1.feasibility import router as feasibility_router
     from app.api.v1.living import router as living_router
     from app.api.v1.map import router as map_router
@@ -112,6 +113,7 @@ def create_app() -> FastAPI:
     app.include_router(profile_router, prefix="/api/v1")
     app.include_router(product_surfaces_router, prefix="/api/v1")
     app.include_router(glow_router, prefix="/api/v1")
+    app.include_router(group_research_router, prefix="/api/v1")
     app.include_router(feasibility_router, prefix="/api/v1")
     app.include_router(living_router, prefix="/api/v1")
     app.include_router(map_router, prefix="/api/v1")

@@ -51,3 +51,9 @@ from app.models.community_social import (  # noqa: F401
     CommunityModerationEvent, CommunityRelationship, CommunityReport,
     CommunityRoomSanction, CommunitySave,
 )
+from app.models.group_research import (  # noqa: F401
+    ExpertContribution, ExpertProfile, ExpertVerification, GroupNURSynthesis,
+    ResearchCitation, ResearchClaim, ResearchClaimRevision, ResearchJob,
+    ResearchSource, TenderInsight, WebSignalAlert, WebSignalSnapshot,
+    WebWatchlist,
+)
