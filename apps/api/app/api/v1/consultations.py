@@ -17,6 +17,13 @@ from app.services.glow_service import award_glow
 
 router = APIRouter(prefix="/consultations", tags=["consultations"])
 STAGES = ("ORIENT", "GATHER", "MAP", "MOVE", "RETURN")
+STAGE_REQUIRED_FIELDS = {
+    "ORIENT": {"actual_question": str, "affected_people": list},
+    "GATHER": {"facts": list, "constraints": list},
+    "MAP": {"options": list, "minority_positions": list},
+    "MOVE": {"selected_action": str, "success_signal": str},
+    "RETURN": {"outcome": str, "prediction_comparison": str},
+}
 CONTRIBUTION_TYPES = {
     "LIVED_EXPERIENCE", "PRACTICAL_MOVE", "CONSTRAINT", "COUNTEREXAMPLE",
     "DISAGREEMENT", "WITNESS", "TRIED_THIS", "OUTCOME", "EXPERT_VOICE",
@@ -101,6 +108,27 @@ class ConsultationDetail(BaseModel):
     stage_order: list[str]
     next_stage: str | None
     what_nur_may_be_wrong_about: str
+
+
+def _validated_stage_payload(stage: str, payload: dict) -> dict:
+    required = STAGE_REQUIRED_FIELDS[stage]
+    missing = [name for name in required if name not in payload]
+    if missing:
+        raise HTTPException(
+            422,
+            f"{stage} needs persisted fields: {', '.join(sorted(missing))}.",
+        )
+    for name, expected_type in required.items():
+        value = payload[name]
+        if not isinstance(value, expected_type):
+            raise HTTPException(422, f"{stage}.{name} has the wrong data type.")
+        if expected_type is str and not value.strip():
+            raise HTTPException(422, f"{stage}.{name} cannot be empty.")
+    if stage in {"GATHER", "MAP"}:
+        primary = "facts" if stage == "GATHER" else "options"
+        if not payload[primary]:
+            raise HTTPException(422, f"{stage}.{primary} needs at least one item.")
+    return payload
 
 
 async def _membership(db: Scoped, room_id: uuid.UUID, user_id: uuid.UUID) -> CommunityMembership | None:
@@ -269,11 +297,10 @@ async def complete_stage(consultation_id: uuid.UUID, stage: str, payload: StageI
         raise HTTPException(422, "Unknown Consultation stage.")
     if row.status != "ACTIVE" or row.current_stage != stage:
         raise HTTPException(409, f"Expected stage {row.current_stage}.")
-    if not payload.payload:
-        raise HTTPException(422, "A stage needs a persisted record.")
+    stage_payload = _validated_stage_payload(stage, payload.payload)
     record = ConsultationStageRecord(
         consultation_id=row.id, consultation_owner_user_id=row.owner_user_id,
-        owner_user_id=user_id, stage=stage, stage_payload=payload.payload,
+        owner_user_id=user_id, stage=stage, stage_payload=stage_payload,
     )
     db.add(record)
     await db.flush()
