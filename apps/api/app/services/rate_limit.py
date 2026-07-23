@@ -45,3 +45,45 @@ async def allow_registration(redis: Redis, *, ip: str) -> bool:
     return await _fixed_window(redis, key=f"rl:register:{ip}",
                                max_n=s.register_rate_limit_max,
                                window_s=s.register_rate_limit_window_seconds)
+
+
+async def allow_password_forgot(redis: Redis, *, ip: str, email_fp: str) -> bool:
+    s = get_settings()
+    return await _fixed_window(
+        redis,
+        key=f"rl:password-forgot:{ip}:{email_fp}",
+        max_n=s.password_forgot_rate_limit_max,
+        window_s=s.password_forgot_rate_limit_window_seconds,
+    )
+
+
+async def allow_password_reset(redis: Redis, *, ip: str, token_fp: str) -> bool:
+    s = get_settings()
+    return await _fixed_window(
+        redis,
+        key=f"rl:password-reset:{ip}:{token_fp}",
+        max_n=s.password_reset_rate_limit_max,
+        window_s=s.password_reset_rate_limit_window_seconds,
+    )
+
+
+async def allow_password_change(redis: Redis, *, ip: str, user_id: str) -> bool:
+    s = get_settings()
+    return await _fixed_window(
+        redis,
+        key=f"rl:password-change:{ip}:{user_id}",
+        max_n=s.password_change_rate_limit_max,
+        window_s=s.password_change_rate_limit_window_seconds,
+    )
+
+
+async def allow_owner_upload(redis: Redis, *, user_id: str) -> bool:
+    """Per-owner rate limit for file uploads — an expensive write path beyond
+    the auth endpoints. Keyed by owner (not IP): the cost is per account."""
+    s = get_settings()
+    return await _fixed_window(
+        redis,
+        key=f"rl:upload:{user_id}",
+        max_n=s.upload_rate_limit_max,
+        window_s=s.upload_rate_limit_window_seconds,
+    )

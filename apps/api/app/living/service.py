@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.living.catalog import BY_SLUG, SYSTEMS, SystemDefinition, require_system
 from app.models import (
+    AMProject,
     AuditEvent,
     CognitiveEvent,
     GlowTransaction,
@@ -38,6 +39,39 @@ def _daypart(hour: int) -> str:
     if 17 <= hour < 22:
         return "evening"
     return "night"
+
+
+def _capacity_band(score: int) -> tuple[str, int]:
+    if score < 35:
+        return "LOW", 10
+    if score < 60:
+        return "LIMITED", 20
+    if score < 80:
+        return "STEADY", 45
+    return "STRONG", 90
+
+
+def _operating_boundary(slug: str) -> dict:
+    if slug == "body":
+        return {
+            "scope": "SELF_REPORTED_CAPACITY_SUPPORT",
+            "statement": (
+                "NUR organizes self-reported capacity and smaller next moves; "
+                "it does not diagnose, prescribe, or replace qualified medical care."
+            ),
+        }
+    if slug == "money":
+        return {
+            "scope": "FINANCIAL_ORGANIZATION_ONLY",
+            "statement": (
+                "NUR can organize owner-entered financial facts and research, but "
+                "does not provide licensed financial advice or move money."
+            ),
+        }
+    return {
+        "scope": "OWNER_DECISION_SUPPORT",
+        "statement": "NUR organizes owner evidence and leaves consequential choices with the owner.",
+    }
 
 
 async def owner_now(
@@ -143,21 +177,41 @@ async def system_snapshot(
         GlowTransaction.system_slug == slug,
         GlowTransaction.reversed.is_(False),
     ))).scalar_one())
+    related_projects = []
+    if slug == "creation":
+        related_projects = (await db.execute(select(AMProject).where(
+            AMProject.owner_user_id == owner_user_id,
+            AMProject.system_slug == slug,
+        ).order_by(AMProject.updated_at.desc()).limit(10))).scalars().all()
 
     total_actions = len(actions)
     completed_actions = sum(row.status == "COMPLETED" for row in actions)
     missed_actions = [row for row in actions if row.status == "MISSED"]
+    returned_outcomes = sum(
+        row.status == "COMPLETED" and row.outcome_id is not None for row in actions
+    )
     action_score = 100 * completed_actions / total_actions if total_actions else 0
+    outcome_return_score = (
+        100 * returned_outcomes / completed_actions if completed_actions else 0
+    )
     goal_score = (
         sum(row.progress_percent for row in goals) / len(goals) if goals else 0
     )
     diagnostic_score = latest_diagnostic.score if latest_diagnostic else 0
     glow_score = min(100, glow_points * 2)
+    diagnostic_blockers = list(
+        latest_diagnostic.blockers if latest_diagnostic else []
+    )
+    unresolved_blocker_penalty = min(10, len(diagnostic_blockers) * 2)
+    missed_return_penalty = min(10, len(missed_actions) * 5)
     progress = _clamp(
-        action_score * 0.45
-        + goal_score * 0.25
-        + diagnostic_score * 0.20
+        action_score * 0.40
+        + goal_score * 0.20
+        + diagnostic_score * 0.15
+        + outcome_return_score * 0.15
         + glow_score * 0.10
+        - unresolved_blocker_penalty
+        - missed_return_penalty
     )
     open_actions = [row for row in reversed(actions) if row.status == "OPEN"]
     next_move = (
@@ -173,12 +227,13 @@ async def system_snapshot(
             "title": definition.checklist[min(completed_actions, len(definition.checklist) - 1)],
         }
     )
-    blockers = list(latest_diagnostic.blockers if latest_diagnostic else [])
+    blockers = diagnostic_blockers
     blockers.extend(row.title for row in missed_actions[:3])
     return {
         "slug": slug,
         "title": definition.title,
         "definition": definition.definition,
+        "operating_boundary": _operating_boundary(slug),
         "orbit_id": str(orbit.id),
         "questions": list(definition.questions),
         "checklist": list(definition.checklist),
@@ -189,10 +244,28 @@ async def system_snapshot(
             "action_completion_percent": round(action_score),
             "goal_progress_percent": round(goal_score),
             "latest_diagnostic_score": diagnostic_score,
+            "outcomes_returned": returned_outcomes,
+            "outcome_return_percent": round(outcome_return_score),
             "glow_points": glow_points,
-            "formula": "45% actions + 25% goals + 20% diagnostic + 10% Glow activity",
+            "unresolved_blocker_penalty": unresolved_blocker_penalty,
+            "missed_return_penalty": missed_return_penalty,
+            "formula_version": "v5-beta-2",
+            "formula": (
+                "40% actions + 20% goals + 15% diagnostic + 15% returned "
+                "outcomes + 10% Glow activity - blocker and missed-Return penalties"
+            ),
         },
         "active_goal_count": sum(row.status == "ACTIVE" for row in goals),
+        "related_projects": [
+            {
+                "id": str(row.id),
+                "title": row.title,
+                "status": row.status,
+                "objective": row.objective,
+                "updated_at": row.updated_at,
+            }
+            for row in related_projects
+        ],
         "goals": [
             {
                 "id": str(row.id),
@@ -292,6 +365,7 @@ async def today_snapshot(
     body_evidence = _checkin_body(checkin) if checkin else None
     mind_evidence = _checkin_mind(checkin) if checkin else None
     body_score = _blend(body_evidence, by_slug["body"]["progress_percent"])
+    capacity_band, capacity_action_limit = _capacity_band(body_score)
     mind_score = _blend(mind_evidence, mind_system)
     life_score = _clamp(life_system)
 
@@ -342,6 +416,7 @@ async def today_snapshot(
     open_today = [row for row in scheduled if row.status == "SCHEDULED"]
     open_actions = [row for row in reversed(actions) if row.status == "OPEN"]
     return_actions = [row for row in reversed(actions) if row.status == "MISSED"]
+    action_by_id = {str(row.id): row for row in actions}
     next_move = None
     if open_today:
         next_move = {
@@ -366,6 +441,45 @@ async def today_snapshot(
             "scheduled_for": return_actions[0].due_at,
             "returning_from_missed": True,
         }
+    if next_move and next_move["kind"] == "SYSTEM_ACTION":
+        next_action = action_by_id.get(next_move["id"])
+        if next_action is not None:
+            next_move["body_capacity"] = {
+                "score": body_score,
+                "band": capacity_band,
+                "action_limit_minutes": capacity_action_limit,
+                "effort_minutes": next_action.effort_minutes,
+                "exceeds_current_guidance": bool(
+                    next_action.effort_minutes
+                    and next_action.effort_minutes > capacity_action_limit
+                ),
+                "provenance_label": "OWNER_CHECKIN_DERIVED_GUIDANCE",
+            }
+
+    system_slug_by_orbit_id = {
+        row["orbit_id"]: row["slug"] for row in systems
+    }
+
+    def plan_capacity(plan: Plan) -> dict:
+        plan_orbit_id = str(plan.orbit_id) if plan.orbit_id else None
+        plan_actions = [
+            row
+            for row in actions
+            if row.status == "OPEN"
+            and plan_orbit_id is not None
+            and str(row.orbit_id) == plan_orbit_id
+        ]
+        return {
+            "body_score": body_score,
+            "band": capacity_band,
+            "action_limit_minutes": capacity_action_limit,
+            "open_actions_above_guidance": sum(
+                bool(row.effort_minutes and row.effort_minutes > capacity_action_limit)
+                for row in plan_actions
+            ),
+            "provenance_label": "OWNER_CHECKIN_DERIVED_GUIDANCE",
+            "not_medical_advice": True,
+        }
 
     return {
         "date": today,
@@ -375,6 +489,9 @@ async def today_snapshot(
         "daypart": _daypart(now.hour),
         "body": {
             "score": body_score,
+            "capacity_band": capacity_band,
+            "action_limit_minutes": capacity_action_limit,
+            "operating_boundary": _operating_boundary("body"),
             "sources": {
                 "today_checkin": body_evidence,
                 "body_system": by_slug["body"]["progress_percent"],
@@ -423,7 +540,15 @@ async def today_snapshot(
             for row in goals
         ],
         "active_plans": [
-            {"id": str(row.id), "title": row.title, "orbit_id": str(row.orbit_id) if row.orbit_id else None}
+            {
+                "id": str(row.id),
+                "title": row.title,
+                "orbit_id": str(row.orbit_id) if row.orbit_id else None,
+                "system_slug": system_slug_by_orbit_id.get(
+                    str(row.orbit_id) if row.orbit_id else ""
+                ),
+                "body_capacity": plan_capacity(row),
+            }
             for row in plans
         ],
         "scheduled_today": [
@@ -446,10 +571,13 @@ async def today_snapshot(
         ],
         "daily_quest": {
             "key": "return_one_real_move",
-            "title": "Complete one persisted System action.",
+            "title": (
+                f"Complete one persisted move within {capacity_action_limit} minutes."
+            ),
             "completed": bool(completed_today),
             "progress": 1 if completed_today else 0,
             "target": 1,
+            "capacity_band": capacity_band,
         },
         "next_move": next_move,
         "latest_insight": (

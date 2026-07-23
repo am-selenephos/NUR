@@ -4,7 +4,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.ai.errors import AIOutputValidationError, AIProviderError, AIProviderMisconfigured
+from app.ai.errors import (
+    AIOutputValidationError,
+    AIProviderError,
+    AIProviderMisconfigured,
+    AIProviderQuotaExceeded,
+    AIProviderUnsupportedModel,
+)
 from app.ai.openai_provider import OpenAITalkProvider
 from app.ai.schemas import TalkProviderRequest
 
@@ -23,9 +29,10 @@ def _valid_payload() -> str:
 
 
 class FakeStatus(Exception):
-    def __init__(self, status_code: int):
+    def __init__(self, status_code: int, *, code: str | None = None):
         super().__init__(f"status {status_code}")
         self.status_code = status_code
+        self.body = {"error": {"code": code}} if code else None
 
 
 class FakeResponses:
@@ -90,4 +97,24 @@ async def test_openai_provider_rejects_malformed_output_without_retry():
     with pytest.raises(AIOutputValidationError):
         await provider.complete_private_talk(_request())
 
+    assert responses.calls == 1
+
+
+async def test_openai_provider_does_not_retry_exhausted_quota():
+    provider, responses = _provider([FakeStatus(429, code="insufficient_quota")])
+
+    with pytest.raises(AIProviderQuotaExceeded) as caught:
+        await provider.complete_private_talk(_request())
+
+    assert caught.value.code == "provider_quota_exceeded"
+    assert responses.calls == 1
+
+
+async def test_openai_provider_classifies_unsupported_model_without_retry():
+    provider, responses = _provider([FakeStatus(404, code="model_not_found")])
+
+    with pytest.raises(AIProviderUnsupportedModel) as caught:
+        await provider.complete_private_talk(_request())
+
+    assert caught.value.code == "provider_model_unsupported"
     assert responses.calls == 1

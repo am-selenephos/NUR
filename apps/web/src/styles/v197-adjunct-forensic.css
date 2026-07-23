@@ -324,6 +324,34 @@
   resize: vertical;
 }
 
+/* File pickers must not surface the browser's native light-gray button inside
+   the void-black adjunct: restyle the selector button to the NUR control
+   language while keeping the real input visible and accessible. */
+.nur-adjunct-input[type="file"] {
+  padding: 8px;
+  cursor: pointer;
+}
+
+.nur-adjunct-input[type="file"]::file-selector-button {
+  appearance: none;
+  min-height: 32px;
+  margin-inline-end: 12px;
+  padding: 6px 12px;
+  border: 1px solid rgba(248, 217, 138, .32);
+  border-radius: 7px;
+  background: rgba(3, 3, 7, .68);
+  color: rgba(255, 248, 223, .82);
+  font: 600 13px/1 "Crimson Pro", serif;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: border-color .18s ease, color .18s ease;
+}
+
+.nur-adjunct-input[type="file"]::file-selector-button:hover {
+  border-color: rgba(138, 245, 255, .58);
+  color: var(--adj-ivory);
+}
+
 .nur-adjunct-input:focus,
 .nur-adjunct-select:focus,
 .nur-adjunct-textarea:focus {

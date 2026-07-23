@@ -25,6 +25,7 @@ from app.models import (
     Insight,
     Objective,
     OmegaClaim,
+    Outcome,
     Plan,
     PlanStep,
     Person,
@@ -94,6 +95,9 @@ async def _map_snapshot(db: Scoped, owner_user_id: uuid.UUID) -> dict:
     actions = (await db.execute(select(SystemAction).where(
         SystemAction.owner_user_id == owner_user_id,
     ).order_by(SystemAction.created_at.desc()).limit(200))).scalars().all()
+    outcomes = (await db.execute(select(Outcome).where(
+        Outcome.owner_user_id == owner_user_id,
+    ).order_by(Outcome.created_at.desc()).limit(100))).scalars().all()
     projects = (await db.execute(select(AMProject).where(
         AMProject.owner_user_id == owner_user_id,
     ).order_by(AMProject.updated_at.desc()).limit(80))).scalars().all()
@@ -163,8 +167,10 @@ async def _map_snapshot(db: Scoped, owner_user_id: uuid.UUID) -> dict:
             "parent_id": "nur",
             "status": "ACTIVE" if system["progress_percent"] > 0 else "READY",
             "data": {
+                "orbit_id": system["orbit_id"],
                 "progress_percent": system["progress_percent"],
                 "glow_points": system["progress_sources"]["glow_points"],
+                "outcomes_returned": system["progress_sources"]["outcomes_returned"],
                 "active_goal_count": system["active_goal_count"],
                 "blockers": system["blockers"],
                 "next_move": system["next_move"],
@@ -177,6 +183,9 @@ async def _map_snapshot(db: Scoped, owner_user_id: uuid.UUID) -> dict:
             "target": node_id,
             "kind": "MASTER_TO_SYSTEM",
         })
+    system_slug_by_orbit_id = {
+        system["orbit_id"]: system["slug"] for system in systems
+    }
     for goal in goals:
         node_id = f"goal:{goal.id}"
         system_id = f"system:{goal.system_slug}"
@@ -221,19 +230,26 @@ async def _map_snapshot(db: Scoped, owner_user_id: uuid.UUID) -> dict:
         })
     for plan in plans:
         node_id = f"plan:{plan.id}"
+        system_slug = system_slug_by_orbit_id.get(
+            str(plan.orbit_id) if plan.orbit_id else ""
+        )
+        parent_id = f"system:{system_slug}" if system_slug else "nur"
         nodes.append({
             "id": node_id,
             "kind": "PLAN",
             "label": plan.title,
-            "parent_id": "nur",
+            "parent_id": parent_id,
             "status": plan.status,
-            "data": {"orbit_id": str(plan.orbit_id) if plan.orbit_id else None},
+            "data": {
+                "orbit_id": str(plan.orbit_id) if plan.orbit_id else None,
+                "system_slug": system_slug,
+            },
         })
         edges.append({
-            "id": f"nur->{node_id}",
-            "source": "nur",
+            "id": f"{parent_id}->{node_id}",
+            "source": parent_id,
             "target": node_id,
-            "kind": "MASTER_TO_PLAN",
+            "kind": "SYSTEM_TO_PLAN" if system_slug else "MASTER_TO_PLAN",
         })
     for step in plan_steps:
         node_id = f"plan-step:{step.id}"
@@ -270,6 +286,33 @@ async def _map_snapshot(db: Scoped, owner_user_id: uuid.UUID) -> dict:
             "source": parent_id,
             "target": node_id,
             "kind": "SYSTEM_TO_BLOCKER" if action.status == "MISSED" else "SYSTEM_TO_ACTION",
+        })
+    for outcome in outcomes:
+        system_slug = (outcome.structured_measurements or {}).get("system_slug")
+        if system_slug not in system_slug_by_orbit_id.values():
+            continue
+        node_id = f"outcome:{outcome.id}"
+        parent_id = f"system:{system_slug}"
+        nodes.append({
+            "id": node_id,
+            "kind": "OUTCOME",
+            "label": outcome.observed_result,
+            "parent_id": parent_id,
+            "status": "RETURNED",
+            "data": {
+                "confidence": outcome.confidence,
+                "self_reported": outcome.self_reported,
+                "system_action_id": (outcome.structured_measurements or {}).get(
+                    "system_action_id"
+                ),
+                "provenance_label": "OWNER_RETURNED_OUTCOME",
+            },
+        })
+        edges.append({
+            "id": f"{parent_id}->{node_id}",
+            "source": parent_id,
+            "target": node_id,
+            "kind": "SYSTEM_TO_OUTCOME",
         })
     for project in projects:
         node_id = f"project:{project.id}"

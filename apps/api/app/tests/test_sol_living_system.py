@@ -5,6 +5,17 @@ from sqlalchemy import text
 from app.tests.conftest import register_user
 
 
+SYSTEM_SLUGS = (
+    "quiet-ambition",
+    "rebuild",
+    "study",
+    "money",
+    "body",
+    "connection",
+    "creation",
+)
+
+
 def H(client) -> dict[str, str]:
     return {"X-CSRF-Token": client.cookies.get("nur_csrf")}
 
@@ -206,6 +217,318 @@ async def test_make_easier_preserves_lineage_and_only_rewards_completed_replacem
     )
     assert complete.status_code == 200
     assert complete.json()["glow"]["awarded_points"] == 6
+
+
+async def test_system_return_is_persisted_idempotent_and_owner_isolated(client):
+    await register_user(client, chosen_name="Return Owner A")
+    action = await client.post(
+        "/api/v1/systems/body/actions",
+        headers=H(client),
+        json={"title": "Take a capacity-matched recovery walk"},
+    )
+    action_id = action.json()["id"]
+
+    too_early = await client.post(
+        f"/api/v1/systems/body/actions/{action_id}/return",
+        headers=H(client),
+        json={"observed_result": "Energy improved after the walk."},
+    )
+    assert too_early.status_code == 409
+
+    completed = await client.patch(
+        f"/api/v1/system-actions/{action_id}",
+        headers=H(client),
+        json={"status": "COMPLETED"},
+    )
+    assert completed.status_code == 200
+
+    returned = await client.post(
+        f"/api/v1/systems/body/actions/{action_id}/return",
+        headers=H(client),
+        json={
+            "observed_result": "  Energy improved after the walk.  ",
+            "structured_measurements": {"energy_before": 4, "energy_after": 6},
+            "confidence": 0.7,
+        },
+    )
+    assert returned.status_code == 201
+    returned_body = returned.json()
+    outcome_id = returned_body["outcome"]["id"]
+    assert returned_body["outcome"]["observed_result"] == "Energy improved after the walk."
+    assert returned_body["outcome"]["structured_measurements"] == {
+        "energy_before": 4,
+        "energy_after": 6,
+        "system_slug": "body",
+        "system_action_id": action_id,
+    }
+    assert returned_body["outcome"]["confidence"] == 0.7
+    assert returned_body["glow"]["awarded_points"] == 15
+    assert returned_body["idempotent_replay"] is False
+
+    replay = await client.post(
+        f"/api/v1/systems/body/actions/{action_id}/return",
+        headers=H(client),
+        json={"observed_result": "A replay cannot replace persisted evidence."},
+    )
+    assert replay.status_code == 201
+    assert replay.json()["outcome"]["id"] == outcome_id
+    assert replay.json()["outcome"]["observed_result"] == "Energy improved after the walk."
+    assert replay.json()["glow"]["idempotent_replay"] is True
+    assert replay.json()["idempotent_replay"] is True
+
+    corrected = await client.patch(
+        f"/api/v1/systems/body/actions/{action_id}/return",
+        headers=H(client),
+        json={
+            "observed_result": "Energy improved by one point after the walk.",
+            "reason": "The second reading was six, but the baseline was five.",
+            "structured_measurements": {"energy_before": 5, "energy_after": 6},
+            "confidence": 0.9,
+        },
+    )
+    assert corrected.status_code == 200
+    corrected_body = corrected.json()
+    assert corrected_body["outcome"]["id"] == outcome_id
+    assert corrected_body["outcome"]["confidence"] == 0.9
+    assert corrected_body["outcome"]["structured_measurements"]["corrections"][0][
+        "previous_observed_result"
+    ] == "Energy improved after the walk."
+    assert corrected_body["correction_count"] == 1
+    assert corrected_body["glow"]["awarded_points"] == 0
+
+    alias_action = await client.post(
+        "/api/v1/systems/body/actions",
+        headers=H(client),
+        json={"title": "A second action cannot borrow the first Return"},
+    )
+    denied_alias = await client.patch(
+        f"/api/v1/system-actions/{alias_action.json()['id']}",
+        headers=H(client),
+        json={"outcome_id": outcome_id},
+    )
+    assert denied_alias.status_code == 409
+
+    body = (await client.get("/api/v1/systems/body")).json()
+    assert body["progress_sources"]["outcomes_returned"] == 1
+    assert body["progress_sources"]["outcome_return_percent"] == 100
+    assert body["progress_sources"]["formula_version"] == "v5-beta-2"
+
+    graph = (await client.get("/api/v1/map")).json()
+    outcome_node = next(row for row in graph["nodes"] if row["id"] == f"outcome:{outcome_id}")
+    assert outcome_node["parent_id"] == "system:body"
+    assert outcome_node["label"] == "Energy improved by one point after the walk."
+    assert outcome_node["data"]["provenance_label"] == "OWNER_RETURNED_OUTCOME"
+    assert any(
+        edge["kind"] == "SYSTEM_TO_OUTCOME" and edge["target"] == outcome_node["id"]
+        for edge in graph["edges"]
+    )
+
+    timeline = (await client.get("/api/v1/universe/timeline")).json()["items"]
+    assert sum(row["kind"] == "OUTCOME_RETURNED" for row in timeline) == 1
+    assert sum(row["kind"] == "OUTCOME_CORRECTED" for row in timeline) == 1
+
+    client.cookies.clear()
+    await register_user(client, chosen_name="Return Owner B")
+    denied_return = await client.post(
+        f"/api/v1/systems/body/actions/{action_id}/return",
+        headers=H(client),
+        json={"observed_result": "Foreign evidence must stay hidden."},
+    )
+    assert denied_return.status_code == 404
+
+    owner_b_action = await client.post(
+        "/api/v1/systems/body/actions",
+        headers=H(client),
+        json={"title": "Owner B action"},
+    )
+    denied_link = await client.patch(
+        f"/api/v1/system-actions/{owner_b_action.json()['id']}",
+        headers=H(client),
+        json={"outcome_id": outcome_id},
+    )
+    assert denied_link.status_code == 404
+
+
+async def test_all_seven_systems_mutate_and_project_real_owner_evidence(client):
+    await register_user(client, chosen_name="Seven Systems Owner")
+    initial = {
+        row["slug"]: row for row in (await client.get("/api/v1/systems")).json()["systems"]
+    }
+    assert tuple(initial) == SYSTEM_SLUGS
+
+    outcome_ids: dict[str, str] = {}
+    plan_ids: dict[str, str] = {}
+    for slug in SYSTEM_SLUGS:
+        diagnostic = await client.post(
+            f"/api/v1/systems/{slug}/diagnostics",
+            headers=H(client),
+            json={
+                "answers": {"current_state": f"Measured state for {slug}."},
+                "ratings": {"clarity": 7},
+                "strengths": ["owner evidence"],
+            },
+        )
+        assert diagnostic.status_code == 201
+
+        goal = await client.post(
+            "/api/v1/goals",
+            headers=H(client),
+            json={"system_slug": slug, "title": f"Move {slug} with evidence"},
+        )
+        assert goal.status_code == 201
+
+        plan = await client.post(
+            "/api/v1/plans",
+            headers=H(client),
+            json={
+                "title": f"Plan for {slug}",
+                "orbit_id": initial[slug]["orbit_id"],
+                "steps": [{"title": f"Do the next {slug} step"}],
+            },
+        )
+        assert plan.status_code == 201
+        plan_ids[slug] = plan.json()["id"]
+
+        action = await client.post(
+            f"/api/v1/systems/{slug}/actions",
+            headers=H(client),
+            json={
+                "title": f"Complete one {slug} action",
+                "goal_id": goal.json()["id"],
+                "diagnostic_id": diagnostic.json()["id"],
+            },
+        )
+        assert action.status_code == 201
+
+        schedule = await client.post(
+            "/api/v1/schedules",
+            headers=H(client),
+            json={
+                "system_slug": slug,
+                "title": f"Scheduled {slug} action",
+                "scheduled_for": dt.datetime.now(dt.UTC).isoformat(),
+                "goal_id": goal.json()["id"],
+                "system_action_id": action.json()["id"],
+                "plan_step_id": plan.json()["steps"][0]["id"],
+            },
+        )
+        assert schedule.status_code == 201
+
+        complete = await client.patch(
+            f"/api/v1/system-actions/{action.json()['id']}",
+            headers=H(client),
+            json={"status": "COMPLETED"},
+        )
+        assert complete.status_code == 200
+
+        returned = await client.post(
+            f"/api/v1/systems/{slug}/actions/{action.json()['id']}/return",
+            headers=H(client),
+            json={
+                "observed_result": f"Observed a real {slug} result.",
+                "structured_measurements": {"verified": True},
+                "confidence": 0.6,
+            },
+        )
+        assert returned.status_code == 201
+        outcome_ids[slug] = returned.json()["outcome"]["id"]
+
+        insight = await client.post(
+            "/api/v1/insights/generate",
+            headers=H(client),
+            json={"system_slug": slug},
+        )
+        assert insight.status_code == 201
+        assert insight.json()["affected_system_slug"] == slug
+
+    creation_project = await client.post(
+        "/api/v1/projects",
+        headers=H(client),
+        json={
+            "title": "Ship the Creation System proof",
+            "objective": "Link a real Project to the Creation System.",
+            "system_slug": "creation",
+        },
+    )
+    assert creation_project.status_code == 201
+
+    oversized_action = await client.post(
+        "/api/v1/systems/body/actions",
+        headers=H(client),
+        json={
+            "title": "Attempt a long high-load session",
+            "effort_minutes": 60,
+        },
+    )
+    assert oversized_action.status_code == 201
+    low_capacity = await client.post(
+        "/api/v1/today/check-in",
+        headers=H(client),
+        json={
+            "energy": 0,
+            "pain": 10,
+            "sleep_quality": 0,
+            "nourishment": 0,
+            "movement": 0,
+            "emotional_load": 10,
+            "clarity": 0,
+            "note": "Low capacity is owner-reported, not diagnosed.",
+        },
+    )
+    assert low_capacity.status_code == 200
+    today = low_capacity.json()["today"]
+    assert today["body"]["capacity_band"] == "LOW"
+    assert today["body"]["action_limit_minutes"] == 10
+    assert today["body"]["operating_boundary"]["scope"] == "SELF_REPORTED_CAPACITY_SUPPORT"
+    assert len(today["active_plans"]) == 7
+    assert all(
+        plan["body_capacity"]["action_limit_minutes"] == 10
+        and plan["body_capacity"]["not_medical_advice"] is True
+        for plan in today["active_plans"]
+    )
+    body_plan = next(plan for plan in today["active_plans"] if plan["system_slug"] == "body")
+    assert body_plan["body_capacity"]["open_actions_above_guidance"] == 1
+    assert today["next_move"]["id"] == oversized_action.json()["id"]
+    assert today["next_move"]["body_capacity"]["exceeds_current_guidance"] is True
+
+    snapshots = {
+        row["slug"]: row for row in (await client.get("/api/v1/systems")).json()["systems"]
+    }
+    for slug in SYSTEM_SLUGS:
+        snapshot = snapshots[slug]
+        assert snapshot["progress_percent"] > 0
+        assert snapshot["progress_sources"]["completed_actions"] == 1
+        assert snapshot["progress_sources"]["outcomes_returned"] == 1
+        assert snapshot["progress_sources"]["outcome_return_percent"] == 100
+        assert snapshot["active_goal_count"] == 1
+        assert snapshot["prediction"]["provenance_label"] == "DETERMINISTIC_INFERENCE"
+    assert snapshots["money"]["operating_boundary"]["scope"] == "FINANCIAL_ORGANIZATION_ONLY"
+    assert snapshots["creation"]["related_projects"] == [{
+        "id": creation_project.json()["id"],
+        "title": "Ship the Creation System proof",
+        "status": "ACTIVE",
+        "objective": "Link a real Project to the Creation System.",
+        "updated_at": creation_project.json()["updated_at"],
+    }]
+
+    graph = (await client.get("/api/v1/map")).json()
+    nodes = {row["id"]: row for row in graph["nodes"]}
+    edges = graph["edges"]
+    for slug in SYSTEM_SLUGS:
+        system_node = nodes[f"system:{slug}"]
+        assert system_node["data"]["orbit_id"] == initial[slug]["orbit_id"]
+        assert system_node["data"]["outcomes_returned"] == 1
+        assert nodes[f"plan:{plan_ids[slug]}"]["parent_id"] == f"system:{slug}"
+        assert nodes[f"outcome:{outcome_ids[slug]}"]["parent_id"] == f"system:{slug}"
+        assert any(
+            edge["kind"] == "SYSTEM_TO_PLAN"
+            and edge["source"] == f"system:{slug}"
+            and edge["target"] == f"plan:{plan_ids[slug]}"
+            for edge in edges
+        )
+
+    timeline = (await client.get("/api/v1/universe/timeline?limit=200")).json()["items"]
+    assert sum(row["kind"] == "OUTCOME_RETURNED" for row in timeline) == 7
 
 
 async def test_map_future_timeline_and_feasibility_are_derived_and_persisted(client):

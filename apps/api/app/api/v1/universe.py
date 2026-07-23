@@ -209,6 +209,8 @@ async def timeline(db: Scoped, identity: Identity, limit: int = 80) -> TimelineO
                     "SYSTEM_ACTION_COMPLETED",
                     "SYSTEM_ACTION_MISSED",
                     "ACTION_MADE_EASIER",
+                    "OUTCOME_RETURNED",
+                    "OUTCOME_CORRECTED",
                     "GOAL_CREATED",
                     "OBJECTIVE_CREATED",
                     "SCHEDULE_CREATED",

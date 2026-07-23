@@ -1,6 +1,6 @@
 import uuid
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, SecretStr
 
 
 class RegisterRequest(BaseModel):
@@ -13,6 +13,27 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=256)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    accepted: bool = True
+    message: str = "If an account matches that email, reset instructions will be sent."
+
+
+class ResetPasswordRequest(BaseModel):
+    # Length checks happen in the service so validation errors never echo a
+    # raw reset token or password in FastAPI's structured 422 response.
+    token: SecretStr
+    new_password: SecretStr
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: SecretStr
+    new_password: SecretStr
 
 
 class ProfileOut(BaseModel):

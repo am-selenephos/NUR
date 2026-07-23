@@ -18,6 +18,7 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - run: npm run secret-scan
+      - run: npm run release:naming-scan
       - run: npm run web:typecheck
       - run: npm run web:test
       - run: npm run web:build

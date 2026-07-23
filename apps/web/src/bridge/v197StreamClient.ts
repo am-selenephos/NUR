@@ -148,10 +148,19 @@ export class V197StreamClient {
                 return streamEvent.data.result as unknown as V197TalkResult;
               }
               if (["talk.error", "talk.conflict", "talk.cancelled"].includes(streamEvent.event)) {
-                const detail = streamEvent.data.detail;
+                // The backend publishes the honest reason under `message` (with a
+                // machine `code`, e.g. "provider_disabled"); older code read the
+                // wrong `detail` key and lost it, leaving a generic notice.
+                const message = streamEvent.data.message ?? streamEvent.data.detail;
+                const code = typeof streamEvent.data.code === "string" ? streamEvent.data.code : null;
                 throw new V197ApiError(
-                  typeof detail === "string" ? detail : streamEvent.event === "talk.cancelled" ? "The Talk turn was cancelled." : "The Talk stream failed closed.",
+                  typeof message === "string" && message
+                    ? message
+                    : streamEvent.event === "talk.cancelled"
+                      ? "The Talk turn was cancelled."
+                      : "The Talk stream failed closed.",
                   streamEvent.event === "talk.conflict" ? 409 : 0,
+                  code,
                 );
               }
             }

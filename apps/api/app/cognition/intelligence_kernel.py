@@ -1,4 +1,6 @@
 import asyncio
+import hashlib
+import json
 import uuid
 
 from sqlalchemy import select
@@ -6,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.audit import model_run_metadata, safe_error_metadata
 from app.ai.budget import assert_daily_ai_budget
+from app.ai.errors import AIOutputValidationError, AIProviderDisabled
 from app.ai.provider import get_ai_provider
 from app.ai.schemas import AIProviderResult, AIStreamSink, EvidenceRef, NURTalkOutput, TalkProviderRequest
 from app.cognition.evaluation_service import persist_model_evaluation
@@ -20,6 +23,7 @@ from app.cognition.verifier import verify_talk_output
 from app.core.config import get_settings
 from app.models import CognitiveEvent, ModelRun, ModelRunSource
 from app.omega.schemas import OmegaTalkSummary
+from app.services.glow_service import award_glow_if_eligible
 from app.omega.workspace_service import build_workspace_frame, mark_frame_used, talk_summary
 
 
@@ -31,6 +35,7 @@ async def run_talk_kernel(
     orbit_id: uuid.UUID | None,
     locale: str,
     writing_preference: str = "default",
+    memory_mode: str = "EPHEMERAL",
     requested_mode: str | None = None,
     request_id: uuid.UUID | None = None,
     event_sink: AIStreamSink | None = None,
@@ -46,6 +51,10 @@ async def run_talk_kernel(
         ).scalar_one_or_none()
         if existing is not None:
             if existing.output_event_id is None:
+                if existing.status == "ERROR":
+                    raise TalkProviderFailure.from_model_run(existing)
+                if existing.status == "CANCELLED":
+                    raise TalkRunCancelled(existing.id)
                 raise TalkRunConflict(f"Talk request {request_id} is already {existing.status.lower()}.")
             replay = await _replay_talk_result(db, existing)
             if event_sink is not None:
@@ -61,12 +70,18 @@ async def run_talk_kernel(
 
     await assert_owned_orbit(db, owner_user_id=owner_user_id, orbit_id=orbit_id)
     task_mode = route_task(user_line, requested_mode)
+    await assert_daily_ai_budget(db, owner_user_id=owner_user_id)
     turn = CognitiveEvent(
         owner_user_id=owner_user_id,
         orbit_id=orbit_id,
         event_kind="TALK_TURN",
         content_text=user_line,
-        structured_payload={"mode": task_mode.value, "locale": locale, "writing_preference": writing_preference},
+        structured_payload={
+            "mode": task_mode.value,
+            "locale": locale,
+            "writing_preference": writing_preference,
+            "memory_mode": memory_mode,
+        },
         source_ref="talk",
     )
     db.add(turn)
@@ -88,7 +103,10 @@ async def run_talk_kernel(
         limit=6,
     )
     evidence = build_evidence_packet(orbit_id=orbit_id, retrieval=retrieval)
-    await assert_daily_ai_budget(db, owner_user_id=owner_user_id)
+    evidence_payload = evidence.model_dump(mode="json")
+    evidence_digest = hashlib.sha256(
+        json.dumps(evidence_payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
     s = get_settings()
     run_metadata = model_run_metadata(
@@ -99,8 +117,11 @@ async def run_talk_kernel(
         prompt_logging=s.ai_log_prompts,
     )
     run_metadata["writing_preference"] = writing_preference
+    run_metadata["memory_mode"] = memory_mode
     run_metadata["omega_workspace_frame_id"] = str(frame.id)
     run_metadata["omega_scope_statement"] = frame.scope_statement
+    run_metadata["evidence_digest"] = evidence_digest
+    run_metadata["evidence_source_count"] = len(retrieval)
     model_run = ModelRun(
         owner_user_id=owner_user_id,
         request_id=request_id,
@@ -140,8 +161,8 @@ async def run_talk_kernel(
             },
         )
 
-    result: AIProviderResult
-    error: dict = {}
+    result: AIProviderResult | None = None
+    verification: VerificationResult | None = None
     provider_name = s.ai_provider
     try:
         provider = get_ai_provider()
@@ -163,26 +184,43 @@ async def run_talk_kernel(
             ),
             event_sink=event_sink,
         )
+        if not result.available:
+            raise AIProviderDisabled(result.reason or "AI provider is disabled.")
+        verification = verify_talk_output(result.output, evidence, provider_available=True)
+        if verification.verdict == "BLOCK":
+            raise AIOutputValidationError("Provider output failed NUR source verification.")
     except asyncio.CancelledError:
         model_run.status = "CANCELLED"
         model_run.error = {"kind": "cancelled", "detail": "The owner cancelled this model run."}
         model_run.response_metadata = {"available": False, "reason": "Cancelled by owner."}
         await db.commit()
-        if event_sink is not None:
-            await event_sink(
-                "talk.cancelled",
-                {"request_id": str(request_id) if request_id else None, "model_run_id": str(model_run.id)},
-            )
         raise
     except Exception as exc:
         error = safe_error_metadata(exc)
-        result = AIProviderResult(
-            provider=provider_name,
-            model=s.openai_model or None,
-            available=False,
-            reason="AI provider failed closed; no model answer was trusted.",
-            output=get_ai_provider_disabled_output(str(error["detail"])),
-        )
+        model_run.provider = provider_name
+        model_run.status = "ERROR"
+        model_run.response_metadata = {
+            "available": False,
+            "reason": error["public_message"],
+            "raw_response_id": result.raw_response_id if result is not None else None,
+        }
+        model_run.usage = result.usage if result is not None else {}
+        model_run.error = error
+        await db.flush()
+        if event_sink is not None:
+            await event_sink(
+                "talk.failed",
+                {
+                    "request_id": str(request_id) if request_id else None,
+                    "model_run_id": str(model_run.id),
+                    "code": error["code"],
+                    "retryable": error["retryable"],
+                },
+            )
+        raise TalkProviderFailure.from_model_run(model_run) from exc
+
+    assert result is not None
+    assert verification is not None
 
     run_metadata = model_run_metadata(
         provider=result.provider,
@@ -192,11 +230,14 @@ async def run_talk_kernel(
         prompt_logging=s.ai_log_prompts,
     )
     run_metadata["writing_preference"] = writing_preference
+    run_metadata["memory_mode"] = memory_mode
     run_metadata["omega_workspace_frame_id"] = str(frame.id)
     run_metadata["omega_scope_statement"] = frame.scope_statement
+    run_metadata["evidence_digest"] = evidence_digest
+    run_metadata["evidence_source_count"] = len(retrieval)
     model_run.provider = result.provider
     model_run.model = result.model
-    model_run.status = "COMPLETED" if not error else "ERROR"
+    model_run.status = "COMPLETED"
     model_run.run_metadata = run_metadata
     model_run.response_metadata = {
         "available": result.available,
@@ -204,9 +245,8 @@ async def run_talk_kernel(
         "raw_response_id": result.raw_response_id,
     }
     model_run.usage = result.usage
-    model_run.error = error
+    model_run.error = {}
 
-    verification = verify_talk_output(result.output, evidence, provider_available=result.available)
     omega = await talk_summary(db, owner_user_id=owner_user_id, workspace_frame_id=frame.id)
     response_event = CognitiveEvent(
         owner_user_id=owner_user_id,
@@ -219,6 +259,7 @@ async def run_talk_kernel(
             "provider_available": result.available,
             "provider_reason": result.reason,
             "model_run_id": str(model_run.id),
+            "memory_mode": memory_mode,
             "verification": verification.model_dump(),
             "omega": omega.model_dump(mode="json"),
         },
@@ -231,13 +272,33 @@ async def run_talk_kernel(
     await mark_frame_used(db, frame)
 
     await persist_model_evaluation(db, owner_user_id=owner_user_id, model_run_id=model_run.id, verification=verification)
-    await persist_memory_candidates(
-        db,
-        owner_user_id=owner_user_id,
-        orbit_id=orbit_id,
-        source_event_id=response_event.id,
-        output=result.output,
-    )
+    memory_candidates = []
+    if memory_mode == "REVIEW":
+        memory_candidates = await persist_memory_candidates(
+            db,
+            owner_user_id=owner_user_id,
+            orbit_id=orbit_id,
+            source_event_id=response_event.id,
+            user_message_event_id=turn.id,
+            model_run_id=model_run.id,
+            request_id=request_id,
+            evidence_digest=evidence_digest,
+            evidence_sources=[
+                {"kind": ref.kind, "id": ref.id, "rank": ref.rank}
+                for ref in retrieval
+            ],
+            output=result.output,
+        )
+        if event_sink is not None:
+            for candidate in memory_candidates:
+                await event_sink(
+                    "memory.candidate",
+                    {
+                        "candidate_id": str(candidate.id),
+                        "status": candidate.status,
+                        "requires_owner_approval": True,
+                    },
+                )
     await persist_predictions(
         db,
         owner_user_id=owner_user_id,
@@ -245,6 +306,16 @@ async def run_talk_kernel(
         source_event_id=response_event.id,
         output=result.output,
     )
+    if result.output.next_move and verification.verdict in {"PASS", "WARN"}:
+        await award_glow_if_eligible(
+            db,
+            owner_user_id=owner_user_id,
+            event_type="talk_meaningful",
+            source_kind="COGNITIVE_EVENT",
+            source_id=turn.id,
+            orbit_id=orbit_id,
+            idempotency_key=f"talk-turn:{turn.id}:meaningful",
+        )
 
     if event_sink is not None:
         await event_sink(
@@ -275,6 +346,44 @@ async def run_talk_kernel(
 
 class TalkRunConflict(RuntimeError):
     pass
+
+
+class TalkRunCancelled(RuntimeError):
+    def __init__(self, model_run_id: uuid.UUID):
+        super().__init__("The Talk run was cancelled by its owner.")
+        self.model_run_id = model_run_id
+
+
+class TalkProviderFailure(RuntimeError):
+    def __init__(
+        self,
+        *,
+        model_run_id: uuid.UUID,
+        provider: str,
+        code: str,
+        public_message: str,
+        http_status: int,
+        retryable: bool,
+    ) -> None:
+        super().__init__(public_message)
+        self.model_run_id = model_run_id
+        self.provider = provider
+        self.code = code
+        self.public_message = public_message
+        self.http_status = http_status
+        self.retryable = retryable
+
+    @classmethod
+    def from_model_run(cls, model_run: ModelRun) -> "TalkProviderFailure":
+        error = model_run.error or {}
+        return cls(
+            model_run_id=model_run.id,
+            provider=model_run.provider,
+            code=str(error.get("code") or "provider_error"),
+            public_message=str(error.get("public_message") or "Live AI could not complete this request."),
+            http_status=int(error.get("http_status") or 503),
+            retryable=bool(error.get("retryable")),
+        )
 
 
 async def _replay_talk_result(db: AsyncSession, model_run: ModelRun) -> TalkKernelResult:
@@ -330,12 +439,6 @@ async def _replay_talk_result(db: AsyncSession, model_run: ModelRun) -> TalkKern
         omega=omega,
         idempotent_replay=True,
     )
-
-
-def get_ai_provider_disabled_output(reason: str):
-    from app.cognition.response_composer import compose_disabled_output
-
-    return compose_disabled_output(reason)
 
 
 def _is_uuid(value: str) -> bool:

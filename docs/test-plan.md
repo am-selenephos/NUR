@@ -20,6 +20,10 @@ Date: 2026-07-11
 - translation persistence and recipient denial;
 - Capsule/Omega/RLS regression suite;
 - Talk disabled/mock provider/schema/verifier suite.
+- billing catalog/checkout/signature/binding/replay/out-of-order/cancel/expiry/
+  refund/portal/relogin/seat-cap/RLS suite;
+- Lemon checkout request contract: one variant, expiry, test mode, and catalog
+  subtotal/currency verification without a network charge.
 
 ## Browser
 

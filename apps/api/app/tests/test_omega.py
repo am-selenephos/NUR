@@ -3,6 +3,7 @@ from pathlib import Path
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
+from app.ai.schemas import AIProviderResult, NURTalkOutput
 from app.omega.evaluation_cases_runner import load_omega_fixture_cases, run_omega_fixture_evaluation
 from app.tests.conftest import register_user
 
@@ -26,6 +27,29 @@ def H(c: AsyncClient) -> dict:
 
 def other_client(client) -> AsyncClient:
     return AsyncClient(transport=ASGITransport(app=client.app), base_url="http://test")
+
+
+class OmegaTestProvider:
+    name = "openai"
+
+    async def complete_private_talk(self, request, event_sink=None):  # noqa: ARG002
+        return AIProviderResult(
+            provider="openai",
+            model="omega-test-model",
+            available=True,
+            raw_response_id="resp_omega_test",
+            usage={"input_tokens": 1, "output_tokens": 1},
+            output=NURTalkOutput(
+                direct_response="The workspace frame was bounded.",
+                observed=[],
+                inferred=[],
+                hypotheses=[],
+                uncertainty=[],
+                next_move="Review the bounded frame.",
+                memory_candidates=[],
+                source_refs=[],
+            ),
+        )
 
 
 async def test_omega_tables_force_rls(client, super_engine):
@@ -163,8 +187,9 @@ async def test_contradiction_detected_between_decision_and_constraint(client):
     assert any("raw owner memory" in c["description"] for c in contradictions)
 
 
-async def test_workspace_frame_caps_sources_and_excludes_secrets(client, super_engine):
+async def test_workspace_frame_caps_sources_and_excludes_secrets(client, super_engine, monkeypatch):
     await register_user(client)
+    monkeypatch.setattr("app.cognition.intelligence_kernel.get_ai_provider", lambda: OmegaTestProvider())
     for i in range(9):
         await client.post("/api/v1/omega/claims", headers=H(client), json={
             "claim_text": f"Owner claim {i}",

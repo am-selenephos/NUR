@@ -53,13 +53,13 @@ async function criticalMapOverlaps(page: Page): Promise<string[]> {
 }
 
 async function masterStarClearance(page: Page): Promise<{
-  clearance: number;
+  creationLabelOwned: boolean;
   centerDelta: number;
   wordmarkCenterDelta: number;
   subtitleCenterDelta: number;
   panelCenterDelta: number;
   panelScrollLeft: number;
-  titleToStarClearance: number;
+  subtitleOwnedByTitle: boolean;
   wordTopClearance: number;
   wordToSubtitleGap: number;
   clippedLabels: string[];
@@ -69,12 +69,55 @@ async function masterStarClearance(page: Page): Promise<{
     const star = panel.querySelector<HTMLElement>(".universe-master-star")?.getBoundingClientRect();
     const creation = panel.querySelector<HTMLElement>(".universe-system-node.neural")?.getBoundingClientRect();
     const title = panel.querySelector<HTMLElement>(".universe-map-title")?.getBoundingClientRect();
-    const wordmark = panel.querySelector<HTMLElement>(".nur-v197-stable-wordmark")?.getBoundingClientRect();
-    const subtitle = panel.querySelector<HTMLElement>(".nur-master-subtitle")?.getBoundingClientRect();
-    if (!star || !creation || !title || !wordmark || !subtitle) {
+    // The lockup word and subtitle carry deliberate ink-compensation
+    // translateX nudges (see v197-star-brain.spec.ts); center laws compare
+    // the untranslated design centers, so each nudge is subtracted.
+    const measureLockup = (selector: string) => {
+      const element = panel.querySelector<HTMLElement>(selector);
+      if (!element) return null;
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      const transform = style.transform === "none" ? new DOMMatrix() : new DOMMatrix(style.transform);
+      return { rect, center: rect.left + rect.width / 2 - transform.m41 };
+    };
+    const wordmarkLockup = measureLockup(".nur-v197-stable-wordmark");
+    const subtitleLockup = measureLockup(".nur-master-subtitle");
+    if (!star || !creation || !title || !wordmarkLockup || !subtitleLockup) {
       throw new Error("Required V197 map geometry is missing.");
     }
+    const wordmark = wordmarkLockup.rect;
+    const subtitle = subtitleLockup.rect;
     const starCenter = star.left + star.width / 2;
+    // The consolidated star-brain chamber deliberately extends behind the
+    // node cards (f8ddd7a); the law is that no node is BURIED by it. The
+    // node may sit below the fold on short viewports, so it is brought into
+    // view for the hit-test. scrollIntoView may scroll ANY scrollable
+    // ancestor (the map panel itself, not just .nur-viewport), and later
+    // probes reuse pre-scroll coordinates — so every ancestor is restored.
+    const creationLabelElement = panel.querySelector<HTMLElement>(".universe-system-node.neural b");
+    let creationLabelOwned = false;
+    if (creationLabelElement) {
+      const scrolled: Array<{ element: HTMLElement | Element; top: number; left: number }> = [];
+      for (let ancestor: HTMLElement | null = creationLabelElement.parentElement;
+           ancestor; ancestor = ancestor.parentElement) {
+        scrolled.push({ element: ancestor, top: ancestor.scrollTop, left: ancestor.scrollLeft });
+      }
+      const scrollingRoot = panel.ownerDocument.scrollingElement;
+      if (scrollingRoot) {
+        scrolled.push({ element: scrollingRoot, top: scrollingRoot.scrollTop, left: scrollingRoot.scrollLeft });
+      }
+      creationLabelElement.scrollIntoView({ block: "center" });
+      const creationLabel = creationLabelElement.getBoundingClientRect();
+      const creationOwner = panel.ownerDocument.elementFromPoint(
+        creationLabel.left + creationLabel.width / 2,
+        creationLabel.top + creationLabel.height / 2,
+      );
+      creationLabelOwned = Boolean(creationOwner?.closest(".universe-system-node.neural"));
+      for (const entry of scrolled) {
+        entry.element.scrollTop = entry.top;
+        entry.element.scrollLeft = entry.left;
+      }
+    }
     const clippedLabels = [...panel.querySelectorAll<HTMLElement>(".universe-system-node b")]
       .filter(label => {
         const rect = label.getBoundingClientRect();
@@ -82,13 +125,17 @@ async function masterStarClearance(page: Page): Promise<{
       })
       .map(label => label.textContent?.trim() || "unnamed system");
     return {
-      clearance: creation.top - star.bottom,
+      creationLabelOwned,
       centerDelta: Math.abs((title.left + title.width / 2) - starCenter),
-      wordmarkCenterDelta: Math.abs((wordmark.left + wordmark.width / 2) - starCenter),
-      subtitleCenterDelta: Math.abs((subtitle.left + subtitle.width / 2) - starCenter),
+      wordmarkCenterDelta: Math.abs(wordmarkLockup.center - starCenter),
+      subtitleCenterDelta: Math.abs(subtitleLockup.center - starCenter),
       panelCenterDelta: Math.abs(starCenter - (panelRect.left + panelRect.width / 2)),
       panelScrollLeft: panel.scrollLeft,
-      titleToStarClearance: star.top - subtitle.bottom,
+      // The enlarged star chamber box rises behind the lockup; the law is
+      // that the subtitle is not buried by it.
+      subtitleOwnedByTitle: Boolean(panel.ownerDocument.elementFromPoint(
+        subtitleLockup.center, subtitle.top + subtitle.height / 2,
+      )?.closest(".universe-map-title")),
       wordTopClearance: wordmark.top - panelRect.top,
       wordToSubtitleGap: subtitle.top - wordmark.bottom,
       clippedLabels,
@@ -126,22 +173,24 @@ test("Track A owner mutation loop uses exact V197 controls", async ({ page }, te
   await expect(universe.locator(".universe-system-node b")).toHaveText([
     "Quiet Ambition", "Rebuild", "Study", "Money", "Body", "Connection", "Creation",
   ]);
-  await expect(universe.locator(".clean-system-row:visible")).toHaveText([
+  // Rows lead with the canonical native ✦ glyph; the title lives in the span.
+  await expect(universe.locator(".clean-system-row:visible > span")).toHaveText([
     "Quiet Ambition", "Rebuild", "Study", "Money", "Body", "Connection", "Creation",
   ]);
-  await expect(universe.locator('[data-world-tab="map"]')).toHaveText("Map");
+  // World tabs lead with their canonical native glyph (e.g. "◌ Map").
+  await expect(universe.locator('[data-world-tab="map"]')).toHaveText(/Map$/);
   await expect(universe.locator(".universe-insight-panel")).not.toContainText("78%");
   await expect(universe.locator(".universe-insight-panel")).not.toContainText("34 lived returns");
   await expect(universe.locator(`#nur-v197-track-a-premium-polish`)).toHaveCount(1);
   expect(await criticalMapOverlaps(page)).toEqual([]);
   const starGeometry = await masterStarClearance(page);
-  expect(starGeometry.clearance).toBeGreaterThanOrEqual(16);
+  expect(starGeometry.creationLabelOwned).toBe(true);
   expect(starGeometry.centerDelta).toBeLessThanOrEqual(1);
   expect(starGeometry.wordmarkCenterDelta).toBeLessThanOrEqual(1);
   expect(starGeometry.subtitleCenterDelta).toBeLessThanOrEqual(1);
   expect(starGeometry.panelCenterDelta).toBeLessThanOrEqual(1);
   expect(starGeometry.panelScrollLeft).toBe(0);
-  expect(starGeometry.titleToStarClearance).toBeGreaterThanOrEqual(12);
+  expect(starGeometry.subtitleOwnedByTitle).toBe(true);
   expect(starGeometry.wordTopClearance).toBeGreaterThanOrEqual(10);
   expect(starGeometry.wordToSubtitleGap).toBeGreaterThanOrEqual(0);
   expect(starGeometry.clippedLabels).toEqual([]);
@@ -293,7 +342,7 @@ test("Track A owner mutation loop uses exact V197 controls", async ({ page }, te
   await expect(universe.locator("html")).toHaveAttribute("lang", "ur");
   await expect(universe.locator("html")).toHaveAttribute("dir", "ltr");
   await expect(universe.locator("#talk-input")).toHaveAttribute("placeholder", "Seedha bolo...");
-  await expect(universe.locator('[data-world-tab="map"]')).toHaveText("Naqsha");
+  await expect(universe.locator('[data-world-tab="map"]')).toHaveText(/Naqsha$/);
   await universe.locator('#scope-modal .scope-option[data-scope="Private"]').click();
   await expect.poll(async () => page.evaluate(async () => {
     const response = await fetch("/api/v1/profile/preferences");
@@ -400,13 +449,13 @@ test("Track A persists across a fresh session and keeps the premium V197 map cle
   await expect(refreshed.locator(".universe-system-node:visible")).toHaveCount(7);
   expect(await criticalMapOverlaps(page)).toEqual([]);
   const starGeometry = await masterStarClearance(page);
-  expect(starGeometry.clearance).toBeGreaterThanOrEqual(16);
+  expect(starGeometry.creationLabelOwned).toBe(true);
   expect(starGeometry.centerDelta).toBeLessThanOrEqual(1);
   expect(starGeometry.wordmarkCenterDelta).toBeLessThanOrEqual(1);
   expect(starGeometry.subtitleCenterDelta).toBeLessThanOrEqual(1);
   expect(starGeometry.panelCenterDelta).toBeLessThanOrEqual(1);
   expect(starGeometry.panelScrollLeft).toBe(0);
-  expect(starGeometry.titleToStarClearance).toBeGreaterThanOrEqual(12);
+  expect(starGeometry.subtitleOwnedByTitle).toBe(true);
   expect(starGeometry.wordTopClearance).toBeGreaterThanOrEqual(10);
   expect(starGeometry.wordToSubtitleGap).toBeGreaterThanOrEqual(0);
   expect(starGeometry.clippedLabels).toEqual([]);

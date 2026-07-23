@@ -4,6 +4,8 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.errors import AIRequestBudgetExceeded
+from app.billing.entitlements import resolve_entitlement
 from app.core.config import get_settings
 from app.models.cognition import ModelRun
 
@@ -22,5 +24,13 @@ async def assert_daily_ai_budget(db: AsyncSession, *, owner_user_id: uuid.UUID) 
             )
         )
     ).scalar_one()
-    if count >= s.ai_per_user_daily_limit:
-        raise PermissionError("Daily AI request limit reached.")
+    entitlement = await resolve_entitlement(
+        db,
+        owner_user_id=owner_user_id,
+        feature_key="ai.daily_requests",
+    )
+    limit = s.ai_per_user_daily_limit
+    if entitlement.allowed and entitlement.usage_limit is not None:
+        limit = entitlement.usage_limit
+    if count >= limit:
+        raise AIRequestBudgetExceeded("Daily AI request limit reached.")

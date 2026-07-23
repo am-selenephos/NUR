@@ -58,6 +58,7 @@ function renderTalk(document: Document, rows: V197TalkThreadRow[]): void {
   if (rows.length === 0) {
     const message = document.createElement("div");
     message.className = "talk-message nur";
+    message.dataset.nurTalkEmpty = "true";
     const meta = document.createElement("div");
     meta.className = "talk-meta";
     meta.textContent = "NUR · private ledger";

@@ -41,6 +41,25 @@ async def require_csrf(request: Request, identity: Identity) -> None:
         raise HTTPException(status_code=403, detail="CSRF token missing or invalid.")
 
 
+async def require_trusted_origin(request: Request) -> None:
+    """Reject browser cross-site writes before they reach auth services.
+
+    Non-browser clients omit Origin. They remain usable in development, while
+    production requires an explicit configured origin for recovery writes.
+    """
+    settings = get_settings()
+    origin = request.headers.get("origin")
+    fetch_site = request.headers.get("sec-fetch-site", "").lower()
+    if fetch_site == "cross-site":
+        raise HTTPException(status_code=403, detail="Request origin is not allowed.")
+    if origin is None:
+        if settings.app_env == "production":
+            raise HTTPException(status_code=403, detail="Request origin is required.")
+        return
+    if origin.rstrip("/") not in settings.cors_origins:
+        raise HTTPException(status_code=403, detail="Request origin is not allowed.")
+
+
 async def get_scoped_db(db: DB, identity: Identity) -> AsyncSession:
     """Session with app.current_user_id armed for the CURRENT transaction.
     resolve_session commits (session bookkeeping), which drops the

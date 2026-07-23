@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 
-from sqlalchemy import ForeignKey, Integer, String, Text, text
+from sqlalchemy import BigInteger, Boolean, ForeignKey, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import DateTime
@@ -95,6 +95,32 @@ class AMProjectRun(Base):
     started_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     result_summary: Mapped[str | None] = mapped_column(Text)
+    # --- Execution spine (G14) ---------------------------------------------
+    adapter_key: Mapped[str | None] = mapped_column(String(64))
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("am_project_agents.id", ondelete="SET NULL")
+    )
+    requested_capabilities: Mapped[list] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb"), nullable=False
+    )
+    approved_capabilities: Mapped[list] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb"), nullable=False
+    )
+    input_refs: Mapped[dict] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb"), nullable=False
+    )
+    idempotency_key: Mapped[str | None] = mapped_column(String(200))
+    timeout_seconds: Mapped[int | None] = mapped_column(Integer)
+    cost_cents: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    attempt: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    worker_id: Mapped[str | None] = mapped_column(String(120))
+    failure_code: Mapped[str | None] = mapped_column(String(64))
+    output_artifact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("am_project_artifacts.id", ondelete="SET NULL")
+    )
+    queued_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    failed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     created_at = _created()
     updated_at = _updated()
 
@@ -176,3 +202,67 @@ class AMProjectReview(Base):
         String(80), default="OWNER", server_default="OWNER"
     )
     created_at = _created()
+
+
+class AMProjectAgent(Base):
+    """A persisted, owner-scoped agent definition: a named adapter binding with an
+    explicit allow-list of safe capabilities. It never carries a secret and never
+    grants authority beyond the deny-by-default catalog."""
+
+    __tablename__ = "am_project_agents"
+
+    id = uuid_pk()
+    owner_user_id = _owner()
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("am_projects.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    adapter_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    allowed_capabilities: Mapped[list] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    created_at = _created()
+    updated_at = _updated()
+
+
+class AMProjectFile(Base):
+    """Real stored bytes for a project. object_key is opaque, server-generated and
+    never client-controlled; the bytes live under the runtime data root, not the
+    web directory. Metadata is owner-scoped under forced RLS."""
+
+    __tablename__ = "am_project_files"
+
+    id = uuid_pk()
+    owner_user_id = _owner()
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("am_projects.id", ondelete="CASCADE"), nullable=False
+    )
+    task_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("am_project_tasks.id", ondelete="SET NULL")
+    )
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("am_project_runs.id", ondelete="SET NULL")
+    )
+    artifact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("am_project_artifacts.id", ondelete="SET NULL")
+    )
+    object_key: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    safe_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(180), default="application/octet-stream")
+    byte_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    storage_backend: Mapped[str] = mapped_column(String(32), default="local", server_default="local")
+    storage_state: Mapped[str] = mapped_column(String(32), default="STORED", server_default="STORED")
+    quarantine_reason: Mapped[str | None] = mapped_column(Text)
+    scan_state: Mapped[str] = mapped_column(
+        String(32), default="SCAN_NOT_CONNECTED", server_default="SCAN_NOT_CONNECTED"
+    )
+    provenance: Mapped[str] = mapped_column(
+        String(32), default="OWNER_UPLOAD", server_default="OWNER_UPLOAD"
+    )
+    created_at = _created()
+    updated_at = _updated()

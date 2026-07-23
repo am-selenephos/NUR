@@ -241,9 +241,20 @@ class MemoryCandidate(Base):
     orbit_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("orbits.id", ondelete="SET NULL"))
     source_event_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("cognitive_events.id", ondelete="SET NULL"))
     candidate_text: Mapped[str] = mapped_column(String, nullable=False)
+    original_text: Mapped[str] = mapped_column(String, nullable=False, default="", server_default="")
     scope: Mapped[str] = mapped_column(PGEnum('EPHEMERAL', 'PRIVATE_ORBIT', 'SYSTEM_SHARED', 'LEARNING_CANDIDATE', name="memory_scope", create_type=False), default="LEARNING_CANDIDATE", server_default="LEARNING_CANDIDATE")
+    memory_type: Mapped[str] = mapped_column(String(32), default="SEMANTIC", server_default="SEMANTIC")
+    provenance_label: Mapped[str] = mapped_column(String(40), default="MODEL_GENERATED", server_default="MODEL_GENERATED")
+    confidence: Mapped[float] = mapped_column(Float, default=0.5, server_default=text("0.5"))
+    sensitivity: Mapped[str] = mapped_column(String(24), default="PRIVATE", server_default="PRIVATE")
+    created_by: Mapped[str] = mapped_column(String(16), default="MODEL", server_default="MODEL")
+    source_object_ids: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
     status: Mapped[str] = mapped_column(String, default="CANDIDATE", server_default="CANDIDATE")
+    review_note: Mapped[str | None] = mapped_column(String)
+    reviewed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_memory_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("memories.id", ondelete="SET NULL"))
     created_at = _created()
+    updated_at = _created()
 
 
 class Prediction(Base):

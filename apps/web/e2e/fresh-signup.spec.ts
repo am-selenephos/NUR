@@ -45,21 +45,36 @@ test("fresh signup enters the authenticated universe immediately and survives re
   const entry = await openSignup(page);
   await fillSignup(entry, email);
   const entryBrand = await entry.locator("#nur-front-v61").evaluate(root => {
-    const word = root.querySelector<HTMLElement>(".f4-brand-word")?.getBoundingClientRect();
-    const subtitle = root.querySelector<HTMLElement>(".f4-brand-sub")?.getBoundingClientRect();
-    const stars = document.querySelector<HTMLCanvasElement>("#nur-v197-static-starfield");
-    if (!word || !subtitle) throw new Error("V197 Entry brand geometry is missing.");
+    const measure = (selector: string) => {
+      const target = root.querySelector<HTMLElement>(selector);
+      if (!target) throw new Error(`V197 Entry brand geometry is missing: ${selector}`);
+      const rect = target.getBoundingClientRect();
+      const style = getComputedStyle(target);
+      const transform = style.transform === "none" ? new DOMMatrix() : new DOMMatrix(style.transform);
+      return { rect, translateX: transform.m41 };
+    };
+    const word = measure(".f4-brand-word");
+    const subtitle = measure(".f4-brand-sub");
+    // The deterministic starfield was superseded by the canonical space3d
+    // galaxy rig; the deep sky-signal contract lives in
+    // v197-cool-black-galaxy-mandate.spec.ts.
+    const sky = document.querySelector<HTMLCanvasElement>("#space3d");
+    // The wordmark and subtitle each carry a deliberate ink-compensation
+    // translateX (see v197-star-brain.spec.ts); the shared design center is
+    // the untranslated center, so the nudges are subtracted before comparing.
+    const wordCenter = word.rect.left + word.rect.width / 2 - word.translateX;
+    const subtitleCenter = subtitle.rect.left + subtitle.rect.width / 2 - subtitle.translateX;
     return {
-      wordTop: word.top,
-      centerDelta: Math.abs((word.left + word.width / 2) - (subtitle.left + subtitle.width / 2)),
-      wordToSubtitleGap: subtitle.top - word.bottom,
-      staticStarCount: Number(stars?.dataset.nurStarCount ?? 0),
+      wordTop: word.rect.top,
+      centerDelta: Math.abs(wordCenter - subtitleCenter),
+      wordToSubtitleGap: subtitle.rect.top - word.rect.bottom,
+      skyCanvasArea: (sky?.width ?? 0) * (sky?.height ?? 0),
     };
   });
   expect(entryBrand.wordTop).toBeGreaterThanOrEqual(10);
   expect(entryBrand.centerDelta).toBeLessThanOrEqual(1);
   expect(entryBrand.wordToSubtitleGap).toBeGreaterThanOrEqual(0);
-  expect(entryBrand.staticStarCount).toBeGreaterThanOrEqual(92);
+  expect(entryBrand.skyCanvasArea).toBeGreaterThan(0);
   const registered = page.waitForResponse(response =>
     response.url().includes("/api/v1/auth/register"));
   const verifiedSession = page.waitForResponse(response =>
@@ -87,7 +102,8 @@ test("fresh signup enters the authenticated universe immediately and survives re
   const universe = page.frameLocator("#nur-universe-stage");
   await expect(page).toHaveURL(/\/today$/);
   await expect(universe.locator("#page-today")).toBeVisible({ timeout: 20_000 });
-  await expect(universe.locator("#nur-v197-static-starfield")).toHaveAttribute("data-nur-star-count", /\d+/);
+  // The canonical space3d galaxy rig paints the authenticated sky.
+  await expect(universe.locator("#space3d")).toHaveCount(1);
 
   // The normal secure session cookie authenticates the current-user endpoint.
   const me = await page.evaluate(async () => {
