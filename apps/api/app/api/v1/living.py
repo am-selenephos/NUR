@@ -20,6 +20,7 @@ from app.living.service import (
 from app.models import (
     Goal,
     Objective,
+    Outcome,
     PlanStep,
     ScheduledAction,
     SystemAction,
@@ -104,6 +105,19 @@ class MakeEasierIn(BaseModel):
     action_id: uuid.UUID
     title: str = Field(min_length=1, max_length=500)
     effort_minutes: int = Field(ge=1, le=180)
+
+
+class SystemReturnIn(BaseModel):
+    observed_result: str = Field(min_length=1, max_length=8000)
+    structured_measurements: dict = Field(default_factory=dict)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+
+class SystemReturnCorrectionIn(BaseModel):
+    observed_result: str = Field(min_length=1, max_length=8000)
+    reason: str = Field(min_length=1, max_length=1000)
+    structured_measurements: dict | None = None
+    confidence: float | None = Field(default=None, ge=0, le=1)
 
 
 class ScheduleIn(BaseModel):
@@ -196,6 +210,16 @@ def _schedule_dict(row: ScheduledAction) -> dict:
     }
 
 
+def _outcome_dict(row: Outcome) -> dict:
+    return {
+        "id": row.id,
+        "observed_result": row.observed_result,
+        "structured_measurements": row.structured_measurements,
+        "confidence": row.confidence,
+        "created_at": row.created_at,
+    }
+
+
 def _glow_dict(result: AwardResult | None, note: str | None = None) -> dict:
     if result is None:
         return {"awarded_points": 0, "status": "CAP_OR_SPAM_GATED", "note": note}
@@ -257,6 +281,18 @@ async def _owned_action(
     ))).scalar_one_or_none()
     if row is None:
         raise HTTPException(404, "System action not found.")
+    return row
+
+
+async def _owned_outcome(
+    db: Scoped, owner_user_id: uuid.UUID, outcome_id: uuid.UUID
+) -> Outcome:
+    row = (await db.execute(select(Outcome).where(
+        Outcome.id == outcome_id,
+        Outcome.owner_user_id == owner_user_id,
+    ))).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(404, "Outcome not found.")
     return row
 
 
@@ -551,7 +587,11 @@ async def patch_system_action(
     if payload.effort_minutes is not None:
         row.effort_minutes = payload.effort_minutes
     if payload.outcome_id is not None:
-        row.outcome_id = payload.outcome_id
+        await _owned_outcome(db, owner_user_id, payload.outcome_id)
+        raise HTTPException(
+            409,
+            "Use the System Return endpoint so outcome evidence and audit stay linked.",
+        )
     result = {"action": _action_dict(row), "glow": None}
     if payload.status:
         status = payload.status.upper()
@@ -568,6 +608,186 @@ async def patch_system_action(
     await db.commit()
     result["action"] = _action_dict(row)
     return result
+
+
+@router.post(
+    "/systems/{system_slug}/actions/{action_id}/return",
+    status_code=201,
+    dependencies=[Depends(require_csrf)],
+)
+async def return_system_action(
+    system_slug: str,
+    action_id: uuid.UUID,
+    payload: SystemReturnIn,
+    db: Scoped,
+    identity: Identity,
+) -> dict:
+    owner_user_id, _ = identity
+    try:
+        require_system(system_slug)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    action = await _owned_action(db, owner_user_id, action_id)
+    if action.system_slug != system_slug:
+        raise HTTPException(404, "System action not found.")
+    if action.status != "COMPLETED":
+        raise HTTPException(409, "Complete the System action before returning its outcome.")
+
+    if action.outcome_id is not None:
+        outcome = await _owned_outcome(db, owner_user_id, action.outcome_id)
+        glow, note = await _auto_award(
+            db,
+            owner_user_id=owner_user_id,
+            event_type="outcome_returned",
+            source_kind="OUTCOME",
+            source_id=outcome.id,
+            orbit_id=action.orbit_id,
+            idempotency_key=f"system-action:{action.id}:outcome-returned",
+        )
+        if glow is not None:
+            glow.transaction.system_slug = system_slug
+        await db.commit()
+        return {
+            "system_slug": system_slug,
+            "action_id": action.id,
+            "outcome": _outcome_dict(outcome),
+            "glow": _glow_dict(glow, note),
+            "idempotent_replay": True,
+        }
+
+    observed_result = payload.observed_result.strip()
+    if not observed_result:
+        raise HTTPException(422, "A real observed result is required.")
+    outcome = Outcome(
+        owner_user_id=owner_user_id,
+        observed_result=observed_result,
+        structured_measurements={
+            **payload.structured_measurements,
+            "system_slug": system_slug,
+            "system_action_id": str(action.id),
+        },
+        confidence=payload.confidence,
+        self_reported=True,
+    )
+    db.add(outcome)
+    await db.flush()
+    action.outcome_id = outcome.id
+    action.updated_at = now_utc()
+    add_living_event(
+        db,
+        owner_user_id=owner_user_id,
+        orbit_id=action.orbit_id,
+        timeline_kind="OUTCOME_RETURNED",
+        content=observed_result,
+        object_type="outcome",
+        object_id=outcome.id,
+        metadata={
+            "system_slug": system_slug,
+            "system_action_id": str(action.id),
+        },
+    )
+    glow, note = await _auto_award(
+        db,
+        owner_user_id=owner_user_id,
+        event_type="outcome_returned",
+        source_kind="OUTCOME",
+        source_id=outcome.id,
+        orbit_id=action.orbit_id,
+        idempotency_key=f"system-action:{action.id}:outcome-returned",
+    )
+    if glow is not None:
+        glow.transaction.system_slug = system_slug
+    await db.commit()
+    return {
+        "system_slug": system_slug,
+        "action_id": action.id,
+        "outcome": _outcome_dict(outcome),
+        "glow": _glow_dict(glow, note),
+        "idempotent_replay": False,
+    }
+
+
+@router.patch(
+    "/systems/{system_slug}/actions/{action_id}/return",
+    dependencies=[Depends(require_csrf)],
+)
+async def correct_system_action_return(
+    system_slug: str,
+    action_id: uuid.UUID,
+    payload: SystemReturnCorrectionIn,
+    db: Scoped,
+    identity: Identity,
+) -> dict:
+    owner_user_id, _ = identity
+    try:
+        require_system(system_slug)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    action = await _owned_action(db, owner_user_id, action_id)
+    if action.system_slug != system_slug or action.outcome_id is None:
+        raise HTTPException(404, "System action Return not found.")
+    outcome = await _owned_outcome(db, owner_user_id, action.outcome_id)
+    observed_result = payload.observed_result.strip()
+    reason = payload.reason.strip()
+    if not observed_result or not reason:
+        raise HTTPException(422, "A corrected result and correction reason are required.")
+
+    previous_measurements = outcome.structured_measurements or {}
+    corrections = list(previous_measurements.get("corrections", []))
+    corrections.append({
+        "corrected_at": now_utc().isoformat(),
+        "reason": reason,
+        "previous_observed_result": outcome.observed_result,
+        "previous_confidence": outcome.confidence,
+        "previous_measurements": {
+            key: value
+            for key, value in previous_measurements.items()
+            if key not in {"corrections", "system_slug", "system_action_id"}
+        },
+    })
+    outcome.observed_result = observed_result
+    if payload.confidence is not None:
+        outcome.confidence = payload.confidence
+    measurements = (
+        payload.structured_measurements
+        if payload.structured_measurements is not None
+        else {
+            key: value
+            for key, value in previous_measurements.items()
+            if key not in {"corrections", "system_slug", "system_action_id"}
+        }
+    )
+    outcome.structured_measurements = {
+        **measurements,
+        "system_slug": system_slug,
+        "system_action_id": str(action.id),
+        "corrections": corrections[-20:],
+    }
+    add_living_event(
+        db,
+        owner_user_id=owner_user_id,
+        orbit_id=action.orbit_id,
+        timeline_kind="OUTCOME_CORRECTED",
+        content=f"Corrected Return: {observed_result}",
+        object_type="outcome",
+        object_id=outcome.id,
+        metadata={
+            "system_slug": system_slug,
+            "system_action_id": str(action.id),
+            "correction_reason": reason,
+        },
+    )
+    await db.commit()
+    return {
+        "system_slug": system_slug,
+        "action_id": action.id,
+        "outcome": _outcome_dict(outcome),
+        "correction_count": len(corrections[-20:]),
+        "glow": {
+            "awarded_points": 0,
+            "status": "CORRECTION_AUDITED_NO_DUPLICATE_REWARD",
+        },
+    }
 
 
 @router.get("/goals")
