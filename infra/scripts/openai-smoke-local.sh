@@ -4,10 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-if [[ ! -f .env.local ]]; then
-  printf 'OpenAI smoke requires ignored .env.local. Run: bash infra/scripts/configure-openai-local.sh\n' >&2
-  exit 1
-fi
+bash infra/scripts/validate-openai-local.sh >/dev/null
 
 set -a
 # shellcheck disable=SC1091

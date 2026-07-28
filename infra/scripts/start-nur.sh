@@ -16,10 +16,7 @@ set -a
 # shellcheck disable=SC1091
 source .env
 if [[ "$MODE" == "openai" ]]; then
-  if [[ ! -f .env.local ]]; then
-    printf 'OpenAI mode requires .env.local. Run infra/scripts/configure-openai-local.sh first.\n' >&2
-    exit 1
-  fi
+  bash infra/scripts/validate-openai-local.sh >/dev/null
   # shellcheck disable=SC1091
   source .env.local
 else

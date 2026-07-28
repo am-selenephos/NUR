@@ -55,6 +55,8 @@ run_static_gates() {
 
   section "OpenAI local configuration safety"
   bash infra/tests/configure-openai-local.test.sh
+  bash infra/tests/validate-openai-local.test.sh
+  bash infra/tests/boot-openai-contract.test.sh
 
   section "API tests"
   "$py" -m pytest apps/api/app/tests -q
