@@ -109,12 +109,45 @@ class Translation(Base):
     source_hash: Mapped[str] = mapped_column(String, nullable=False)
     source_locale: Mapped[str | None] = mapped_column(String)
     target_locale: Mapped[str] = mapped_column(String, nullable=False)
+    detected_source_locale: Mapped[str | None] = mapped_column(String(16))
+    source_writing_preference: Mapped[str] = mapped_column(
+        String(16), default="default", server_default="default", nullable=False
+    )
+    target_writing_preference: Mapped[str] = mapped_column(
+        String(16), default="default", server_default="default", nullable=False
+    )
+    source_direction: Mapped[str] = mapped_column(
+        String(3), default="ltr", server_default="ltr", nullable=False
+    )
+    target_direction: Mapped[str] = mapped_column(
+        String(3), default="ltr", server_default="ltr", nullable=False
+    )
     content_type: Mapped[str] = mapped_column(String, nullable=False)
+    scope: Mapped[str] = mapped_column(
+        String(32), default="PRIVATE_ORBIT", server_default="PRIVATE_ORBIT", nullable=False
+    )
+    source_object_type: Mapped[str | None] = mapped_column(String(80))
+    source_object_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    source_ref: Mapped[str | None] = mapped_column(String(180))
     source_text: Mapped[str] = mapped_column(Text, nullable=False)
     translated_text: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String, nullable=False)
     provider: Mapped[str] = mapped_column(String, nullable=False)
     model: Mapped[str | None] = mapped_column(String)
+    provider_version: Mapped[str | None] = mapped_column(String(160))
+    cache_key: Mapped[str | None] = mapped_column(String(64))
+    quality_state: Mapped[str] = mapped_column(
+        String(40), default="MISSING_REVIEW", server_default="MISSING_REVIEW", nullable=False
+    )
+    translation_version: Mapped[int] = mapped_column(
+        default=1, server_default=text("1"), nullable=False
+    )
+    moderation_context_preserved: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
+    feedback: Mapped[list] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb"), nullable=False
+    )
     reason: Mapped[str | None] = mapped_column(Text)
     created_at = _created()
     updated_at = _created()
