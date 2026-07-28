@@ -67,6 +67,10 @@ def provenance_for_kind(kind: str) -> str:
     return "OWNER_WRITTEN"
 
 
+def prompt_injection_detected(text: str) -> bool:
+    return any(pattern.search(text or "") for pattern in INJECTION_PATTERNS)
+
+
 def analyze_contribution(
     text: str,
     *,
@@ -83,7 +87,7 @@ def analyze_contribution(
         sensitivity = "SENSITIVE"
 
     risk_flags: list[str] = []
-    if any(pattern.search(normalized) for pattern in INJECTION_PATTERNS):
+    if prompt_injection_detected(normalized):
         risk_flags.append("PROMPT_INJECTION")
     if any(pattern.search(normalized) for pattern in POISONING_PATTERNS):
         risk_flags.append("POTENTIAL_POISONING")
