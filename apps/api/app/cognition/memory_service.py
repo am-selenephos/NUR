@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import MemoryAccessEvent
+from app.models import MemoryAccessEvent, TeachNURKnowledgeAccessEvent
 
 
 @dataclass
@@ -69,6 +69,17 @@ SELECT * FROM (
     AND (m.expires_at IS NULL OR m.expires_at > now())
     AND (CAST(:orbit AS uuid) IS NULL OR m.orbit_id IS NULL OR m.orbit_id = CAST(:orbit AS uuid))
     AND to_tsvector('english', m.canonical_text) @@ q.tsq
+  UNION ALL
+  SELECT 'TEACH_NUR_KNOWLEDGE', kv.id::text, left(kv.canonical_text, 240),
+         ts_rank(to_tsvector('english', kv.canonical_text), q.tsq)
+  FROM teach_nur_candidates tc
+  JOIN teach_nur_knowledge_versions kv
+    ON kv.id = tc.current_knowledge_version_id, q
+  WHERE tc.owner_user_id = :owner
+    AND kv.owner_user_id = :owner
+    AND tc.status = 'ACTIVE'
+    AND kv.status = 'ACTIVE'
+    AND to_tsvector('english', kv.canonical_text) @@ q.tsq
 ) hits
 ORDER BY rank DESC
 LIMIT :limit
@@ -114,6 +125,16 @@ async def retrieve_relevant(
                 MemoryAccessEvent(
                     owner_user_id=owner_user_id,
                     memory_id=uuid.UUID(ref.id),
+                    access_kind="RETRIEVED",
+                    purpose="COGNITION_RETRIEVAL",
+                    context_ref=f"query-sha256:{query_digest}",
+                )
+            )
+        elif ref.kind == "TEACH_NUR_KNOWLEDGE":
+            db.add(
+                TeachNURKnowledgeAccessEvent(
+                    owner_user_id=owner_user_id,
+                    knowledge_version_id=uuid.UUID(ref.id),
                     access_kind="RETRIEVED",
                     purpose="COGNITION_RETRIEVAL",
                     context_ref=f"query-sha256:{query_digest}",

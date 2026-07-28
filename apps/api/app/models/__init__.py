@@ -8,11 +8,23 @@ from app.models.audit import AuditEvent
 from app.models.password_recovery import PasswordResetChallenge
 from app.models.events import DomainEvent
 from app.models.memory import MemoryAccessEvent, MemoryEdge, MemoryVersion, PersonalMemory
+from app.models.learning import (
+    TeachNURCandidate,
+    TeachNURConsentEvent,
+    TeachNURContribution,
+    TeachNUREvaluationRun,
+    TeachNURKnowledgeAccessEvent,
+    TeachNURKnowledgeVersion,
+    TeachNURReview,
+)
 
 __all__ = [
     "Base", "User", "Profile", "Session", "Orbit", "ConsentRecord",
     "AuditEvent", "PasswordResetChallenge", "DomainEvent", "PersonalMemory",
     "MemoryVersion", "MemoryEdge", "MemoryAccessEvent",
+    "TeachNURContribution", "TeachNURCandidate", "TeachNURKnowledgeVersion",
+    "TeachNURConsentEvent", "TeachNURReview", "TeachNUREvaluationRun",
+    "TeachNURKnowledgeAccessEvent",
 ]
 from app.models.cognition import (  # noqa: F401
     ClaimEvidence, CognitiveEvent, Decision, Experiment, Hypothesis,
