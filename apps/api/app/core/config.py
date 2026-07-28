@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
+from pydantic import AliasChoices, EmailStr, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PLACEHOLDER_MARKERS = ("change_me", "dev_only")
@@ -29,6 +29,25 @@ class Settings(BaseSettings):
     login_rate_limit_window_seconds: int = 300
     register_rate_limit_max: int = 10
     register_rate_limit_window_seconds: int = 300
+    password_forgot_rate_limit_max: int = 5
+    password_forgot_rate_limit_window_seconds: int = 900
+    password_reset_rate_limit_max: int = 10
+    password_reset_rate_limit_window_seconds: int = 900
+    password_change_rate_limit_max: int = 5
+    password_change_rate_limit_window_seconds: int = 900
+
+    # Account recovery. Local capture writes a mode-0600 development artifact;
+    # production must use the SMTP adapter and an HTTPS reset origin.
+    password_reset_ttl_seconds: int = Field(default=900, ge=300, le=3600)
+    password_reset_delivery: str = "local_capture"
+    password_reset_public_origin: str = ""
+    password_reset_local_capture_dir: str = ".nur-runtime/mail"
+    password_reset_from_email: EmailStr | None = None
+    password_reset_smtp_host: str = ""
+    password_reset_smtp_port: int = Field(default=587, ge=1, le=65535)
+    password_reset_smtp_starttls: bool = True
+    password_reset_smtp_username: str = ""
+    password_reset_smtp_password: SecretStr | None = None
 
     # AI gateway: server-side only. Keys never cross to the web client.
     ai_provider: str = Field(default="disabled", validation_alias=AliasChoices("NUR_AI_PROVIDER", "AI_PROVIDER"))
@@ -59,6 +78,14 @@ class Settings(BaseSettings):
             raise ValueError("NUR_AI_PROVIDER must be 'disabled' or 'openai'.")
         return v
 
+    @field_validator("password_reset_delivery")
+    @classmethod
+    def _known_password_reset_delivery(cls, value: str) -> str:
+        normalized = value.lower().strip()
+        if normalized not in {"disabled", "local_capture", "smtp"}:
+            raise ValueError("PASSWORD_RESET_DELIVERY must be 'disabled', 'local_capture', or 'smtp'.")
+        return normalized
+
     @model_validator(mode="after")
     def _no_decorative_secrets_in_production(self) -> "Settings":
         """SESSION_SECRET keys session-token HMACs; CSRF_SECRET keys CSRF tokens.
@@ -78,6 +105,23 @@ class Settings(BaseSettings):
                 raise ValueError("NUR_AI_PROVIDER=openai requires NUR_OPENAI_MODEL in the server environment.")
         if self.ai_allow_external_web_research:
             raise ValueError("NUR_AI_ALLOW_EXTERNAL_WEB_RESEARCH must remain false for this readiness gate.")
+        if self.password_reset_origin not in self.cors_origins:
+            raise ValueError("PASSWORD_RESET_PUBLIC_ORIGIN must be one of the configured web origins.")
+        if self.password_reset_delivery == "smtp":
+            if not self.password_reset_smtp_host.strip() or self.password_reset_from_email is None:
+                raise ValueError("SMTP password reset delivery requires SMTP_HOST and PASSWORD_RESET_FROM_EMAIL.")
+            has_username = bool(self.password_reset_smtp_username.strip())
+            has_password = bool(
+                self.password_reset_smtp_password
+                and self.password_reset_smtp_password.get_secret_value().strip()
+            )
+            if has_username != has_password:
+                raise ValueError("SMTP_USERNAME and SMTP_PASSWORD must either both be set or both be absent.")
+        if self.app_env == "production":
+            if self.password_reset_delivery != "smtp":
+                raise ValueError("Production requires PASSWORD_RESET_DELIVERY=smtp.")
+            if not self.password_reset_origin.startswith("https://"):
+                raise ValueError("Production password reset links require an HTTPS origin.")
         return self
 
     @property
@@ -94,6 +138,10 @@ class Settings(BaseSettings):
         if self.app_env != "production":
             origins.update({"http://localhost:4173", "http://127.0.0.1:4173"})
         return sorted(origins)
+
+    @property
+    def password_reset_origin(self) -> str:
+        return (self.password_reset_public_origin or self.web_origin).rstrip("/")
 
 
 @lru_cache

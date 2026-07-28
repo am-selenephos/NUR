@@ -46,6 +46,22 @@ def hash_session_secret(secret: str) -> str:
     return _mac(get_settings().session_secret, secret)
 
 
+def hash_password_reset_token(token: str) -> str:
+    """Keyed, domain-separated digest. Raw reset tokens never enter storage."""
+    return _mac(get_settings().session_secret, f"password-reset:{token}")
+
+
+def new_password_reset_token() -> tuple[str, str]:
+    """Returns (raw_token_for_delivery, keyed_digest_for_storage)."""
+    token = secrets.token_urlsafe(48)
+    return token, hash_password_reset_token(token)
+
+
+def opaque_fingerprint(value: str, *, purpose: str) -> str:
+    """Short keyed identifier suitable for limiter keys and audit metadata."""
+    return _mac(get_settings().session_secret, f"{purpose}:{value}")[:16]
+
+
 def new_session_token() -> tuple[uuid.UUID, str, str]:
     """Returns (session_id, cookie_value, secret_hash_hex)."""
     sid = uuid.uuid4()

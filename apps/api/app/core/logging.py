@@ -6,7 +6,19 @@ from contextvars import ContextVar
 
 request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
 
-_SENSITIVE_KEYS = {"password", "password_hash", "session_secret", "authorization", "cookie", "set-cookie"}
+_SENSITIVE_KEYS = {
+    "password",
+    "password_hash",
+    "current_password",
+    "new_password",
+    "session_secret",
+    "reset_token",
+    "password_reset_smtp_password",
+    "token",
+    "authorization",
+    "cookie",
+    "set-cookie",
+}
 
 
 def _redact(obj):

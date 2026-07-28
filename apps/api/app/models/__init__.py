@@ -5,8 +5,12 @@ from app.models.session import Session
 from app.models.orbit import Orbit
 from app.models.consent import ConsentRecord
 from app.models.audit import AuditEvent
+from app.models.password_recovery import PasswordResetChallenge
 
-__all__ = ["Base", "User", "Profile", "Session", "Orbit", "ConsentRecord", "AuditEvent"]
+__all__ = [
+    "Base", "User", "Profile", "Session", "Orbit", "ConsentRecord",
+    "AuditEvent", "PasswordResetChallenge",
+]
 from app.models.cognition import (  # noqa: F401
     ClaimEvidence, CognitiveEvent, Decision, Experiment, Hypothesis,
     JournalEntry, OrbitReference, Outcome, Plan, PlanStep, ResearchDraft,
