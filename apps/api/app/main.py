@@ -75,7 +75,12 @@ def create_app() -> FastAPI:
         allow_origins=s.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
-        allow_headers=["content-type", "x-csrf-token", "x-request-id"],
+        allow_headers=[
+            "content-type",
+            "idempotency-key",
+            "x-csrf-token",
+            "x-request-id",
+        ],
     )
 
     app.include_router(health_router)
@@ -103,6 +108,7 @@ def create_app() -> FastAPI:
     from app.api.v1.timeline import router as timeline_router
     from app.api.v1.universe import router as universe_router
     from app.omega.routes import router as omega_router
+    from app.billing.routes import router as billing_router
     app.include_router(cognition_router, prefix="/api/v1")
     app.include_router(password_recovery_router, prefix="/api/v1")
     app.include_router(community_router, prefix="/api/v1")
@@ -127,6 +133,7 @@ def create_app() -> FastAPI:
     app.include_router(timeline_router, prefix="/api/v1")
     app.include_router(universe_router, prefix="/api/v1")
     app.include_router(omega_router, prefix="/api/v1")
+    app.include_router(billing_router, prefix="/api/v1")
     return app
 
 

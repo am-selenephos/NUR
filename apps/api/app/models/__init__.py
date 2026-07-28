@@ -17,6 +17,16 @@ from app.models.learning import (
     TeachNURKnowledgeVersion,
     TeachNURReview,
 )
+from app.models.billing import (
+    BillingCheckoutSession,
+    BillingCustomer,
+    BillingEntitlement,
+    BillingEntitlementEvent,
+    BillingPlan,
+    BillingRefundEvent,
+    BillingSubscription,
+    BillingWebhookReceipt,
+)
 
 __all__ = [
     "Base", "User", "Profile", "Session", "Orbit", "ConsentRecord",
@@ -25,6 +35,9 @@ __all__ = [
     "TeachNURContribution", "TeachNURCandidate", "TeachNURKnowledgeVersion",
     "TeachNURConsentEvent", "TeachNURReview", "TeachNUREvaluationRun",
     "TeachNURKnowledgeAccessEvent",
+    "BillingPlan", "BillingCheckoutSession", "BillingCustomer",
+    "BillingSubscription", "BillingEntitlement", "BillingEntitlementEvent",
+    "BillingWebhookReceipt", "BillingRefundEvent",
 ]
 from app.models.cognition import (  # noqa: F401
     ClaimEvidence, CognitiveEvent, Decision, Experiment, Hypothesis,

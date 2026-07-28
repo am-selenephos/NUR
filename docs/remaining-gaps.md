@@ -26,8 +26,11 @@ Date: 2026-07-13 · Updated: 2026-07-20 (Fable final-readiness pass on
    caps and spam windows bound repeat-award abuse, not a per-source unique
    constraint.
 7. Owner-scoped in-app notifications and quiet-hour preferences are real.
-   External push/email delivery, notification scheduling workers,
-   monetization and paid retention are not implemented or claimed.
+   External push/email delivery and notification scheduling workers remain
+   incomplete. The owner-scoped billing/entitlement backend, deterministic
+   no-charge adapter, and Lemon Squeezy boundary are implemented as of
+   2026-07-29; a real provider test-mode checkout/cancel/refund proof and all
+   paid UI binding remain external/open, so revenue readiness is not claimed.
 8. Real WebKit mobile proof runs in the official Playwright container; it is
    not relabelled Chromium. Fresh reruns remain part of the final gate after
    each visible-surface change.
