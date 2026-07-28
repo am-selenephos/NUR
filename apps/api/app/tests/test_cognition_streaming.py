@@ -1,6 +1,7 @@
 import json
 import uuid
 
+from app.ai.errors import AIProviderRateLimited
 from app.ai.schemas import AIProviderResult, NURTalkOutput
 from app.tests.conftest import register_user
 
@@ -51,6 +52,36 @@ class StreamingProvider:
         )
 
 
+class RateLimitedProvider:
+    name = "openai"
+
+    async def complete_private_talk(self, request, event_sink=None):  # noqa: ARG002
+        raise AIProviderRateLimited("Synthetic provider rate limit.")
+
+
+class UngroundedProvider:
+    name = "openai"
+
+    async def complete_private_talk(self, request, event_sink=None):  # noqa: ARG002
+        return AIProviderResult(
+            provider="openai",
+            model="test-model",
+            available=True,
+            raw_response_id="resp_ungrounded",
+            usage={"input_tokens": 5, "output_tokens": 5},
+            output=NURTalkOutput(
+                direct_response="This claim has no retrieved support.",
+                observed=["An unsupported observation."],
+                inferred=[],
+                hypotheses=[],
+                uncertainty=[],
+                next_move="Ask for evidence.",
+                memory_candidates=[],
+                source_refs=[],
+            ),
+        )
+
+
 async def test_semantic_sse_persists_and_replays_idempotently(client, monkeypatch):
     await register_user(client)
     monkeypatch.setattr("app.cognition.intelligence_kernel.get_ai_provider", lambda: StreamingProvider())
@@ -82,6 +113,10 @@ async def test_semantic_sse_persists_and_replays_idempotently(client, monkeypatc
     status = (await client.get(f"/api/v1/cognition/talk-runs/{request_id}")).json()
     assert status["status"] == "COMPLETED"
     assert status["response_event_id"] == completed["result"]["response_event_id"]
+    assert status["schema_valid"] is True
+    assert status["verification_verdict"] in {"PASS", "WARN"}
+    assert len(status["evidence_digest"]) == 64
+    assert status["evidence_source_count"] == len(completed["result"]["evidence"]["retrieval"])
     thread = (await client.get(f"/api/v1/cognition/talk-thread?orbit_id={orbit_id}")).json()
     assert [row["who"] for row in thread][-2:] == ["user", "nur"]
     assert thread[-1]["text"] == "Real semantic stream."
@@ -109,6 +144,78 @@ async def test_stream_request_id_cannot_be_rebound_to_different_message(client, 
     changed = {**base, "message": "Different payload."}
     response = await client.post("/api/v1/cognition/talk/stream", headers=H(client), json=changed)
     assert response.status_code == 409
+
+
+async def test_disabled_stream_ends_with_durable_error_and_no_fake_response(client):
+    await register_user(client)
+    request_id = str(uuid.uuid4())
+    payload = {
+        "request_id": request_id,
+        "message": "Hold this without pretending AI replied.",
+        "locale": "en",
+        "writing_preference": "default",
+    }
+
+    response = await client.post("/api/v1/cognition/talk/stream", headers=H(client), json=payload)
+    assert response.status_code == 200
+    events = sse_events(response.text)
+    names = [name for name, _ in events]
+    assert "provider.disabled" in names
+    assert "talk.failed" in names
+    assert "talk.completed" not in names
+    error = next(data for name, data in events if name == "talk.error")
+    assert error["code"] == "provider_disabled"
+    assert error["durable"] is True
+    assert error["retryable"] is False
+
+    status = (await client.get(f"/api/v1/cognition/talk-runs/{request_id}")).json()
+    assert status["status"] == "ERROR"
+    assert status["failure_code"] == "provider_disabled"
+    assert status["response_event_id"] is None
+    assert status["schema_valid"] is False
+    thread = (await client.get("/api/v1/cognition/talk-thread")).json()
+    assert [row["who"] for row in thread][-1:] == ["user"]
+
+    replay = await client.post("/api/v1/cognition/talk/stream", headers=H(client), json=payload)
+    replay_events = sse_events(replay.text)
+    replay_error = next(data for name, data in replay_events if name == "talk.error")
+    assert replay_error["model_run_id"] == error["model_run_id"]
+    thread_after = (await client.get("/api/v1/cognition/talk-thread")).json()
+    assert len(thread_after) == len(thread)
+
+
+async def test_provider_rate_limit_returns_typed_error_without_assistant_message(client, monkeypatch):
+    await register_user(client)
+    monkeypatch.setattr("app.cognition.intelligence_kernel.get_ai_provider", lambda: RateLimitedProvider())
+
+    response = await client.post(
+        "/api/v1/cognition/talk",
+        headers=H(client),
+        json={"message": "Do not convert a provider failure into a reply.", "locale": "en"},
+    )
+    assert response.status_code == 429
+    detail = response.json()["detail"]
+    assert detail["code"] == "provider_rate_limited"
+    assert detail["retryable"] is True
+    assert detail["model_run_id"]
+    thread = (await client.get("/api/v1/cognition/talk-thread")).json()
+    assert [row["who"] for row in thread][-1:] == ["user"]
+
+
+async def test_unverified_provider_output_is_blocked_before_response_persistence(client, monkeypatch):
+    await register_user(client)
+    monkeypatch.setattr("app.cognition.intelligence_kernel.get_ai_provider", lambda: UngroundedProvider())
+
+    response = await client.post(
+        "/api/v1/cognition/talk",
+        headers=H(client),
+        json={"message": "Only return verified claims.", "locale": "en"},
+    )
+    assert response.status_code == 502
+    detail = response.json()["detail"]
+    assert detail["code"] == "provider_output_invalid"
+    thread = (await client.get("/api/v1/cognition/talk-thread")).json()
+    assert [row["who"] for row in thread][-1:] == ["user"]
 
 
 def test_direct_response_delta_extractor_handles_chunked_escapes_and_unicode():

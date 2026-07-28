@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ENV_FILE="$ROOT/.env.local"
-DEFAULT_MODEL="${NUR_OPENAI_MODEL:-gpt-4.1-mini}"
+DEFAULT_MODEL="${NUR_OPENAI_MODEL:-gpt-4.1}"
 
 contains_line_break() {
   [[ "$1" == *$'\r'* || "$1" == *$'\n'* ]]

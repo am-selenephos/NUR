@@ -8,7 +8,13 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.cognition.intelligence_kernel import TalkRunConflict, run_talk_kernel
+from app.ai.errors import AIRequestBudgetExceeded
+from app.cognition.intelligence_kernel import (
+    TalkProviderFailure,
+    TalkRunCancelled,
+    TalkRunConflict,
+    run_talk_kernel,
+)
 from app.db.rls import set_user_context
 from app.db.session import get_sessionmaker
 
@@ -151,6 +157,41 @@ class TalkStreamCoordinator:
                             {"request_id": str(job.spec.request_id), "durable": True},
                         )
                     raise
+                except TalkProviderFailure as exc:
+                    await db.commit()
+                    await job.publish(
+                        "talk.error",
+                        {
+                            "request_id": str(job.spec.request_id),
+                            "model_run_id": str(exc.model_run_id),
+                            "code": exc.code,
+                            "message": exc.public_message,
+                            "retryable": exc.retryable,
+                            "durable": True,
+                        },
+                    )
+                except TalkRunCancelled as exc:
+                    await db.rollback()
+                    await job.publish(
+                        "talk.cancelled",
+                        {
+                            "request_id": str(job.spec.request_id),
+                            "model_run_id": str(exc.model_run_id),
+                            "durable": True,
+                        },
+                    )
+                except AIRequestBudgetExceeded as exc:
+                    await db.rollback()
+                    await job.publish(
+                        "talk.error",
+                        {
+                            "request_id": str(job.spec.request_id),
+                            "code": exc.code,
+                            "message": exc.public_message,
+                            "retryable": exc.retryable,
+                            "durable": False,
+                        },
+                    )
                 except TalkRunConflict as exc:
                     await db.rollback()
                     await job.publish(

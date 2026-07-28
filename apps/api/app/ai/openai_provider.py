@@ -1,7 +1,17 @@
 import asyncio
 import json
 
-from app.ai.errors import AIOutputValidationError, AIProviderError, AIProviderMisconfigured
+from app.ai.errors import (
+    AIOutputValidationError,
+    AIProviderAuthenticationError,
+    AIProviderError,
+    AIProviderMisconfigured,
+    AIProviderQuotaExceeded,
+    AIProviderRateLimited,
+    AIProviderTimeout,
+    AIProviderUnavailable,
+    AIProviderUnsupportedModel,
+)
 from app.ai.prompts import TALK_SYSTEM_PROMPT, talk_user_prompt
 from app.ai.schemas import AIProviderResult, AIStreamSink, NURTalkOutput, TalkProviderRequest
 from app.ai.structured_outputs import talk_json_schema
@@ -116,14 +126,13 @@ class OpenAITalkProvider:
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                if _is_auth_error(exc):
-                    raise AIProviderMisconfigured("OpenAI authentication failed; rotate or replace the server key.") from exc
-                if attempt == 0 and not emitted_text and _is_retryable_error(exc):
+                mapped = _classify_provider_exception(exc)
+                if attempt == 0 and not emitted_text and mapped.retryable:
                     continue
-                if isinstance(exc, AIProviderError):
+                if mapped is exc:
                     raise
-                raise AIProviderError("OpenAI streaming request failed closed.") from exc
-        raise AIProviderError("OpenAI streaming request failed closed.")
+                raise mapped from exc
+        raise AIProviderUnavailable("OpenAI streaming request failed closed.")
 
     async def _create_response(self, payload: dict):
         """Retry transient provider failures once; never retry auth/config errors."""
@@ -131,12 +140,13 @@ class OpenAITalkProvider:
             try:
                 return await self._client.responses.create(**payload)
             except Exception as exc:
-                if _is_auth_error(exc):
-                    raise AIProviderMisconfigured("OpenAI authentication failed; rotate or replace the server key.") from exc
-                if attempt == 0 and _is_retryable_error(exc):
+                mapped = _classify_provider_exception(exc)
+                if attempt == 0 and mapped.retryable:
                     continue
-                raise AIProviderError("OpenAI request failed closed.") from exc
-        raise AIProviderError("OpenAI request failed closed.")
+                if mapped is exc:
+                    raise
+                raise mapped from exc
+        raise AIProviderUnavailable("OpenAI request failed closed.")
 
 
 def _extract_response_json(response) -> dict:
@@ -165,19 +175,40 @@ def _status_code(exc: Exception) -> int | None:
         return None
 
 
-def _is_auth_error(exc: Exception) -> bool:
+def _provider_error_code(exc: Exception) -> str:
+    direct = getattr(exc, "code", None)
+    if direct:
+        return str(direct).lower()
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        payload = body.get("error") if isinstance(body.get("error"), dict) else body
+        value = payload.get("code") or payload.get("type")
+        if value:
+            return str(value).lower()
+    return ""
+
+
+def _classify_provider_exception(exc: Exception) -> AIProviderError:
+    if isinstance(exc, AIProviderError):
+        return exc
     status = _status_code(exc)
-    if status in AUTH_STATUS_CODES:
-        return True
+    code = _provider_error_code(exc)
     name = exc.__class__.__name__.lower()
-    return "auth" in name or "permission" in name
-
-
-def _is_retryable_error(exc: Exception) -> bool:
-    status = _status_code(exc)
-    if status in RETRYABLE_STATUS_CODES:
-        return True
-    return isinstance(exc, (TimeoutError, asyncio.TimeoutError)) or "timeout" in exc.__class__.__name__.lower()
+    if status in AUTH_STATUS_CODES or "auth" in name or "permission" in name:
+        return AIProviderAuthenticationError("OpenAI rejected the server credential.")
+    if code in {"insufficient_quota", "billing_hard_limit_reached", "usage_limit_reached"}:
+        return AIProviderQuotaExceeded("OpenAI quota or billing prevented the request.")
+    if code in {"model_not_found", "unsupported_model", "invalid_model"} or status == 404:
+        return AIProviderUnsupportedModel("OpenAI rejected the configured model.")
+    if status == 429 or "ratelimit" in name or "rate_limit" in code:
+        return AIProviderRateLimited("OpenAI rate limited the request.")
+    if isinstance(exc, (TimeoutError, asyncio.TimeoutError)) or "timeout" in name:
+        return AIProviderTimeout("OpenAI timed out.")
+    if status in {400, 409, 422}:
+        return AIProviderMisconfigured("OpenAI rejected the request configuration.")
+    if status in RETRYABLE_STATUS_CODES or "connection" in name:
+        return AIProviderUnavailable("OpenAI was temporarily unavailable.")
+    return AIProviderUnavailable("OpenAI request failed closed.")
 
 
 class _DirectResponseDeltaExtractor:

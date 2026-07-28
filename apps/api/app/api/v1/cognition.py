@@ -7,16 +7,30 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 from app.api.deps import Identity, Scoped, require_csrf
 from app.ai.schemas import NURTalkOutput
 from app.cognition.cycle import CycleResult, run_cognitive_cycle
 from app.cognition.correction_service import persist_user_correction
-from app.cognition.intelligence_kernel import TalkRunConflict, run_talk_kernel
+from app.ai.errors import AIRequestBudgetExceeded
+from app.cognition.intelligence_kernel import TalkProviderFailure, TalkRunConflict, run_talk_kernel
 from app.cognition.schemas import EvidencePacket, VerificationResult
 from app.cognition.streaming import TalkStreamEnvelope, TalkStreamSpec, talk_stream_coordinator
-from app.models import CognitiveEvent, Decision, JournalEntry, ModelRun, Orbit, OrbitReference, OrbitSource, Plan, PlanStep, ResearchDraft
+from app.models import (
+    CognitiveEvent,
+    Decision,
+    JournalEntry,
+    ModelEvaluation,
+    ModelRun,
+    ModelRunSource,
+    Orbit,
+    OrbitReference,
+    OrbitSource,
+    Plan,
+    PlanStep,
+    ResearchDraft,
+)
 from app.observability.metrics import record_counter
 from app.omega.schemas import OmegaTalkSummary
 
@@ -107,6 +121,22 @@ async def talk(payload: TalkIn, request: Request, db: Scoped, identity: Identity
         )
     except PermissionError as exc:
         raise HTTPException(404, str(exc)) from exc
+    except AIRequestBudgetExceeded as exc:
+        record_counter(request, "nur_ai_budget_rejections_total")
+        raise HTTPException(exc.http_status, {"code": exc.code, "message": exc.public_message}) from exc
+    except TalkProviderFailure as exc:
+        await db.commit()
+        record_counter(request, "nur_model_runs_total", (("provider", exc.provider), ("status", "error")))
+        record_counter(request, "nur_provider_errors_total", (("provider", exc.provider), ("code", exc.code)))
+        raise HTTPException(
+            exc.http_status,
+            {
+                "code": exc.code,
+                "message": exc.public_message,
+                "model_run_id": str(exc.model_run_id),
+                "retryable": exc.retryable,
+            },
+        ) from exc
     mode = payload.mode or "talk"
     record_counter(request, "nur_talk_turns_total", (("mode", mode),))
     record_counter(request, "nur_model_runs_total", (("provider", result.provider), ("status", "available" if result.provider_available else "unavailable")))
@@ -182,6 +212,25 @@ async def talk_run_status(request_id: uuid.UUID, db: Scoped, identity: Identity)
     ).scalar_one_or_none()
     if row is None:
         raise HTTPException(404, "Talk run not found.")
+    source_count = (
+        await db.execute(
+            select(func.count(ModelRunSource.id)).where(
+                ModelRunSource.owner_user_id == user_id,
+                ModelRunSource.model_run_id == row.id,
+            )
+        )
+    ).scalar_one()
+    evaluation = (
+        await db.execute(
+            select(ModelEvaluation)
+            .where(
+                ModelEvaluation.owner_user_id == user_id,
+                ModelEvaluation.model_run_id == row.id,
+            )
+            .order_by(ModelEvaluation.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
     return {
         "request_id": str(request_id),
         "model_run_id": str(row.id),
@@ -189,7 +238,16 @@ async def talk_run_status(request_id: uuid.UUID, db: Scoped, identity: Identity)
         "input_event_id": str(row.input_event_id) if row.input_event_id else None,
         "response_event_id": str(row.output_event_id) if row.output_event_id else None,
         "provider": row.provider,
+        "model": row.model,
         "available": bool((row.response_metadata or {}).get("available")),
+        "provider_response_id_present": bool((row.response_metadata or {}).get("raw_response_id")),
+        "usage_recorded": bool(row.usage),
+        "failure_code": (row.error or {}).get("code"),
+        "retryable": bool((row.error or {}).get("retryable")),
+        "evidence_digest": (row.run_metadata or {}).get("evidence_digest"),
+        "evidence_source_count": source_count,
+        "verification_verdict": evaluation.verdict if evaluation else None,
+        "schema_valid": row.status == "COMPLETED" and row.output_event_id is not None and evaluation is not None,
     }
 
 
