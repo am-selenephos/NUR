@@ -6,10 +6,13 @@ from app.models.orbit import Orbit
 from app.models.consent import ConsentRecord
 from app.models.audit import AuditEvent
 from app.models.password_recovery import PasswordResetChallenge
+from app.models.events import DomainEvent
+from app.models.memory import MemoryAccessEvent, MemoryEdge, MemoryVersion, PersonalMemory
 
 __all__ = [
     "Base", "User", "Profile", "Session", "Orbit", "ConsentRecord",
-    "AuditEvent", "PasswordResetChallenge",
+    "AuditEvent", "PasswordResetChallenge", "DomainEvent", "PersonalMemory",
+    "MemoryVersion", "MemoryEdge", "MemoryAccessEvent",
 ]
 from app.models.cognition import (  # noqa: F401
     ClaimEvidence, CognitiveEvent, Decision, Experiment, Hypothesis,

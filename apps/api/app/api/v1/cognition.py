@@ -3,6 +3,7 @@ journal/plans/research content routes the F-slice pages persist through."""
 import datetime as dt
 import json
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -71,6 +72,7 @@ class TalkIn(BaseModel):
     locale: str = "en"
     writing_preference: str = "default"
     mode: str | None = None
+    memory_mode: Literal["EPHEMERAL", "REVIEW"] = "EPHEMERAL"
 
 
 class TalkStreamIn(TalkIn):
@@ -117,6 +119,7 @@ async def talk(payload: TalkIn, request: Request, db: Scoped, identity: Identity
             orbit_id=payload.orbit_id,
             locale=payload.locale,
             writing_preference=payload.writing_preference,
+            memory_mode=payload.memory_mode,
             requested_mode=payload.mode,
         )
     except PermissionError as exc:
@@ -163,6 +166,7 @@ async def talk_stream(payload: TalkStreamIn, request: Request, identity: Identit
         orbit_id=payload.orbit_id,
         locale=payload.locale,
         writing_preference=payload.writing_preference,
+        memory_mode=payload.memory_mode,
         mode=payload.mode,
     )
     try:

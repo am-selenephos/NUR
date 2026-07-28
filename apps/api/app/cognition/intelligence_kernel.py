@@ -34,6 +34,7 @@ async def run_talk_kernel(
     orbit_id: uuid.UUID | None,
     locale: str,
     writing_preference: str = "default",
+    memory_mode: str = "EPHEMERAL",
     requested_mode: str | None = None,
     request_id: uuid.UUID | None = None,
     event_sink: AIStreamSink | None = None,
@@ -74,7 +75,12 @@ async def run_talk_kernel(
         orbit_id=orbit_id,
         event_kind="TALK_TURN",
         content_text=user_line,
-        structured_payload={"mode": task_mode.value, "locale": locale, "writing_preference": writing_preference},
+        structured_payload={
+            "mode": task_mode.value,
+            "locale": locale,
+            "writing_preference": writing_preference,
+            "memory_mode": memory_mode,
+        },
         source_ref="talk",
     )
     db.add(turn)
@@ -110,6 +116,7 @@ async def run_talk_kernel(
         prompt_logging=s.ai_log_prompts,
     )
     run_metadata["writing_preference"] = writing_preference
+    run_metadata["memory_mode"] = memory_mode
     run_metadata["omega_workspace_frame_id"] = str(frame.id)
     run_metadata["omega_scope_statement"] = frame.scope_statement
     run_metadata["evidence_digest"] = evidence_digest
@@ -222,6 +229,7 @@ async def run_talk_kernel(
         prompt_logging=s.ai_log_prompts,
     )
     run_metadata["writing_preference"] = writing_preference
+    run_metadata["memory_mode"] = memory_mode
     run_metadata["omega_workspace_frame_id"] = str(frame.id)
     run_metadata["omega_scope_statement"] = frame.scope_statement
     run_metadata["evidence_digest"] = evidence_digest
@@ -250,6 +258,7 @@ async def run_talk_kernel(
             "provider_available": result.available,
             "provider_reason": result.reason,
             "model_run_id": str(model_run.id),
+            "memory_mode": memory_mode,
             "verification": verification.model_dump(),
             "omega": omega.model_dump(mode="json"),
         },
@@ -262,13 +271,33 @@ async def run_talk_kernel(
     await mark_frame_used(db, frame)
 
     await persist_model_evaluation(db, owner_user_id=owner_user_id, model_run_id=model_run.id, verification=verification)
-    await persist_memory_candidates(
-        db,
-        owner_user_id=owner_user_id,
-        orbit_id=orbit_id,
-        source_event_id=response_event.id,
-        output=result.output,
-    )
+    memory_candidates = []
+    if memory_mode == "REVIEW":
+        memory_candidates = await persist_memory_candidates(
+            db,
+            owner_user_id=owner_user_id,
+            orbit_id=orbit_id,
+            source_event_id=response_event.id,
+            user_message_event_id=turn.id,
+            model_run_id=model_run.id,
+            request_id=request_id,
+            evidence_digest=evidence_digest,
+            evidence_sources=[
+                {"kind": ref.kind, "id": ref.id, "rank": ref.rank}
+                for ref in retrieval
+            ],
+            output=result.output,
+        )
+        if event_sink is not None:
+            for candidate in memory_candidates:
+                await event_sink(
+                    "memory.candidate",
+                    {
+                        "candidate_id": str(candidate.id),
+                        "status": candidate.status,
+                        "requires_owner_approval": True,
+                    },
+                )
     await persist_predictions(
         db,
         owner_user_id=owner_user_id,
