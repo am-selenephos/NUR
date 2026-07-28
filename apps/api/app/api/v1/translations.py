@@ -31,6 +31,7 @@ from app.models import (
     AuditEvent,
     CognitiveEvent,
     CommunityComment,
+    CommunityMembership,
     CommunityMessage,
     CommunityPost,
     Consultation,
@@ -54,6 +55,11 @@ MODERATION_CONTENT_TYPES = {
     "COMMUNITY_POST",
     "COMMUNITY_COMMENT",
     "MODERATION_REPORT",
+}
+COMMUNITY_SOURCE_TYPES = {
+    "COMMUNITY_MESSAGE",
+    "COMMUNITY_POST",
+    "COMMUNITY_COMMENT",
 }
 SOURCE_OBJECTS = {
     "COGNITIVE_EVENT": (CognitiveEvent, "content_text", "PRIVATE_ORBIT"),
@@ -185,12 +191,19 @@ async def _source(
     if source_spec is None:
         raise HTTPException(422, "Unsupported translation source object type.")
     model, text_field, scope = source_spec
-    row = (await db.execute(select(model).where(
-        model.id == payload.source_object_id,
-        model.owner_user_id == owner_user_id,
-    ))).scalar_one_or_none()
+    query = select(model).where(model.id == payload.source_object_id)
+    if object_type not in COMMUNITY_SOURCE_TYPES:
+        query = query.where(model.owner_user_id == owner_user_id)
+    row = (await db.execute(query)).scalar_one_or_none()
     if row is None:
         raise HTTPException(404, "Translation source not found.")
+    if object_type in COMMUNITY_SOURCE_TYPES:
+        membership = (await db.execute(select(CommunityMembership).where(
+            CommunityMembership.room_id == row.room_id,
+            CommunityMembership.user_id == owner_user_id,
+        ))).scalar_one_or_none()
+        if membership is None or row.status not in {"ACTIVE", "EDITED"}:
+            raise HTTPException(404, "Translation source not found.")
     source_text = (getattr(row, text_field, None) or "").strip()
     if not source_text:
         raise HTTPException(409, "Translation source has no text.")

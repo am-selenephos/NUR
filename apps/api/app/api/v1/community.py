@@ -7,9 +7,10 @@ Journal, Timeline, or Omega memory.
 """
 
 import datetime as dt
+import json
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, text as sa_text
 
@@ -24,6 +25,7 @@ from app.models import (
     CommunityPost,
     CommunityReaction,
     CommunityRoom,
+    CommunityRoomSanction,
     CouncilDecision,
     CouncilPosition,
     Orbit,
@@ -139,6 +141,27 @@ async def _active_member(
     member = await _membership(db, room_id, user_id)
     if room.status != "ACTIVE":
         raise HTTPException(409, "This room is not active.")
+    return room, member
+
+
+async def _contributing_member(
+    db: Scoped,
+    room_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> tuple[CommunityRoom, CommunityMembership]:
+    room, member = await _active_member(db, room_id, user_id)
+    sanction = (await db.execute(select(CommunityRoomSanction).where(
+        CommunityRoomSanction.room_id == room_id,
+        CommunityRoomSanction.target_user_id == user_id,
+        CommunityRoomSanction.status == "ACTIVE",
+        CommunityRoomSanction.sanction_kind.in_(["MUTE", "READ_ONLY", "BAN"]),
+        (
+            CommunityRoomSanction.expires_at.is_(None)
+            | (CommunityRoomSanction.expires_at > dt.datetime.now(dt.UTC))
+        ),
+    ).order_by(CommunityRoomSanction.created_at.desc()).limit(1))).scalar_one_or_none()
+    if sanction is not None:
+        raise HTTPException(403, f"Room contribution blocked by active {sanction.sanction_kind.lower()}.")
     return room, member
 
 
@@ -321,6 +344,12 @@ async def add_member(room_id: uuid.UUID, payload: MemberIn, db: Scoped, identity
     )).scalar()
     if target_id is None:
         raise HTTPException(404, "No active NUR account exists for that exact email.")
+    blocked = bool((await db.execute(
+        sa_text("SELECT fn_community_users_blocked(:a, :b)"),
+        {"a": user_id, "b": target_id},
+    )).scalar_one())
+    if blocked:
+        raise HTTPException(409, "Room membership cannot be added across an active block.")
     exists = (await db.execute(select(CommunityMembership).where(
         CommunityMembership.room_id == room.id,
         CommunityMembership.user_id == target_id,
@@ -365,9 +394,19 @@ async def list_members(room_id: uuid.UUID, db: Scoped, identity: Identity) -> li
 
 
 @router.post("/rooms/{room_id}/messages", status_code=201, dependencies=[Depends(require_csrf)])
-async def create_message(room_id: uuid.UUID, payload: MessageIn, db: Scoped, identity: Identity) -> dict:
+async def create_message(
+    room_id: uuid.UUID,
+    payload: MessageIn,
+    request: Request,
+    db: Scoped,
+    identity: Identity,
+) -> dict:
     user_id, _ = identity
-    room, member = await _active_member(db, room_id, user_id)
+    room, member = await _contributing_member(db, room_id, user_id)
+    sequence = (await db.execute(
+        sa_text("SELECT fn_next_community_message_sequence(:room_id)"),
+        {"room_id": room.id},
+    )).scalar_one()
     row = CommunityMessage(
         room_id=room.id,
         room_owner_user_id=room.owner_user_id,
@@ -375,6 +414,7 @@ async def create_message(room_id: uuid.UUID, payload: MessageIn, db: Scoped, ide
         body=payload.body.strip(),
         language_tag=payload.language_tag,
         provenance_label="OWNER_WRITTEN" if member.role == "OWNER" else "MEMBER_WRITTEN",
+        sequence=sequence,
         is_demo=payload.is_demo,
     )
     db.add(row)
@@ -397,11 +437,21 @@ async def create_message(room_id: uuid.UUID, payload: MessageIn, db: Scoped, ide
         source_id=row.id,
     )
     await db.commit()
+    realtime_signal = "PUBLISHED"
+    try:
+        await request.app.state.redis.publish(
+            f"nur:community:room:{room.id}",
+            json.dumps({"room_id": str(room.id), "sequence": row.sequence}),
+        )
+    except Exception:
+        realtime_signal = "UNAVAILABLE_RECONNECT_WITH_SEQUENCE"
     return {
         "id": row.id, "room_id": row.room_id, "owner_user_id": row.owner_user_id,
         "body": row.body, "language_tag": row.language_tag,
         "provenance_label": row.provenance_label, "is_demo": row.is_demo,
-        "created_at": row.created_at, "glow": glow,
+        "sequence": row.sequence, "revision_number": row.revision_number,
+        "status": row.status, "created_at": row.created_at, "glow": glow,
+        "realtime_signal": realtime_signal,
     }
 
 
@@ -411,19 +461,21 @@ async def list_messages(room_id: uuid.UUID, db: Scoped, identity: Identity, limi
     await _membership(db, room_id, user_id)
     rows = (await db.execute(select(CommunityMessage).where(
         CommunityMessage.room_id == room_id,
-    ).order_by(CommunityMessage.created_at.asc()).limit(min(limit, 250)))).scalars().all()
+        CommunityMessage.status.in_(["ACTIVE", "EDITED"]),
+    ).order_by(CommunityMessage.sequence.asc()).limit(min(limit, 250)))).scalars().all()
     return [{
         "id": row.id, "room_id": row.room_id, "owner_user_id": row.owner_user_id,
         "body": row.body, "language_tag": row.language_tag,
         "provenance_label": row.provenance_label, "is_demo": row.is_demo,
-        "created_at": row.created_at,
+        "sequence": row.sequence, "revision_number": row.revision_number,
+        "status": row.status, "created_at": row.created_at,
     } for row in rows]
 
 
 @router.post("/rooms/{room_id}/posts", status_code=201, dependencies=[Depends(require_csrf)])
 async def create_post(room_id: uuid.UUID, payload: PostIn, db: Scoped, identity: Identity) -> dict:
     user_id, _ = identity
-    room, member = await _active_member(db, room_id, user_id)
+    room, member = await _contributing_member(db, room_id, user_id)
     row = CommunityPost(
         room_id=room.id,
         room_owner_user_id=room.owner_user_id,
@@ -458,6 +510,7 @@ async def create_post(room_id: uuid.UUID, payload: PostIn, db: Scoped, identity:
         "id": row.id, "room_id": row.room_id, "owner_user_id": row.owner_user_id,
         "title": row.title, "body": row.body, "language_tag": row.language_tag,
         "provenance_label": row.provenance_label, "is_demo": row.is_demo,
+        "revision_number": row.revision_number, "status": row.status,
         "created_at": row.created_at, "glow": glow,
     }
 
@@ -468,11 +521,13 @@ async def list_posts(room_id: uuid.UUID, db: Scoped, identity: Identity, limit: 
     await _membership(db, room_id, user_id)
     rows = (await db.execute(select(CommunityPost).where(
         CommunityPost.room_id == room_id,
+        CommunityPost.status.in_(["ACTIVE", "EDITED"]),
     ).order_by(CommunityPost.created_at.desc()).limit(min(limit, 250)))).scalars().all()
     return [{
         "id": row.id, "room_id": row.room_id, "owner_user_id": row.owner_user_id,
         "title": row.title, "body": row.body, "language_tag": row.language_tag,
         "provenance_label": row.provenance_label, "is_demo": row.is_demo,
+        "revision_number": row.revision_number, "status": row.status,
         "created_at": row.created_at,
     } for row in rows]
 
@@ -486,7 +541,7 @@ async def create_comment(
     identity: Identity,
 ) -> dict:
     user_id, _ = identity
-    room, _ = await _active_member(db, room_id, user_id)
+    room, _ = await _contributing_member(db, room_id, user_id)
     post = (await db.execute(select(CommunityPost).where(
         CommunityPost.id == post_id,
         CommunityPost.room_id == room.id,
@@ -535,6 +590,7 @@ async def create_comment(
         "id": row.id, "room_id": row.room_id, "post_id": row.post_id,
         "parent_comment_id": row.parent_comment_id, "owner_user_id": row.owner_user_id,
         "body": row.body, "language_tag": row.language_tag,
+        "revision_number": row.revision_number, "status": row.status,
         "is_demo": row.is_demo, "created_at": row.created_at, "glow": glow,
     }
 
@@ -558,11 +614,13 @@ async def list_comments(
     rows = (await db.execute(select(CommunityComment).where(
         CommunityComment.room_id == room_id,
         CommunityComment.post_id == post_id,
+        CommunityComment.status.in_(["ACTIVE", "EDITED"]),
     ).order_by(CommunityComment.created_at.asc()).limit(min(limit, 500)))).scalars().all()
     return [{
         "id": row.id, "room_id": row.room_id, "post_id": row.post_id,
         "parent_comment_id": row.parent_comment_id, "owner_user_id": row.owner_user_id,
         "body": row.body, "language_tag": row.language_tag,
+        "revision_number": row.revision_number, "status": row.status,
         "is_demo": row.is_demo, "created_at": row.created_at,
     } for row in rows]
 
@@ -570,7 +628,7 @@ async def list_comments(
 @router.post("/rooms/{room_id}/reactions", status_code=201, dependencies=[Depends(require_csrf)])
 async def create_reaction(room_id: uuid.UUID, payload: ReactionIn, db: Scoped, identity: Identity) -> dict:
     user_id, _ = identity
-    room, _ = await _active_member(db, room_id, user_id)
+    room, _ = await _contributing_member(db, room_id, user_id)
     kind = payload.target_kind.upper().strip()
     model = {"POST": CommunityPost, "COMMENT": CommunityComment, "MESSAGE": CommunityMessage}.get(kind)
     if model is None:
@@ -581,6 +639,8 @@ async def create_reaction(room_id: uuid.UUID, payload: ReactionIn, db: Scoped, i
     ))).scalar_one_or_none()
     if target is None:
         raise HTTPException(404, "Reaction target not found in this room.")
+    if target.status not in {"ACTIVE", "EDITED"}:
+        raise HTTPException(409, "Moderated content cannot receive reactions.")
     duplicate = (await db.execute(select(CommunityReaction).where(
         CommunityReaction.owner_user_id == user_id,
         CommunityReaction.target_kind == kind,
@@ -616,7 +676,7 @@ async def create_reaction(room_id: uuid.UUID, payload: ReactionIn, db: Scoped, i
 @router.post("/rooms/{room_id}/positions", status_code=201, dependencies=[Depends(require_csrf)])
 async def create_position(room_id: uuid.UUID, payload: PositionIn, db: Scoped, identity: Identity) -> dict:
     user_id, _ = identity
-    room, _ = await _active_member(db, room_id, user_id)
+    room, _ = await _contributing_member(db, room_id, user_id)
     if room.room_kind != "COUNCIL":
         raise HTTPException(409, "Positions can be added only inside a Council room.")
     row = CouncilPosition(
