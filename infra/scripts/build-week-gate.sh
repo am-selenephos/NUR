@@ -53,6 +53,9 @@ run_static_gates() {
   section "secret scan"
   bash infra/scripts/secret-scan.sh
 
+  section "OpenAI local configuration safety"
+  bash infra/tests/configure-openai-local.test.sh
+
   section "API tests"
   "$py" -m pytest apps/api/app/tests -q
 
