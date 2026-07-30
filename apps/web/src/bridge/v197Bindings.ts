@@ -78,6 +78,17 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "The action could not be persisted.";
 }
 
+// The honest, in-thread failure line. NUR never invents an assistant answer:
+// the disabled provider and any real provider/API failure are surfaced with the
+// server's own reason, so a failed turn can never read as a real response.
+function talkFailureMessage(error: unknown): string {
+  if (error instanceof V197ApiError && error.code === "provider_disabled") {
+    return "Live AI is not connected on this server, so NUR did not answer this turn. Your message was kept; nothing was invented.";
+  }
+  const reason = errorMessage(error);
+  return `NUR could not answer this turn: ${reason} Your message was kept; nothing was invented.`;
+}
+
 export class V197ActionBindings {
   private snapshot: V197BridgeSnapshot;
   private composerMode = "talk";
@@ -231,7 +242,6 @@ export class V197ActionBindings {
     this.lastSubmittedTalk = message;
     this.universeWindow()?.nurOpenPage?.("talk");
     const transient = this.beginTalkStream(message, requestId);
-    let accepted = false;
     try {
       const result = await this.talkTransport.talk(
         {
@@ -245,10 +255,8 @@ export class V197ActionBindings {
         {
           onEvent: (event: V197StreamEvent) => {
             transient.event(event);
-            if (event.event === "talk.accepted") {
-              accepted = true;
-              setInputValue(this.document, inputSelector, "");
-            }
+            // Clear the composer only once the server has accepted the turn.
+            if (event.event === "talk.accepted") setInputValue(this.document, inputSelector, "");
           },
           onDelta: transient.delta,
         },
@@ -256,22 +264,29 @@ export class V197ActionBindings {
       await this.award("talk_meaningful", "COGNITIVE_EVENT", result.turn_event_id, `talk:${result.turn_event_id}:meaningful`);
       setInputValue(this.document, inputSelector, "");
       await this.refresh();
+      transient.remove();
       this.toast(result.provider_available ? "NUR answered and persisted this turn." : result.provider_reason || "AI is not connected; the honest disabled response was persisted.");
     } catch (error) {
-      if (accepted) await this.refresh();
-      throw error;
-    } finally {
-      transient.remove();
+      // Never leave a silent user-only bubble. Convert the pending NUR bubble
+      // into a visible, honest failure in place (the user turn stays; no
+      // assistant text is invented; the provider's own reason is shown). The
+      // next successful send or a reload reconciles from the persisted ledger.
+      transient.fail(talkFailureMessage(error));
+      this.toast(errorMessage(error));
     }
   }
 
   private beginTalkStream(message: string, requestId: string): {
     delta: (value: string) => void;
     event: (value: V197StreamEvent) => void;
+    fail: (honest: string) => void;
     remove: () => void;
   } {
     const stream = this.document.querySelector<HTMLElement>("#talk-stream");
-    if (!stream) return { delta: () => undefined, event: () => undefined, remove: () => undefined };
+    if (!stream) return { delta: () => undefined, event: () => undefined, fail: () => undefined, remove: () => undefined };
+    // A turn is now in flight, so the "no persisted Talk turns yet" placeholder
+    // must not linger (it is otherwise only cleared by a successful refresh).
+    stream.querySelector("[data-nur-talk-empty]")?.remove();
     const user = this.document.createElement("div");
     user.className = "talk-message user";
     user.dataset.nurTransient = requestId;
@@ -313,6 +328,18 @@ export class V197ActionBindings {
           meta.firstChild!.textContent = "NUR · validating and persisting ";
           response.setAttribute("aria-busy", "false");
         }
+      },
+      // Turn the pending NUR bubble into a visible, honest failure in place — the
+      // user turn stays, no assistant text is invented, and the composer never
+      // leaves a silent user-only bubble on a provider/API failure.
+      fail: honest => {
+        response.setAttribute("aria-busy", "false");
+        response.classList.add("is-error");
+        response.dataset.nurTalkError = "true";
+        cancel.remove();
+        meta.textContent = "NUR · could not answer";
+        body.textContent = honest;
+        stream.scrollTop = stream.scrollHeight;
       },
       remove: () => {
         user.remove();

@@ -224,6 +224,20 @@ async function installTalkMocks(page: Page, opts: { providerAvailable: boolean }
       },
       verification: { verdict: opts.providerAvailable ? "PASS" : "WARN", checks: {} },
     };
+    if (!opts.providerAvailable) {
+      // Match the real backend contract exactly: a disabled provider fails
+      // closed. The user turn is accepted, but NO MODEL_RESPONSE is persisted
+      // or streamed — the honest text is never invented as an assistant turn.
+      // (Proven against the live API and asserted by the backend suite:
+      // test_cognition_streaming.py::test_disabled_stream_ends_with_durable_error_and_no_fake_response.)
+      return sse(route, [
+        { id: 1, event: "stream.open", data: { request_id: body.message } },
+        { id: 2, event: "talk.accepted", data: { model_run_id: response.model_run_id } },
+        { id: 3, event: "provider.disabled", data: { reason: "AI provider is disabled." } },
+        { id: 4, event: "talk.failed", data: { model_run_id: response.model_run_id, code: "provider_disabled", retryable: false } },
+        { id: 5, event: "talk.error", data: { model_run_id: response.model_run_id, code: "provider_disabled", message: "AI provider is disabled. Configure NUR_AI_PROVIDER=openai with a server-only key to generate model output.", retryable: false, durable: true } },
+      ]);
+    }
     thread.push({
       id: response.response_event_id,
       who: "nur",
@@ -253,15 +267,27 @@ async function installTalkMocks(page: Page, opts: { providerAvailable: boolean }
   };
 }
 
-test("talk disabled provider is explicit and screenshotable", async ({ page }) => {
+test("talk disabled provider fails closed with a visible honest error, never a silent user-only bubble", async ({ page }) => {
   await installTalkMocks(page, { providerAvailable: false });
   await page.goto("/talk");
   const universe = page.frameLocator("#nur-universe-stage");
   await expect(universe.locator("#page-talk")).toBeVisible();
   await universe.locator("#talk-input").fill("Hold this without fake AI.");
   await universe.getByRole("button", { name: "Send to NUR" }).click();
-  await expect(universe.locator("#talk-stream")).toContainText("I saved this turn, but live AI is disabled on this server.");
+
+  // The user turn stays visible.
+  await expect(universe.locator("#talk-stream .talk-message.user")).toContainText("Hold this without fake AI.");
+  // A visible, honest failure appears inside Talk — not a silent user-only bubble.
+  const failure = universe.locator("#talk-stream [data-nur-talk-error='true']");
+  await expect(failure).toBeVisible();
+  await expect(failure).toContainText("Live AI is not connected");
   await expect(universe.locator("#toast")).toContainText("AI provider is disabled.");
+  // NUR must never invent an assistant answer when the provider is disabled.
+  await expect(universe.locator("#talk-stream")).not.toContainText("I saved this turn, but live AI is disabled on this server.");
+  // Regression guard against the exact reported state (user bubbles, zero
+  // responses): a failed turn MUST leave exactly one honest failure marker.
+  await expect(universe.locator("#talk-stream [data-nur-talk-error='true']")).toHaveCount(1);
+
   await page.screenshot({
     path: process.cwd().endsWith("/apps/web")
       ? "../../proof/100/talk-disabled-provider-browser.png"

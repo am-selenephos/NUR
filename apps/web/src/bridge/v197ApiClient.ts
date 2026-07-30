@@ -565,6 +565,7 @@ export class V197ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code: string | null = null,
   ) {
     super(message);
   }
