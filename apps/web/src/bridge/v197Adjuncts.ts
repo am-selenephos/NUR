@@ -1080,9 +1080,10 @@ async function renderProjectsIndex(document: Document, api: V197ApiClient): Prom
 }
 
 async function renderProjectDetail(document: Document, api: V197ApiClient, projectId: string, route: string): Promise<void> {
-  const [project, tasks, runs, evidence, reviews, artifacts] = await Promise.all([
+  const [project, tasks, runs, evidence, reviews, artifacts, files] = await Promise.all([
     api.project(projectId), api.projectTasks(projectId), api.projectRuns(projectId),
     api.projectEvidence(projectId), api.projectReviews(projectId), api.projectArtifacts(projectId),
+    api.projectFiles(projectId),
   ]);
   const shell = mount(document, text(project.title), text(project.objective), "/projects");
   const tabs = element(document, "nav", "nur-adjunct-actions");
@@ -1248,7 +1249,146 @@ async function renderProjectDetail(document: Document, api: V197ApiClient, proje
       approveReview.disabled = false;
     }
   });
-  grid.append(state, taskPanel, proof, agent, review);
+  const deliverables = buildDeliverablesPanel(document, api, projectId, route, files, tasks);
+
+  grid.append(state, taskPanel, proof, agent, deliverables, review);
+}
+
+function humanBytes(size: unknown): string {
+  const n = typeof size === "number" ? size : Number(size);
+  if (!Number.isFinite(n) || n < 0) return "—";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function triggerBrowserDownload(api: V197ApiClient, fileId: string, filename: string): Promise<void> {
+  const blob = await api.downloadProjectFile(fileId);
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename || "download";
+  anchor.dataset.adjunctDownload = fileId;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+function buildDeliverablesPanel(
+  document: Document,
+  api: V197ApiClient,
+  projectId: string,
+  route: string,
+  files: Array<Record<string, unknown>>,
+  tasks: Array<Record<string, unknown>>,
+): HTMLElement {
+  const deliverables = panel(document, "Deliverables", `Files · ${files.length}`);
+  deliverables.classList.add("is-wide");
+  deliverables.dataset.adjunctPanel = "deliverables";
+  const fileList = element(document, "div", "nur-adjunct-list");
+  fileList.dataset.adjunctList = "project-files";
+  if (!files.length) fileList.append(empty(document, "No stored bytes yet", "Upload a real file, or generate an evidence package. Nothing is invented."));
+  for (const file of files) {
+    const row = element(document, "article", "nur-adjunct-row");
+    row.dataset.adjunctFile = recordId(file);
+    const head = element(document, "div", "nur-adjunct-row-head");
+    const stateLabel = `${text(file.provenance)} · ${text(file.storage_state)}`;
+    head.append(
+      element(document, "strong", undefined, text(file.original_filename, "file")),
+      element(document, "span", "nur-adjunct-chip", stateLabel),
+    );
+    row.append(head, element(document, "p", undefined, `${humanBytes(file.byte_size)} · sha256 ${text(file.checksum_sha256, "—").slice(0, 12)}… · scan ${text(file.scan_state)}`));
+    const actions = element(document, "div", "nur-adjunct-actions");
+    if (file.storage_state === "STORED") {
+      const download = button(document, "Download", `project-file-download-${recordId(file)}`);
+      download.addEventListener("click", async () => {
+        download.disabled = true;
+        try {
+          await triggerBrowserDownload(api, recordId(file), text(file.safe_filename, "download"));
+        } catch (error) {
+          row.append(status(document, error instanceof Error ? error.message : "Download failed.", "warn"));
+        } finally {
+          download.disabled = false;
+        }
+      });
+      actions.append(download);
+    } else if (file.storage_state === "QUARANTINED") {
+      actions.append(status(document, text(file.quarantine_reason, "Quarantined; download blocked."), "warn"));
+    }
+    row.append(actions);
+    fileList.append(row);
+  }
+
+  const upload = element(document, "input", "nur-adjunct-input") as HTMLInputElement;
+  upload.type = "file";
+  upload.dataset.adjunctControl = "project-file-input";
+  const uploadButton = button(document, "Upload file", "project-file-upload", true);
+  const generate = button(document, "Generate evidence package", "project-run-evidence-package");
+  const deliverState = status(document, "Files are owner-scoped real bytes. Executable formats are quarantined; no run gains authority beyond its approved, deny-by-default capabilities.");
+  deliverables.append(fileList, upload, uploadButton, generate, deliverState);
+
+  uploadButton.addEventListener("click", async () => {
+    const chosen = upload.files?.[0];
+    if (!chosen) {
+      deliverState.textContent = "Choose a file to upload.";
+      deliverState.className = "nur-adjunct-status is-warn";
+      return;
+    }
+    uploadButton.disabled = true;
+    try {
+      const saved = await api.uploadProjectFile(projectId, chosen);
+      const quarantined = (saved as Record<string, unknown>).storage_state === "QUARANTINED";
+      deliverState.textContent = quarantined
+        ? "Stored but quarantined: executable/script formats cannot be downloaded (no scanner connected)."
+        : "File stored with a verified checksum.";
+      deliverState.className = quarantined ? "nur-adjunct-status is-warn" : "nur-adjunct-status is-good";
+      await renderProjectDetail(document, api, projectId, route);
+    } catch (error) {
+      deliverState.textContent = error instanceof Error ? error.message : "Upload failed.";
+      deliverState.className = "nur-adjunct-status is-warn";
+      uploadButton.disabled = false;
+    }
+  });
+
+  generate.addEventListener("click", async () => {
+    generate.disabled = true;
+    deliverState.textContent = "Proposing, approving and queueing a bounded EVIDENCE_PACKAGE run…";
+    deliverState.className = "nur-adjunct-status is-quiet";
+    try {
+      const firstTaskId = tasks.length ? recordId(tasks[0]) : null;
+      const proposed = await api.proposeExecutionRun(projectId, {
+        role: "verifier", request_summary: "Generate a deterministic evidence package.",
+        adapter_key: "EVIDENCE_PACKAGE", task_id: firstTaskId,
+      });
+      const runId = recordId(proposed);
+      await api.projectRunAction(runId, "approve");
+      let run = await api.projectRunAction(runId, "queue");
+      // In queued (non-inline) mode the worker runs asynchronously; poll for truth.
+      for (let attempt = 0; attempt < 20 && text(run.status) === "QUEUED"; attempt += 1) {
+        await new Promise(resolve => window.setTimeout(resolve, 500));
+        run = await api.projectRun(runId);
+      }
+      const finalStatus = text(run.status);
+      if (finalStatus === "SUCCEEDED") {
+        deliverState.textContent = "Evidence package generated. It is listed above as a downloadable deliverable.";
+        deliverState.className = "nur-adjunct-status is-good";
+      } else if (finalStatus === "RUNNING" || finalStatus === "QUEUED") {
+        deliverState.textContent = "The run is executing on the queue. Refresh shortly to download the package.";
+        deliverState.className = "nur-adjunct-status is-quiet";
+      } else {
+        deliverState.textContent = `The run did not succeed (${finalStatus}${run.failure_code ? ` · ${text(run.failure_code)}` : ""}). Nothing was fabricated.`;
+        deliverState.className = "nur-adjunct-status is-warn";
+      }
+      await renderProjectDetail(document, api, projectId, route);
+    } catch (error) {
+      deliverState.textContent = error instanceof Error ? error.message : "The evidence package run failed.";
+      deliverState.className = "nur-adjunct-status is-warn";
+      generate.disabled = false;
+    }
+  });
+
+  return deliverables;
 }
 
 function renderGlow(document: Document, snapshot: V197BridgeSnapshot): void {

@@ -961,8 +961,99 @@ export class V197ApiClient {
     });
   }
 
-  projectRunAction(runId: string, action: "approve" | "cancel"): Promise<Record<string, unknown>> {
+  proposeExecutionRun(projectId: string, payload: {
+    role: string; request_summary: string; adapter_key: string;
+    task_id?: string | null; agent_id?: string | null; idempotency_key?: string | null;
+  }): Promise<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`/projects/${encodeURIComponent(projectId)}/runs`, {
+      ...payload, tool_policy: {}, budget_cents: 0,
+    });
+  }
+
+  projectRunAction(runId: string, action: "approve" | "cancel" | "reject" | "queue" | "retry"): Promise<Record<string, unknown>> {
     return this.post<Record<string, unknown>>(`/projects/runs/${encodeURIComponent(runId)}/${action}`, {});
+  }
+
+  projectRun(runId: string): Promise<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`/projects/runs/${encodeURIComponent(runId)}`);
+  }
+
+  executionCapabilities(): Promise<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>("/projects/execution/capabilities");
+  }
+
+  projectAgents(projectId: string): Promise<Array<Record<string, unknown>>> {
+    return this.get<Array<Record<string, unknown>>>(`/projects/${encodeURIComponent(projectId)}/agents`);
+  }
+
+  createProjectAgent(projectId: string, payload: { name: string; adapter_key: string; allowed_capabilities?: string[] }): Promise<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`/projects/${encodeURIComponent(projectId)}/agents`, payload);
+  }
+
+  projectFiles(projectId: string): Promise<Array<Record<string, unknown>>> {
+    return this.get<Array<Record<string, unknown>>>(`/projects/${encodeURIComponent(projectId)}/files`);
+  }
+
+  async uploadProjectFile(projectId: string, file: File, taskId?: string | null): Promise<Record<string, unknown>> {
+    const csrf = cookie("nur_csrf");
+    if (!csrf) throw new V197ApiError("The local session is missing its CSRF token.", 401);
+    const form = new FormData();
+    form.append("upload", file, file.name);
+    const query = taskId ? `?task_id=${encodeURIComponent(taskId)}` : "";
+    const response = await fetch(`/api/v1/projects/${encodeURIComponent(projectId)}/files${query}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { accept: "application/json", "X-CSRF-Token": csrf },
+      body: form,
+    });
+    const raw = await response.text();
+    let body: unknown;
+    try {
+      body = raw ? JSON.parse(raw) : undefined;
+    } catch {
+      throw new V197ApiError("NUR returned an invalid upload response.", response.status);
+    }
+    if (!response.ok) {
+      const detail = typeof body === "object" && body && "detail" in body
+        ? String((body as { detail: unknown }).detail)
+        : `Upload failed (${response.status}).`;
+      throw new V197ApiError(detail, response.status);
+    }
+    return body as Record<string, unknown>;
+  }
+
+  verifyProjectFile(fileId: string): Promise<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`/projects/files/${encodeURIComponent(fileId)}/verify`, {});
+  }
+
+  deleteProjectFile(fileId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/projects/files/${encodeURIComponent(fileId)}`, {
+      method: "DELETE",
+      headers: this.writeHeaders(),
+    });
+  }
+
+  fileDownloadPath(fileId: string): string {
+    return `/api/v1/projects/files/${encodeURIComponent(fileId)}/download`;
+  }
+
+  async downloadProjectFile(fileId: string): Promise<Blob> {
+    const response = await fetch(this.fileDownloadPath(fileId), {
+      method: "GET",
+      credentials: "include",
+      headers: { accept: "application/octet-stream" },
+    });
+    if (!response.ok) {
+      let detail = `Download failed (${response.status}).`;
+      try {
+        const body = await response.json() as { detail?: unknown };
+        if (body?.detail) detail = String(body.detail);
+      } catch {
+        /* non-JSON error body */
+      }
+      throw new V197ApiError(detail, response.status);
+    }
+    return response.blob();
   }
 
   projectEvidence(projectId: string): Promise<Array<Record<string, unknown>>> {
