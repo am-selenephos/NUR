@@ -104,6 +104,22 @@ class Settings(BaseSettings):
         default="", validation_alias="LEMON_SQUEEZY_PLUS_ANNUAL_VARIANT_ID"
     )
 
+    # AM Projects execution + storage (G14). The object store is local-first and
+    # owner-scoped; bytes live outside the web root and are never client-addressed.
+    # An external object-cloud backend can be added behind the same adapter later.
+    project_object_root: str = Field(
+        default=".nur-runtime/project-objects", validation_alias="NUR_PROJECT_OBJECT_ROOT"
+    )
+    project_upload_max_bytes: int = Field(
+        default=25 * 1024 * 1024, ge=1, validation_alias="NUR_PROJECT_UPLOAD_MAX_BYTES"
+    )
+    project_run_timeout_seconds: int = Field(
+        default=120, ge=1, le=1800, validation_alias="NUR_PROJECT_RUN_TIMEOUT_SECONDS"
+    )
+    # Deterministic adapters run in-process during tests and local smoke; production
+    # dispatches them onto the Celery queue. This never enables provider-backed AI runs.
+    project_run_inline: bool = Field(default=False, validation_alias="NUR_PROJECT_RUN_INLINE")
+
     # Omega research layer: owner-only, disabled for public UI unless the web
     # bundle flag is also enabled. The scheduler carries owner IDs only.
     omega_enabled: bool = Field(default=True, validation_alias="NUR_OMEGA_ENABLED")

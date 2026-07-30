@@ -73,8 +73,8 @@ from app.models.living import (  # noqa: F401
     SystemAction, SystemDiagnostic, TodayCheckIn,
 )
 from app.models.projects import (  # noqa: F401
-    AMProject, AMProjectArtifact, AMProjectEvidence, AMProjectReview,
-    AMProjectRun, AMProjectTask,
+    AMProject, AMProjectAgent, AMProjectArtifact, AMProjectEvidence, AMProjectFile,
+    AMProjectReview, AMProjectRun, AMProjectTask,
 )
 from app.models.intelligence import (  # noqa: F401
     Insight, OrbitEvent, OrbitMember, Person, TimelineEvent,
