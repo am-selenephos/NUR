@@ -443,27 +443,49 @@ if consultation is None:
             "is_demo": True,
         },
     ), "create demo bounded Consultation")
+
+# Load the current Consultation state once — it carries both the contributions and
+# the true current_stage, so re-seeding is decided from persisted truth.
+detail = expect_json(
+    owner.get(f"{API}/api/v1/consultations/{consultation['id']}"),
+    "load demo Consultation state",
+)
+
+# Idempotent contribution: add the DEMO counterexample only if it is absent, so a
+# rerun (fresh or resumed) never manufactures a duplicate contribution.
+demo_counterexample = "DEMO: visual proof cannot replace recipient-isolation proof."
+if not any(row.get("body") == demo_counterexample for row in detail.get("contributions", [])):
     expect_json(recipient.post(
         f"{API}/api/v1/consultations/{consultation['id']}/contributions",
         headers=csrf(recipient),
         json={
             "contribution_type": "COUNTEREXAMPLE",
-            "body": "DEMO: visual proof cannot replace recipient-isolation proof.",
+            "body": demo_counterexample,
             "evidence": ["DEMO boundary assertion"],
             "language_tag": "en",
             "is_demo": True,
         },
     ), "add demo Consultation counterexample")
-    for stage, stage_payload in (
-        ("ORIENT", {"actual_question": "What evidence is enough?", "scope": "bounded release proof"}),
-        ("GATHER", {"facts": ["WebKit proof required"], "constraints": ["RLS must remain forced"]}),
-        ("MAP", {"options": ["release", "hold"], "minority_positions": ["run one more privacy pass"]}),
-        ("MOVE", {"selected_action": "run the owner/recipient boundary suite", "success_signal": "all tests pass"}),
-    ):
+
+# Contract-aware, resume-safe stage advancement. Only the stages that are still
+# pending are posted, advancing from the Consultation's actual current_stage, and
+# the Consultation is intentionally left AT RETURN — the RETURN outcome is never
+# fabricated by the seed. A second run with current_stage == RETURN is a no-op.
+demo_stage_payloads = {
+    "ORIENT": {"actual_question": "What evidence is enough?", "affected_people": ["owner", "recipient"]},
+    "GATHER": {"facts": ["WebKit proof required"], "constraints": ["RLS must remain forced"]},
+    "MAP": {"options": ["release", "hold"], "minority_positions": ["run one more privacy pass"]},
+    "MOVE": {"selected_action": "run the owner/recipient boundary suite", "success_signal": "all tests pass"},
+}
+stage_order = ["ORIENT", "GATHER", "MAP", "MOVE", "RETURN"]
+consultation_state = detail.get("consultation", {})
+if consultation_state.get("status") == "ACTIVE":
+    start = stage_order.index(consultation_state.get("current_stage", "ORIENT"))
+    for stage in stage_order[start:stage_order.index("RETURN")]:
         expect_json(owner.post(
             f"{API}/api/v1/consultations/{consultation['id']}/stages/{stage}",
             headers=csrf(owner),
-            json={"payload": stage_payload},
+            json={"payload": demo_stage_payloads[stage]},
         ), f"complete demo Consultation {stage}")
 
 # Notifications are factual owner-authored re-entry cues. Re-seeding reuses the
