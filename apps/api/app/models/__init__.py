@@ -59,8 +59,14 @@ from app.models.product import (  # noqa: F401
     ResearchSourceNote, WebSignalNote, WebSignalQuestion,
 )
 from app.models.engagement import (  # noqa: F401
-    GlowBalance, GlowRewardEvent, GlowRule, GlowStreak, GlowTransaction,
-    Notification, NotificationPreference, Translation,
+    EngagementExperimentAssignment, EngagementExperimentDefinition,
+    EngagementExperimentExposure, GlowAchievementDefinition,
+    GlowAchievementEvent, GlowBalance, GlowFraudFlag,
+    GlowLevelDefinition, GlowLevelEvent, GlowQuest, GlowQuestDefinition,
+    GlowReversal, GlowRewardDefinition, GlowRewardEvent, GlowRewardRedemption,
+    GlowRule, GlowSourceClaim, GlowStreak, GlowStreakDefinition, GlowStreakEvent,
+    GlowStreakRepair, GlowTransaction, GlowUserLevel, Notification,
+    NotificationDelivery, NotificationPreference, Translation,
 )
 from app.models.living import (  # noqa: F401
     FeasibilityAssessment, GlowAchievement, Goal, Objective, ScheduledAction,

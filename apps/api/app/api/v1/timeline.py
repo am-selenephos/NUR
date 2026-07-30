@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.api.deps import Identity, Scoped, require_csrf
 from app.models import CognitiveEvent, Goal, Outcome, Plan, PlanStep, TimelineEvent
 from app.models._mixins import now_utc
+from app.services.glow_service import award_glow_if_eligible
 
 router = APIRouter(prefix="/timeline", tags=["timeline"])
 
@@ -313,6 +314,15 @@ async def attach_timeline_outcome(
     row.updated_at = now_utc()
     row.event_payload = {**row.event_payload, "outcome_id": str(outcome.id)}
     _audit_event(db, owner_user_id, row, "OUTCOME_RETURNED")
+    await award_glow_if_eligible(
+        db,
+        owner_user_id=owner_user_id,
+        event_type="outcome_returned",
+        source_kind="OUTCOME",
+        source_id=outcome.id,
+        orbit_id=row.orbit_id,
+        idempotency_key=f"outcome:{outcome.id}:returned",
+    )
     await db.commit()
     return {
         "timeline_event": TimelineEventOut.model_validate(row),

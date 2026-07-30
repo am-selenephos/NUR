@@ -34,6 +34,7 @@ from app.models import (
 )
 from app.observability.metrics import record_counter
 from app.omega.schemas import OmegaTalkSummary
+from app.services.glow_service import award_glow_if_eligible, reverse_source_glow
 
 router = APIRouter(prefix="/cognition", tags=["cognition"])
 content = APIRouter(tags=["cognition-content"])
@@ -378,6 +379,16 @@ async def keep_entry(payload: JournalIn, db: Scoped, identity: Identity) -> Jour
     await db.flush()
     row = JournalEntry(owner_user_id=user_id, orbit_id=payload.orbit_id, body=payload.body, event_id=ev.id)
     db.add(row)
+    await db.flush()
+    await award_glow_if_eligible(
+        db,
+        owner_user_id=user_id,
+        event_type="journal_saved",
+        source_kind="JOURNAL_ENTRY",
+        source_id=row.id,
+        orbit_id=payload.orbit_id,
+        idempotency_key=f"journal:{row.id}:saved",
+    )
     await db.commit()
     return JournalOut.model_validate(row)
 
@@ -528,6 +539,15 @@ async def create_plan(payload: PlanIn, db: Scoped, identity: Identity) -> PlanOu
     db.add(CognitiveEvent(owner_user_id=user_id, orbit_id=payload.orbit_id, event_kind="PLAN_CREATED",
                           content_text=payload.title, source_ref=f"plan:{plan.id}"))
     await db.flush()
+    await award_glow_if_eligible(
+        db,
+        owner_user_id=user_id,
+        event_type="plan_created",
+        source_kind="PLAN",
+        source_id=plan.id,
+        orbit_id=payload.orbit_id,
+        idempotency_key=f"plan:{plan.id}:created",
+    )
     out = await _plan_out(db, plan)   # read inside the armed transaction
     await db.commit()
     return out
@@ -563,6 +583,7 @@ async def patch_step(step_id: uuid.UUID, payload: StepPatch, db: Scoped, identit
     step = (await db.execute(select(PlanStep).where(PlanStep.id == step_id, PlanStep.owner_user_id == user_id))).scalar_one_or_none()
     if not step:
         raise HTTPException(404, "Step not found.")
+    was_done = step.done
     if payload.title is not None:
         step.title = payload.title
     if payload.done is not None:
@@ -571,6 +592,26 @@ async def patch_step(step_id: uuid.UUID, payload: StepPatch, db: Scoped, identit
         db.add(CognitiveEvent(owner_user_id=user_id, event_kind="PLAN_STEP",
                               content_text=("done: " if payload.done else "reopened: ") + step.title,
                               source_ref=f"plan_step:{step.id}"))
+        await db.flush()
+        if payload.done:
+            await award_glow_if_eligible(
+                db,
+                owner_user_id=user_id,
+                event_type="plan_step_completed",
+                source_kind="PLAN_STEP",
+                source_id=step.id,
+                orbit_id=None,
+                idempotency_key=f"plan-step:{step.id}:completed",
+            )
+        elif was_done:
+            await reverse_source_glow(
+                db,
+                owner_user_id=user_id,
+                event_type="plan_step_completed",
+                source_kind="PLAN_STEP",
+                source_id=step.id,
+                reason="The owner reopened the completed Plan step.",
+            )
     await db.commit()
     return StepOut.model_validate(step)
 

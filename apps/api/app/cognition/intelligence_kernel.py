@@ -23,6 +23,7 @@ from app.cognition.verifier import verify_talk_output
 from app.core.config import get_settings
 from app.models import CognitiveEvent, ModelRun, ModelRunSource
 from app.omega.schemas import OmegaTalkSummary
+from app.services.glow_service import award_glow_if_eligible
 from app.omega.workspace_service import build_workspace_frame, mark_frame_used, talk_summary
 
 
@@ -305,6 +306,16 @@ async def run_talk_kernel(
         source_event_id=response_event.id,
         output=result.output,
     )
+    if result.output.next_move and verification.verdict in {"PASS", "WARN"}:
+        await award_glow_if_eligible(
+            db,
+            owner_user_id=owner_user_id,
+            event_type="talk_meaningful",
+            source_kind="COGNITIVE_EVENT",
+            source_id=turn.id,
+            orbit_id=orbit_id,
+            idempotency_key=f"talk-turn:{turn.id}:meaningful",
+        )
 
     if event_sink is not None:
         await event_sink(
