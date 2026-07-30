@@ -31,4 +31,8 @@ if ! (
   fail ".env.local must define openai provider, model, and key as single-line values"
 fi
 
-printf 'OpenAI local configuration is valid.\n'
+# Structural validation only. This checks file mode, syntax, and that the
+# provider/model/key are present and single-line. It does NOT contact OpenAI and
+# therefore does NOT prove the credential is valid or the model is reachable.
+printf 'OpenAI configuration file is structurally valid. Live authentication has not yet been tested.\n'
+printf 'Run the live provider smoke to prove the credential and model access.\n'

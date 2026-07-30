@@ -275,7 +275,12 @@ metrics = httpx.get(f"{api}/metrics", timeout=10).text
 if 'nur_ai_provider_configured{provider="openai"} 1' not in metrics:
     print("ERROR: /metrics did not expose openai provider label.", file=sys.stderr)
     raise SystemExit(1)
-print("PASS OpenAI health gates: healthz, readyz, metrics provider=openai.")
+# Truthful boundary: healthz/readyz/metrics reporting provider=openai proves the
+# server MODE is selected and the process is healthy. It does NOT prove the
+# credential is valid or that the model is reachable — only a real provider
+# response does that. Run the live provider smoke to prove authentication.
+print("PASS OpenAI configuration/mode gates: provider=openai selected; healthz, readyz, metrics healthy.")
+print("NOT PROVEN here: live authentication and model access. Run the live provider smoke to test the credential.")
 PY
 }
 
