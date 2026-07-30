@@ -105,6 +105,7 @@ def create_app() -> FastAPI:
     from app.api.v1.memory import router as memory_router
     from app.api.v1.notifications import router as notifications_router
     from app.api.v1.projects import router as projects_router
+    from app.api.v1.ops import router as ops_router
     from app.api.v1.translations import router as translations_router
     from app.learning.routes import router as teach_nur_router
     from app.intelligence.routes import router as intelligence_router
@@ -135,6 +136,7 @@ def create_app() -> FastAPI:
     app.include_router(intelligence_router, prefix="/api/v1")
     app.include_router(notifications_router, prefix="/api/v1")
     app.include_router(projects_router, prefix="/api/v1")
+    app.include_router(ops_router, prefix="/api/v1")
     app.include_router(translations_router, prefix="/api/v1")
     app.include_router(timeline_router, prefix="/api/v1")
     app.include_router(universe_router, prefix="/api/v1")
