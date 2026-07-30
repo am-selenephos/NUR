@@ -11,14 +11,14 @@ WEB_URL="${WEB_ORIGIN:-http://localhost:5173}"
 case "$MODE" in
   static|live|all) ;;
   *)
-    printf 'Usage: bash infra/scripts/build-week-gate.sh [static|live|all]\n' >&2
+    printf 'Usage: bash infra/scripts/release-gate.sh [static|live|all]\n' >&2
     exit 2
     ;;
 esac
 
 section() {
   printf '\n================================================================\n'
-  printf 'BUILD WEEK GATE — %s\n' "$1"
+  printf 'RELEASE GATE — %s\n' "$1"
   printf '================================================================\n'
 }
 
@@ -91,7 +91,7 @@ run_live_gates() {
   local provider
   provider="$(curl -fsS "${API_URL}/healthz" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("ai_provider", ""))')"
   if [[ "$provider" != "openai" ]]; then
-    printf 'FAIL live Build Week gate requires ai_provider=openai; got %s\n' "${provider:-empty}" >&2
+    printf 'FAIL live release gate requires ai_provider=openai; got %s\n' "${provider:-empty}" >&2
     printf 'Start the verified local system with: bash START_NUR.sh openai\n' >&2
     exit 1
   fi
@@ -121,5 +121,5 @@ case "$MODE" in
     ;;
 esac
 
-printf '\nBUILD_WEEK_GATE=PASS mode=%s\n' "$MODE"
+printf '\nRELEASE_GATE=PASS mode=%s\n' "$MODE"
 printf 'No submission-ready claim is valid for another commit until this gate is rerun.\n'

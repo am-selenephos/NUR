@@ -4,11 +4,11 @@
 
 NUR is a local-first scoped beta for private project-orbit work. It combines an OpenAI-backed Talk workspace with persisted decisions, references, journals, plans, corrections, outcomes, owner-scoped retrieval, verification, and explicit context sharing.
 
-The Build Week submission focuses on one complete vertical slice:
+NUR focuses on one complete vertical slice:
 
 > private evidence-bound Talk → structured next move → persisted Plan → owner-approved Context Capsule → recipient-scoped answer → immediate revocation
 
-Read [`BUILD_WEEK_SUBMISSION.md`](BUILD_WEEK_SUBMISSION.md) for the truth-locked submission scope and [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) for the exact recording flow.
+Read [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) for the exact demonstration flow and [`RUNBOOK.md`](RUNBOOK.md) for local operations.
 
 ## Why NUR
 
@@ -77,27 +77,27 @@ bash RUN_NUR.sh stop
 bash RUN_NUR.sh package
 ```
 
-## Build Week verification
+## Release verification
 
-Competition work is isolated on `build-week-submission` until it passes the gates.
+Release readiness is verified by the release gate before any candidate is cut.
 
 Static acceptance:
 
 ```bash
-bash infra/scripts/build-week-gate.sh static
+bash infra/scripts/release-gate.sh static
 ```
 
 Start real OpenAI mode and run the live acceptance path:
 
 ```bash
 bash START_NUR.sh openai
-bash infra/scripts/build-week-gate.sh live
+bash infra/scripts/release-gate.sh live
 ```
 
 Run both against the exact candidate commit:
 
 ```bash
-bash infra/scripts/build-week-gate.sh all
+bash infra/scripts/release-gate.sh all
 ```
 
 The gate fails closed on V197 integrity, secret scan, API tests, web typecheck, unit tests, production build, mocked Talk/visual readiness, OpenAI structured-output persistence smoke, or the two-account Context Capsule lifecycle.
@@ -130,7 +130,7 @@ The hidden UI is available only when `VITE_NUR_ENABLE_OMEGA_RESEARCH=true`:
 - `/universe/omega`
 - `/universe/omega/review`
 
-Omega is not required for the Build Week vertical-slice demo.
+Omega is not required for the core vertical-slice demo.
 
 ## Manual test commands
 
@@ -143,4 +143,4 @@ npm --workspace apps/web run e2e -- e2e/talk.spec.ts e2e/visual-readiness.spec.t
 npm --workspace apps/web run e2e -- e2e/capsule.spec.ts --project=chromium-desktop --workers=1
 ```
 
-See [`QUICKSTART_BOOT.md`](QUICKSTART_BOOT.md), [`RUNBOOK.md`](RUNBOOK.md), [`SECURITY_NOTES.md`](SECURITY_NOTES.md), and [`BUILD_WEEK_SUBMISSION.md`](BUILD_WEEK_SUBMISSION.md) for the complete local and submission flow.
+See [`QUICKSTART_BOOT.md`](QUICKSTART_BOOT.md), [`RUNBOOK.md`](RUNBOOK.md), and [`SECURITY_NOTES.md`](SECURITY_NOTES.md) for the complete local operations flow.
