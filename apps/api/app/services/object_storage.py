@@ -207,6 +207,18 @@ class LocalObjectStorage:
         except (StoredObjectMissing, ValueError):
             return False
 
+    def iter_object_keys(self) -> Iterator[str]:
+        """Yield every stored object key on disk, skipping in-flight temp files.
+
+        Used by storage-hygiene reconciliation to find objects whose owning
+        database record was lost. In-flight ``.{key}.tmp-*`` files are dot-
+        prefixed and never match the key pattern, so they are ignored."""
+        for path in self._root.rglob("*"):
+            if path.is_symlink() or not path.is_file():
+                continue
+            if _KEY_RE.match(path.name):
+                yield path.name
+
     def delete(self, object_key: str) -> bool:
         try:
             path = self._path_for(object_key)
