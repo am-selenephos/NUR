@@ -608,3 +608,76 @@ async def _fail(db: AsyncSession, run: AMProjectRun, orbit_id: uuid.UUID, code: 
 def get_settings_timeout() -> int:
     from app.core.config import get_settings
     return get_settings().project_run_timeout_seconds
+
+
+async def recover_stale_runs(
+    db: AsyncSession,
+    *,
+    stale_after_seconds: int | None = None,
+    max_attempts: int | None = None,
+    now: dt.datetime | None = None,
+) -> dict[str, int]:
+    """Reclaim runs stuck in RUNNING because their worker died mid-execution.
+
+    A run is stale once it has been RUNNING longer than ``stale_after_seconds``.
+    Stale runs still within their attempt budget are requeued (QUEUED, worker
+    cleared) so a healthy worker picks them up; runs that have exhausted
+    ``max_attempts`` are dead-lettered (FAILED / STALE_DEADLETTER) so they cannot
+    retry forever. Every transition is written to the run's audit + timeline.
+
+    Operates within the session's RLS scope: with forced row-level security the
+    sweep sees only the current owner's runs, so it runs per-owner (via the ops
+    path or a per-owner maintenance context), never as a privileged cross-tenant
+    job. Returns ``{scanned, requeued, dead_lettered}``.
+    """
+    from app.core.config import get_settings
+
+    s = get_settings()
+    stale_after = s.run_stale_after_seconds if stale_after_seconds is None else stale_after_seconds
+    ceiling = s.run_max_attempts if max_attempts is None else max_attempts
+    now = now or now_utc()
+    cutoff = now - dt.timedelta(seconds=stale_after)
+
+    rows = (await db.execute(
+        select(AMProjectRun).where(
+            AMProjectRun.status == "RUNNING",
+            AMProjectRun.started_at.is_not(None),
+            AMProjectRun.started_at <= cutoff,
+        )
+    )).scalars().all()
+
+    requeued = 0
+    dead_lettered = 0
+    for run in rows:
+        orbit_id = (await db.execute(
+            select(AMProject.orbit_id).where(AMProject.id == run.project_id)
+        )).scalar_one()
+        if (run.attempt or 0) >= ceiling:
+            summary = (
+                f"Dead-lettered after {run.attempt} attempt(s): worker "
+                f"{run.worker_id or 'unknown'} did not finish within {stale_after}s."
+            )[:2000]
+            run.status = "FAILED"
+            run.failure_code = "STALE_DEADLETTER"
+            run.failed_at = now
+            run.completed_at = now
+            run.result_summary = summary
+            run.updated_at = now
+            _record_event(db, run, orbit_id, "PROJECT_RUN_DEAD_LETTERED", summary)
+            dead_lettered += 1
+        else:
+            run.status = "QUEUED"
+            run.worker_id = None
+            run.started_at = None
+            run.queued_at = now
+            run.updated_at = now
+            _record_event(
+                db, run, orbit_id, "PROJECT_RUN_REQUEUED",
+                f"Requeued stale run (attempt {run.attempt}); prior worker did not "
+                f"finish within {stale_after}s.",
+            )
+            requeued += 1
+
+    if rows:
+        await db.commit()
+    return {"scanned": len(rows), "requeued": requeued, "dead_lettered": dead_lettered}

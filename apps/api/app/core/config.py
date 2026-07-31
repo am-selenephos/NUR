@@ -129,6 +129,15 @@ class Settings(BaseSettings):
     project_run_timeout_seconds: int = Field(
         default=120, ge=1, le=1800, validation_alias="NUR_PROJECT_RUN_TIMEOUT_SECONDS"
     )
+    # Queue recovery. A run left RUNNING longer than this — a worker that crashed
+    # mid-run — is stale and gets requeued, or dead-lettered once it has burned
+    # through its attempts so it cannot retry forever.
+    run_stale_after_seconds: int = Field(
+        default=900, ge=1, validation_alias="NUR_PROJECT_RUN_STALE_AFTER_SECONDS"
+    )
+    run_max_attempts: int = Field(
+        default=5, ge=1, validation_alias="NUR_PROJECT_RUN_MAX_ATTEMPTS"
+    )
     # Deterministic adapters run in-process during tests and local smoke; production
     # dispatches them onto the Celery queue. This never enables provider-backed AI runs.
     project_run_inline: bool = Field(default=False, validation_alias="NUR_PROJECT_RUN_INLINE")

@@ -10,13 +10,14 @@ the provider mode is `openai`.
 import os
 import time
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import text
 
-from app.api.deps import Identity
+from app.api.deps import Identity, Scoped, require_csrf
 from app.core.config import get_settings
 from app.db.session import get_sessionmaker
 from app.services.object_storage import bytes_stream, get_object_storage
+from app.services.project_execution import recover_stale_runs
 
 router = APIRouter(prefix="/ops", tags=["ops"])
 _BOOT = time.time()
@@ -87,3 +88,14 @@ async def diagnostics(identity: Identity) -> dict:
             "no secrets, credentials, private content, or absolute paths are reported here.",
         ],
     }
+
+
+@router.post("/recover-runs", dependencies=[Depends(require_csrf)])
+async def recover_runs(db: Scoped, identity: Identity) -> dict:
+    """Reclaim this owner's runs stuck RUNNING because a worker died mid-run.
+
+    Owner-scoped by forced RLS: it only ever touches the caller's own runs.
+    Stale runs within their attempt budget are requeued; exhausted ones are
+    dead-lettered. Returns the counts, so it is safe to call repeatedly.
+    """
+    return {"recovered": await recover_stale_runs(db)}
