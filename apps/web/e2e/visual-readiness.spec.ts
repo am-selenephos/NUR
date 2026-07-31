@@ -560,6 +560,10 @@ test("Today and Systems controls keep one proportional geometry contract", async
   const activeGlyph = frame.locator('.clean-nav-button.active[data-page="systems"] > .clean-nav-glyph');
   if (!mobile) {
     await expect(activeGlyph).toBeVisible();
+    // The state seal is injected asynchronously by the bridge's star-seal
+    // decoration; evaluating before it lands dereferences null (the one
+    // observed CI flake in this spec). Wait for the decoration explicitly.
+    await expect(activeGlyph.locator(".nur-star-seal--state")).toBeVisible();
     const activeState = await activeGlyph.evaluate(element => {
       const rect = element.getBoundingClientRect();
       const seal = element.querySelector<HTMLElement>(":scope > .nur-star-seal--state")!;
