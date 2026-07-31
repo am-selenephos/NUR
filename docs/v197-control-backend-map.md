@@ -36,7 +36,7 @@ No React component owns a visible V197 node. `#root` is absent from the canonica
 | Boundary choice | save default boundary | `/profile/preferences` | scope reload |
 | language/writing | save locale and writing preference | `/profile/preferences` | refresh + Talk metadata |
 
-## Community / Group NUR / Council bindings (Fable recovery, 2026-07-12)
+## Community / Group NUR / Council bindings
 
 | V197 control/state | Bridge action | Backend | Persistence proof | Status |
 |---|---|---|---|---|

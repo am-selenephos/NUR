@@ -32,16 +32,26 @@ skip_dirs = {
     "playwright-report", "test-results", "proof", "evidence", "logs",
     "tmp", "secrets", "checkpoint",
 }
-skip_files = {".env", ".env.local", "dump.rdb"}
+skip_files = {".env", ".env.local", "dump.rdb", "remaining-gaps.md"}
+# Internal construction/design history: kept in the repo as a development record,
+# never shipped in the public release archive (they carry build-process naming).
+skip_name_prefixes = ("BUILD_WEEK", "COUSIN_", "FABLE_")
+# docs/v5 holds versioned construction planning (orchestrator/ledger/masterplan)
+# with builder-agent and lane terminology — internal only, never in the package.
+skip_rel_dirs = {("docs", "v5")}
 
 def should_skip(path: Path) -> bool:
     rel = path.relative_to(root)
     parts = set(rel.parts)
     if parts & skip_dirs:
         return True
+    if any(rel.parts[:len(prefix)] == prefix for prefix in skip_rel_dirs):
+        return True
     if any(part.startswith("playwright-report") for part in rel.parts):
         return True
     if path.name in skip_files:
+        return True
+    if path.name.startswith(skip_name_prefixes):
         return True
     if path.name.startswith("playwright-report"):
         return True
