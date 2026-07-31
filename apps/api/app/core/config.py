@@ -113,6 +113,19 @@ class Settings(BaseSettings):
     project_upload_max_bytes: int = Field(
         default=25 * 1024 * 1024, ge=1, validation_alias="NUR_PROJECT_UPLOAD_MAX_BYTES"
     )
+    # Per-owner total stored bytes across all projects. A per-file cap alone lets
+    # an owner grow storage without bound one small file at a time; this bounds
+    # the sum. Enforced at upload against the owner's real stored total.
+    project_storage_quota_bytes: int = Field(
+        default=1024 * 1024 * 1024, ge=1, validation_alias="NUR_PROJECT_STORAGE_QUOTA_BYTES"
+    )
+    # Per-owner upload rate limit (a hot, expensive write path beyond auth).
+    upload_rate_limit_max: int = Field(
+        default=60, ge=1, validation_alias="NUR_UPLOAD_RATE_LIMIT_MAX"
+    )
+    upload_rate_limit_window_seconds: int = Field(
+        default=60, ge=1, validation_alias="NUR_UPLOAD_RATE_LIMIT_WINDOW_SECONDS"
+    )
     project_run_timeout_seconds: int = Field(
         default=120, ge=1, le=1800, validation_alias="NUR_PROJECT_RUN_TIMEOUT_SECONDS"
     )

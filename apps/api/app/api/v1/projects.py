@@ -11,7 +11,7 @@ the deny-by-default capability catalog.
 import datetime as dt
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -34,6 +34,7 @@ from app.models import (
     Orbit,
 )
 from app.models._mixins import now_utc
+from app.services import rate_limit
 from app.services.glow_service import AwardResult, award_glow
 from app.services.object_storage import (
     UploadTooLarge,
@@ -1071,6 +1072,7 @@ async def _owned_file(db: Scoped, owner_user_id: uuid.UUID, file_id: uuid.UUID) 
 @router.post("/{project_id}/files", response_model=FileOut, status_code=201, dependencies=[Depends(require_csrf)])
 async def upload_file(
     project_id: uuid.UUID,
+    request: Request,
     db: Scoped,
     identity: Identity,
     upload: UploadFile = File(...),
@@ -1081,6 +1083,23 @@ async def upload_file(
     if task_id is not None:
         await _owned_task(db, owner_user_id, task_id, project_id)
     settings = get_settings()
+
+    # Per-owner upload rate limit — an expensive write path beyond the auth
+    # endpoints (fails closed outside development, like the other limiters).
+    if not await rate_limit.allow_owner_upload(request.app.state.redis, user_id=str(owner_user_id)):
+        raise HTTPException(429, "Upload rate limit reached. Try again shortly.")
+
+    # Per-owner storage quota — bound the total stored bytes, not just per-file.
+    # The owner's real current usage; reject before reading the body if already
+    # at the cap so an over-quota owner cannot even spend bandwidth.
+    used = (await db.execute(
+        select(func.coalesce(func.sum(AMProjectFile.byte_size), 0))
+        .where(AMProjectFile.owner_user_id == owner_user_id)
+    )).scalar_one()
+    quota = settings.project_storage_quota_bytes
+    if used >= quota:
+        raise HTTPException(413, f"Storage quota reached ({quota} bytes). Delete files to free space.")
+
     storage = get_object_storage()
     safe = sanitize_filename(upload.filename)
     media = (upload.content_type or "application/octet-stream")[:180]
@@ -1096,6 +1115,16 @@ async def upload_file(
         stored = await storage.put(_chunks(), max_bytes=settings.project_upload_max_bytes)
     except UploadTooLarge as exc:
         raise HTTPException(413, f"File exceeds the {exc.limit}-byte upload limit.")
+
+    # Enforce the quota against the real stored size; if it would exceed, delete
+    # the just-stored bytes so nothing is persisted past the cap.
+    if used + stored.byte_size > quota:
+        storage.delete(stored.object_key)
+        raise HTTPException(
+            413,
+            f"Upload would exceed the {quota}-byte storage quota "
+            f"(using {used}, file {stored.byte_size}).",
+        )
     storage_state, quarantine_reason = classify_upload(safe, media)
     row = AMProjectFile(
         owner_user_id=owner_user_id,

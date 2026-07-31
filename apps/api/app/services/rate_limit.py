@@ -75,3 +75,15 @@ async def allow_password_change(redis: Redis, *, ip: str, user_id: str) -> bool:
         max_n=s.password_change_rate_limit_max,
         window_s=s.password_change_rate_limit_window_seconds,
     )
+
+
+async def allow_owner_upload(redis: Redis, *, user_id: str) -> bool:
+    """Per-owner rate limit for file uploads — an expensive write path beyond
+    the auth endpoints. Keyed by owner (not IP): the cost is per account."""
+    s = get_settings()
+    return await _fixed_window(
+        redis,
+        key=f"rl:upload:{user_id}",
+        max_n=s.upload_rate_limit_max,
+        window_s=s.upload_rate_limit_window_seconds,
+    )
