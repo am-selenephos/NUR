@@ -19,6 +19,12 @@ async def healthz():
 
 @router.get("/readyz")
 async def readyz(request: Request, response: Response):
+    # During graceful shutdown the lifespan flips readiness off before releasing
+    # resources; report draining (503) so drainers stop routing new traffic here
+    # even while the database and Redis are still momentarily healthy.
+    if not getattr(request.app.state, "ready", True):
+        response.status_code = 503
+        return {"status": "draining", "checks": {"lifecycle": "draining"}}
     checks: dict[str, str] = {}
     try:
         async with get_sessionmaker()() as db:

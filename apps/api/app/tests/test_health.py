@@ -32,6 +32,37 @@ async def test_readyz_reports_broken_redis(client):
         client.app.state.redis = good
 
 
+async def test_readyz_reports_draining_during_shutdown(client):
+    # A draining instance must report not-ready even while its dependencies are
+    # still momentarily healthy, so load balancers route new traffic away.
+    client.app.state.ready = False
+    try:
+        r = await client.get("/readyz")
+        assert r.status_code == 503
+        body = r.json()
+        assert body["status"] == "draining"
+        assert body["checks"] == {"lifecycle": "draining"}
+    finally:
+        client.app.state.ready = True
+
+
+async def test_lifespan_drains_ready_and_disposes_engine():
+    # Exercise the real graceful-shutdown path: entering marks ready; exiting
+    # flips ready off and disposes the database connection pool.
+    import app.db.session as dbs
+    from app.main import create_app, lifespan
+
+    app = create_app()
+    dbs.get_engine()
+    assert dbs._engine is not None
+
+    async with lifespan(app):
+        assert app.state.ready is True
+
+    assert app.state.ready is False
+    assert dbs._engine is None  # pool disposed on shutdown, not leaked
+
+
 async def test_metrics_exposes_counters(client):
     await client.get("/healthz")
     r = await client.get("/metrics")

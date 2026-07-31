@@ -18,3 +18,17 @@ def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
     if _sessionmaker is None:
         _sessionmaker = async_sessionmaker(get_engine(), expire_on_commit=False)
     return _sessionmaker
+
+
+async def dispose_engine() -> None:
+    """Close the database connection pool for a graceful shutdown.
+
+    The engine is a process-level singleton; disposing it drains and closes every
+    pooled connection so the process exits without leaving connections dangling
+    on the server. Idempotent: a no-op if no engine was ever created.
+    """
+    global _engine, _sessionmaker
+    if _engine is not None:
+        await _engine.dispose()
+        _engine = None
+        _sessionmaker = None

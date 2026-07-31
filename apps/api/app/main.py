@@ -54,9 +54,22 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     s = get_settings()
+    app.state.ready = True
     app.state.redis = Redis.from_url(s.redis_url, decode_responses=True)
-    yield
-    await app.state.redis.aclose()
+    try:
+        yield
+    finally:
+        # Graceful shutdown. First stop reporting ready so a load balancer routes
+        # new traffic away from this instance, then release both external
+        # resources. Each release is guarded so a failure in one still runs the
+        # next — a leaked connection pool must not survive because Redis close
+        # raised.
+        app.state.ready = False
+        from app.db.session import dispose_engine
+        try:
+            await app.state.redis.aclose()
+        finally:
+            await dispose_engine()
 
 
 def create_app() -> FastAPI:
