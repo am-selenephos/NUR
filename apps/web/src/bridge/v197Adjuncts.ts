@@ -1251,7 +1251,29 @@ async function renderProjectDetail(document: Document, api: V197ApiClient, proje
   });
   const deliverables = buildDeliverablesPanel(document, api, projectId, route, files, tasks);
 
-  grid.append(state, taskPanel, proof, agent, deliverables, review);
+  // Each tab now shows its own real surface instead of every tab rendering the
+  // same six panels. Tabs without a dedicated surface in this beta say so
+  // honestly rather than repeating identical content.
+  const activeTab = tabNames.find(tab => route.endsWith(`/${tab}`)) ?? "overview";
+  const panelsByTab: Record<string, HTMLElement[]> = {
+    overview: [state, taskPanel, proof, agent, deliverables, review],
+    tasks: [state, taskPanel],
+    evidence: [state, proof],
+    agents: [state, agent],
+    runs: [state, agent],
+    deliverables: [state, deliverables],
+  };
+  let visible = panelsByTab[activeTab];
+  if (!visible) {
+    const pending = panel(document, "Not a separate surface yet", activeTab.replaceAll("-", " "));
+    pending.append(empty(
+      document,
+      "Summarized in the Project Orbit above",
+      `A dedicated ${activeTab} view is not part of this beta. Nothing is hidden: every persisted record appears under overview.`,
+    ));
+    visible = [state, pending];
+  }
+  grid.append(...visible);
 }
 
 function humanBytes(size: unknown): string {
