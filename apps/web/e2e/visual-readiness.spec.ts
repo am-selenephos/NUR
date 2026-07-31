@@ -625,6 +625,13 @@ test("Today and Systems controls keep one proportional geometry contract", async
     await page.goto("/systems");
     const selectedScope = frame.locator(".clean-right-rail :is(.audit-scope.selected, .clean-scope.selected, .scope-option[aria-selected='true'], .scope-option[aria-checked='true'])");
     await expect(selectedScope).toBeVisible();
+    // Same async star-seal decoration race the active glyph above guards against:
+    // the selected scope's copy span and state seal are injected after the option
+    // becomes visible, and the geometry read below dereferences both. Evaluating
+    // too early null-derefs `seal.getBoundingClientRect()` — the CI-only flake seen
+    // at 3102b48 (visual-readiness.spec.ts:628). Wait for both children to land.
+    await expect(selectedScope.locator(":scope > span")).toBeVisible();
+    await expect(selectedScope.locator(":scope > .nur-star-seal--state")).toBeVisible();
     const selectedGeometry = await selectedScope.evaluate(element => {
       const rect = element.getBoundingClientRect();
       const copy = element.querySelector<HTMLElement>(":scope > span")!;
